@@ -329,7 +329,7 @@ test_block:
     -
       # Three-way join with IN - departments with projects, including only specific departments
       - query: select dept.id, dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id in (1, 2)
-      - explain: "[IN arrayDistinct(promote(@c39 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS DEPT, EQUALS q0]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FLATMAP q2 -> { COVERING(EMPDEPT [EQUALS q1.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER q2.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q3 RETURN q2 } AS q2 RETURN (q1.ID AS ID, q1.NAME AS _1, q2.NAME AS _2) } }"
+      - explain: "[IN arrayDistinct(promote(@c39 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS DEPT, EQUALS q0._0]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FLATMAP q2 -> { COVERING(EMPDEPT [EQUALS q1.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER q2.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q3 RETURN q2 } AS q2 RETURN (q1.ID AS ID, q1.NAME AS _1, q2.NAME AS _2) } }"
       - unorderedResult: [{ID: 1, "Engineering", "OLAP"},
                           {ID: 2, "Sales", "Feedback"}]
     -
@@ -362,7 +362,7 @@ test_block:
     -
       # Join with both IN and NOT IN conditions
       - query: select emp.id, fname from emp, dept where emp.dept_id = dept.id and dept.id in (1, 2) and emp.id not in (1, 5)
-      - explain: "[IN arrayDistinct(promote(@c23 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS DEPT, EQUALS q0]) } | FLATMAP q1 -> { COVERING(EMPDEPT [EQUALS q1.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER NOT _.ID IN promote(@c34 AS ARRAY(LONG)) | FETCH AS q2 RETURN (q2.ID AS ID, q2.FNAME AS FNAME) }"
+      - explain: "[IN arrayDistinct(promote(@c23 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS DEPT, EQUALS q0._0]) } | FLATMAP q1 -> { COVERING(EMPDEPT [EQUALS q1.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER NOT _.ID IN promote(@c34 AS ARRAY(LONG)) | FETCH AS q2 RETURN (q2.ID AS ID, q2.FNAME AS FNAME) }"
       - unorderedResult: [{ID: 2, FNAME: "Thomas"},
                           {ID: 3, FNAME: "Emily"},
                           {ID: 4, FNAME: "Amelia"},
@@ -372,7 +372,7 @@ test_block:
       # Join with both IN and NOT IN conditions
       # Same as previous query, but the lhs and rhs of the first predicate have been flipped
       - query: select emp.id, fname from emp, dept where dept.id = emp.dept_id and dept.id in (1, 2) and emp.id not in (1, 5)
-      - explain: "[IN arrayDistinct(promote(@c23 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS DEPT, EQUALS q0]) } | FLATMAP q1 -> { COVERING(EMPDEPT <,> -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER NOT _.ID IN promote(@c34 AS ARRAY(LONG)) AND q1.ID EQUALS _.DEPT_ID | FETCH AS q2 RETURN (q2.ID AS ID, q2.FNAME AS FNAME) }"
+      - explain: "[IN arrayDistinct(promote(@c23 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS DEPT, EQUALS q0._0]) } | FLATMAP q1 -> { COVERING(EMPDEPT <,> -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER NOT _.ID IN promote(@c34 AS ARRAY(LONG)) AND q1.ID EQUALS _.DEPT_ID | FETCH AS q2 RETURN (q2.ID AS ID, q2.FNAME AS FNAME) }"
       - initialVersionLessThan: 4.12.11.0
       # Older builds had a buggy plan which could result in extraneous data being returned
       - unorderedResult: [{ID: 2, FNAME: "Thomas"},
@@ -398,7 +398,7 @@ test_block:
     -
       # Join with IN on non-existent values (should return empty)
       - query: select emp.id from emp, dept where emp.dept_id = dept.id and dept.id = 1 and emp.id in (10, 20, 30)
-      - explain: "[IN arrayDistinct(promote(@c27 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS EMP, EQUALS q0]) } | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS promote(@c21 AS LONG)]) | FILTER q1.DEPT_ID EQUALS _.ID AS q2 RETURN (q1.ID AS ID) }"
+      - explain: "[IN arrayDistinct(promote(@c27 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS DEPT, EQUALS promote(@c21 AS LONG)]) | FLATMAP q1 -> { SCAN([IS EMP, EQUALS q0._0]) | FILTER _.DEPT_ID EQUALS q1.ID AS q2 RETURN (q2.ID AS ID) } }"
       - result: []
     -
       # inner join with using: select one field
@@ -618,7 +618,7 @@ test_block:
     -
       # three-way join with IN on dept
       - query: select dept.id, dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id in (1, 2)
-      - explain: "[IN arrayDistinct(promote(@c39 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS DEPT, EQUALS q0]) } | FLATMAP q1 -> { ISCAN(EMPDEPT [EQUALS q1.ID]) | FLATMAP q2 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q2.ID AS q3 RETURN q3 } AS q3 RETURN (q1.ID AS ID, q1.NAME AS _1, q3.NAME AS _2) }"
+      - explain: "[IN arrayDistinct(promote(@c39 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS DEPT, EQUALS q0._0]) } | FLATMAP q1 -> { ISCAN(EMPDEPT [EQUALS q1.ID]) | FLATMAP q2 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q2.ID AS q3 RETURN q3 } AS q3 RETURN (q1.ID AS ID, q1.NAME AS _1, q3.NAME AS _2) }"
       - unorderedResult: [{ID: 1, "Engineering", "OLAP"},
                           {ID: 2, "Sales", "Feedback"}]
     -

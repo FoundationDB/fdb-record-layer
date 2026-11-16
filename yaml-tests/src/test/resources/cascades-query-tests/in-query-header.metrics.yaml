@@ -3,7 +3,7 @@ in-query-header:
         in ('String6', 'String1', 'String25', 'String11')
     ref: in-query-header.yamsql:159
     explain: '[IN arrayDistinct(@c15)] | INJOIN q0 -> { COVERING(IND [EQUALS promote(@c9
-        AS LONG), EQUALS q0] -> [STR_VALUE: KEY:[2], HEADER: [PATH: KEY:[1], REC_NO:
+        AS LONG), EQUALS q0._0] -> [STR_VALUE: KEY:[2], HEADER: [PATH: KEY:[1], REC_NO:
         KEY:[0]]]) } | FETCH'
     task_count: 1051
     task_total_time_ms: 233
@@ -17,7 +17,7 @@ in-query-header:
         in ('String6', 'String25', 'String1', 'String34')
     ref: in-query-header.yamsql:171
     explain: '[IN arrayDistinct(promote(@c9 AS ARRAY(LONG)))] | INJOIN q0 -> { [IN
-        arrayDistinct(@c19)] | INJOIN q1 -> { COVERING(IND [EQUALS q0, EQUALS q1]
+        arrayDistinct(@c19)] | INJOIN q1 -> { COVERING(IND [EQUALS q0._0, EQUALS q1._0]
         -> [STR_VALUE: KEY:[2], HEADER: [PATH: KEY:[1], REC_NO: KEY:[0]]]) } } | FETCH'
     task_count: 2811
     task_total_time_ms: 208
@@ -32,8 +32,8 @@ in-query-header:
         header.path
     ref: in-query-header.yamsql:185
     explain: '[IN arrayDistinct(promote(@c9 AS ARRAY(LONG))) SORTED] | INJOIN q0 ->
-        { [IN arrayDistinct(@c19) SORTED] | INJOIN q1 -> { COVERING(IND [EQUALS q0,
-        EQUALS q1] -> [STR_VALUE: KEY:[2], HEADER: [PATH: KEY:[1], REC_NO: KEY:[0]]])
+        { [IN arrayDistinct(@c19) SORTED] | INJOIN q1 -> { COVERING(IND [EQUALS q0._0,
+        EQUALS q1._0] -> [STR_VALUE: KEY:[2], HEADER: [PATH: KEY:[1], REC_NO: KEY:[0]]])
         } } | FETCH'
     task_count: 3132
     task_total_time_ms: 159
@@ -47,7 +47,7 @@ in-query-header:
         in ('String6', 'String1', 'String25', 'String11')
     ref: in-query-header.yamsql:198
     explain: '[IN arrayDistinct(@c15)] | INJOIN q0 -> { COVERING(IND [EQUALS promote(@c9
-        AS LONG), EQUALS q0] -> [STR_VALUE: KEY:[2], HEADER: [PATH: KEY:[1], REC_NO:
+        AS LONG), EQUALS q0._0] -> [STR_VALUE: KEY:[2], HEADER: [PATH: KEY:[1], REC_NO:
         KEY:[0]]]) } | FETCH'
     task_count: 1051
     task_total_time_ms: 233
@@ -61,7 +61,7 @@ in-query-header:
         in ('String1', 'String6', 'String25', 'String11')
     ref: in-query-header.yamsql:213
     explain: '[IN arrayDistinct(@c15)] | INJOIN q0 -> { COVERING(IND [EQUALS promote(@c9
-        AS LONG), EQUALS q0] -> [STR_VALUE: KEY:[2], HEADER: [PATH: KEY:[1], REC_NO:
+        AS LONG), EQUALS q0._0] -> [STR_VALUE: KEY:[2], HEADER: [PATH: KEY:[1], REC_NO:
         KEY:[0]]]) } | FETCH'
     task_count: 1051
     task_total_time_ms: 233

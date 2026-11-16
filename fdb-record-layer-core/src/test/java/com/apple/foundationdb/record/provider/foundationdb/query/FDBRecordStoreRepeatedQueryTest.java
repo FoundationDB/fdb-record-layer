@@ -33,12 +33,13 @@ import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
@@ -100,13 +101,14 @@ class FDBRecordStoreRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
 
     @Nonnull
     private Quantifier repeatExpansion(@Nonnull Quantifier baseQun, @Nonnull Function<Value, List<QueryPredicate>> repeatValuePredicates) {
-        ExplodeExpression explodeExpression = ExplodeExpression.explodeField((Quantifier.ForEach)baseQun, ImmutableList.of("repeater"));
-        Quantifier repeatQun = Quantifier.forEach(Reference.initialOf(explodeExpression));
+        Quantifier repeatQun = Quantifier.forEach(Reference.initialOf(new TableFunctionExpression(
+                new ExplodeValue(FieldValue.ofFieldNames(baseQun.getFlowedObjectValue(), ImmutableList.of("repeater"))))));
+        final Value repeatValue = ExplodeValue.elementValue(repeatQun.getFlowedObjectValue());
         final var repeatSelectBuilder = GraphExpansion.builder();
         repeatSelectBuilder.addQuantifier(repeatQun);
-        List<QueryPredicate> predicates = repeatValuePredicates.apply(repeatQun.getFlowedObjectValue());
+        List<QueryPredicate> predicates = repeatValuePredicates.apply(repeatValue);
         repeatSelectBuilder.addAllPredicates(predicates);
-        repeatSelectBuilder.addResultColumn(Column.unnamedOf(repeatQun.getFlowedObjectValue()));
+        repeatSelectBuilder.addResultColumn(Column.unnamedOf(repeatValue));
         return Quantifier.forEach(Reference.initialOf(repeatSelectBuilder.build().buildSelect()));
     }
 

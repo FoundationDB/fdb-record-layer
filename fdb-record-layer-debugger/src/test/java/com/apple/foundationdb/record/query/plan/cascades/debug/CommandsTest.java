@@ -51,8 +51,8 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalE
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementExplodeRule;
 import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementSimpleSelectRule;
+import com.apple.foundationdb.record.query.plan.cascades.rules.ImplementTableFunctionRule;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
@@ -390,7 +390,7 @@ class CommandsTest {
         final var exp = new SelectExpression(LiteralValue.ofScalar(1), Collections.emptyList(), Collections.emptyList());
         final var ref = Reference.initialOf(exp);
         final var matchingRule = new ImplementSimpleSelectRule();
-        final var nonMatchingRule = new ImplementExplodeRule();
+        final var nonMatchingRule = new ImplementTableFunctionRule();
         Debugger.registerExpression(exp);
 
         PlannerEventListeners.dispatchEvent(() -> new InitiatePhasePlannerEvent(
@@ -433,7 +433,7 @@ class CommandsTest {
                         ReplTestUtil.coloredKeyValue("root", Debugger.getDebugger().nameForObject(ref)),
                         ReplTestUtil.coloredKeyValue("group", Debugger.getDebugger().nameForObject(ref)),
                         ReplTestUtil.coloredKeyValue("expression", Debugger.getDebugger().nameForObject(exp)),
-                        ReplTestUtil.coloredKeyValue("rule", "ImplementExplodeRule")
+                        ReplTestUtil.coloredKeyValue("rule", "ImplementTableFunctionRule")
                 )
         );
     }
@@ -445,7 +445,7 @@ class CommandsTest {
         final var exp = new SelectExpression(LiteralValue.ofScalar(1), Collections.emptyList(), Collections.emptyList());
         final var ref = Reference.initialOf(exp);
         final var matchingRule = new ImplementSimpleSelectRule();
-        final var nonMatchingRule = new ImplementExplodeRule();
+        final var nonMatchingRule = new ImplementTableFunctionRule();
 
         PlannerEventListeners.dispatchEvent(() -> new InitiatePhasePlannerEvent(
                 PlannerPhase.REWRITING, Reference.empty(), new ArrayDeque<>(), PlannerEvent.Location.BEGIN));
@@ -491,7 +491,7 @@ class CommandsTest {
                         ReplTestUtil.coloredKeyValue("root", Debugger.getDebugger().nameForObject(ref)),
                         ReplTestUtil.coloredKeyValue("group", Debugger.getDebugger().nameForObject(ref)),
                         ReplTestUtil.coloredKeyValue("expression", Debugger.getDebugger().nameForObject(exp)),
-                        ReplTestUtil.coloredKeyValue("rule", "ImplementExplodeRule")
+                        ReplTestUtil.coloredKeyValue("rule", "ImplementTableFunctionRule")
                 )
         );
     }

@@ -35,8 +35,8 @@ unnamed-3:
 -   query: EXPLAIN SELECT "id", "item" FROM "T1_indexed" AS "row", "row"."items" AS
         "item"
     ref: arrays-unnesting.yamsql:114
-    explain: SCAN([IS T1_indexed]) | FLATMAP q0 -> { EXPLODE q0.items AS q1 RETURN
-        (q0.id AS id, q1 AS item) }
+    explain: SCAN([IS T1_indexed]) | FLATMAP q0 -> { TF explode(q0.items) AS q1 RETURN
+        (q0.id AS id, q1._0 AS item) }
     task_count: 168
     task_total_time_ms: 5
     transform_count: 55
@@ -48,8 +48,8 @@ unnamed-3:
 -   query: EXPLAIN SELECT "id", SQ."item" FROM "T1_indexed" AS "row", (SELECT "item"
         FROM "row"."items" AS "item") AS SQ
     ref: arrays-unnesting.yamsql:130
-    explain: SCAN([IS T1_indexed]) | FLATMAP q0 -> { EXPLODE q0.items AS q1 RETURN
-        (q0.id AS id, q1 AS item) }
+    explain: SCAN([IS T1_indexed]) | FLATMAP q0 -> { TF explode(q0.items) AS q1 RETURN
+        (q0.id AS id, q1._0 AS item) }
     task_count: 193
     task_total_time_ms: 7
     transform_count: 60

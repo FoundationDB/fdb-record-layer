@@ -78,7 +78,7 @@ test_block:
       - query: select num_value_unique, str_value_indexed, rec_no from my_simple_record
                where num_value_2 = 1 and num_value_3_indexed in (1, 2, 4)
                order by num_value_unique
-      - explain: "[IN arrayDistinct(@c15)] INUNION q0 -> { COVERING(INDEX_FOR_IN_UNION [EQUALS promote(@c11 AS INT), EQUALS q0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[4], STR_VALUE_INDEXED: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED AS STR_VALUE_INDEXED, _.REC_NO AS REC_NO) } COMPARE BY (_.NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED, _.REC_NO)"
+      - explain: "[IN arrayDistinct(@c15)] INUNION q0 -> { COVERING(INDEX_FOR_IN_UNION [EQUALS promote(@c11 AS INT), EQUALS q0._0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[4], STR_VALUE_INDEXED: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED AS STR_VALUE_INDEXED, _.REC_NO AS REC_NO) } COMPARE BY (_.NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED, _.REC_NO)"
       - result: [{NUM_VALUE_UNIQUE: 903, STR_VALUE_INDEXED: 'odd', REC_NO: 97},
                  {NUM_VALUE_UNIQUE: 906, STR_VALUE_INDEXED: 'even', REC_NO: 94},
                  {NUM_VALUE_UNIQUE: 909, STR_VALUE_INDEXED: 'odd', REC_NO: 91},
@@ -105,7 +105,7 @@ test_block:
       - query: select num_value_unique, str_value_indexed, rec_no from my_simple_record
                where num_value_2 = 1 and num_value_3_indexed in (1, 2, 4)
                order by num_value_unique desc
-      - explain: "[IN arrayDistinct(@c15)] INUNION q0 -> { COVERING(INDEX_FOR_IN_UNION [EQUALS promote(@c11 AS INT), EQUALS q0] REVERSE -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[4], STR_VALUE_INDEXED: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED AS STR_VALUE_INDEXED, _.REC_NO AS REC_NO) } COMPARE BY (_.NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED, _.REC_NO)"
+      - explain: "[IN arrayDistinct(@c15)] INUNION q0 -> { COVERING(INDEX_FOR_IN_UNION [EQUALS promote(@c11 AS INT), EQUALS q0._0] REVERSE -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[4], STR_VALUE_INDEXED: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED AS STR_VALUE_INDEXED, _.REC_NO AS REC_NO) } COMPARE BY (_.NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED, _.REC_NO)"
       - result: [{NUM_VALUE_UNIQUE: 999, STR_VALUE_INDEXED: 'odd', REC_NO: 1},
                  {NUM_VALUE_UNIQUE: 996, STR_VALUE_INDEXED: 'even', REC_NO: 4},
                  {NUM_VALUE_UNIQUE: 993, STR_VALUE_INDEXED: 'odd', REC_NO: 7},
@@ -139,7 +139,7 @@ test_block:
       - query: select num_value_unique, str_value_indexed, rec_no from my_simple_record
                where num_value_2 = !! 1 !! and num_value_3_indexed in !! !in {[1, 2, 4]} !!
                order by num_value_unique
-      - explain: "[IN arrayDistinct(@c15)] INUNION q0 -> { COVERING(INDEX_FOR_IN_UNION [EQUALS promote(@c11 AS INT), EQUALS q0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[4], STR_VALUE_INDEXED: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED AS STR_VALUE_INDEXED, _.REC_NO AS REC_NO) } COMPARE BY (_.NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED, _.REC_NO)"
+      - explain: "[IN arrayDistinct(@c15)] INUNION q0 -> { COVERING(INDEX_FOR_IN_UNION [EQUALS promote(@c11 AS INT), EQUALS q0._0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[4], STR_VALUE_INDEXED: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED AS STR_VALUE_INDEXED, _.REC_NO AS REC_NO) } COMPARE BY (_.NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED, _.REC_NO)"
       - result: [{NUM_VALUE_UNIQUE: 903, STR_VALUE_INDEXED: 'odd', REC_NO: 97},
                  {NUM_VALUE_UNIQUE: 906, STR_VALUE_INDEXED: 'even', REC_NO: 94},
                  {NUM_VALUE_UNIQUE: 909, STR_VALUE_INDEXED: 'odd', REC_NO: 91},
@@ -166,7 +166,7 @@ test_block:
       - query: select num_value_unique, str_value_indexed, rec_no from my_simple_record
                where num_value_2 = !! 1 !! and num_value_3_indexed in !! !in {[1, 2, 4]} !!
                order by num_value_unique desc
-      - explain: "[IN arrayDistinct(@c15)] INUNION q0 -> { COVERING(INDEX_FOR_IN_UNION [EQUALS promote(@c11 AS INT), EQUALS q0] REVERSE -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[4], STR_VALUE_INDEXED: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED AS STR_VALUE_INDEXED, _.REC_NO AS REC_NO) } COMPARE BY (_.NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED, _.REC_NO)"
+      - explain: "[IN arrayDistinct(@c15)] INUNION q0 -> { COVERING(INDEX_FOR_IN_UNION [EQUALS promote(@c11 AS INT), EQUALS q0._0] REVERSE -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], NUM_VALUE_UNIQUE: KEY:[2], REC_NO: KEY:[4], STR_VALUE_INDEXED: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED AS STR_VALUE_INDEXED, _.REC_NO AS REC_NO) } COMPARE BY (_.NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED, _.REC_NO)"
       - result: [{NUM_VALUE_UNIQUE: 999, STR_VALUE_INDEXED: 'odd', REC_NO: 1},
                  {NUM_VALUE_UNIQUE: 996, STR_VALUE_INDEXED: 'even', REC_NO: 4},
                  {NUM_VALUE_UNIQUE: 993, STR_VALUE_INDEXED: 'odd', REC_NO: 7},

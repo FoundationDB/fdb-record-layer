@@ -1,7 +1,7 @@
-˜'
+˙'
 y
-in-query-orjEXPLAIN select * from my_simple_record where num_value_unique in (903, 905, 901) or num_value_unique > 950˘&
-©ŒÈöKØ ∑â†"(‹0ﬂŸ˝8Ó@%—[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE [EQUALS q0] -> [NUM_VALUE_UNIQUE: KEY:[0], REC_NO: KEY:[1]]) } ‚à™ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE [[GREATER_THAN promote(@c17 AS INT)]] -> [NUM_VALUE_UNIQUE: KEY:[0], REC_NO: KEY:[1]]) COMPARE BY (_.NUM_VALUE_UNIQUE, _.REC_NO) | FETCHÉ$digraph G {
+in-query-orjEXPLAIN select * from my_simple_record where num_value_unique in (903, 905, 901) or num_value_unique > 950¸&
+©ŒÈöKØ ∑â†"(‹0ﬂŸ˝8Ó@%‘[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE [EQUALS q0._0] -> [NUM_VALUE_UNIQUE: KEY:[0], REC_NO: KEY:[1]]) } ‚à™ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE [[GREATER_THAN promote(@c17 AS INT)]] -> [NUM_VALUE_UNIQUE: KEY:[0], REC_NO: KEY:[1]]) COMPARE BY (_.NUM_VALUE_UNIQUE, _.REC_NO) | FETCHÉ$digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -25,10 +25,10 @@ y
     rankDir=LR;
     6 -> 5 [ color="red" style="invis" ];
   }
-}ú)
+}ü)
 à
-in-query-oryEXPLAIN select * from my_simple_record where num_value_unique < 910 or (num_value_unique > 990 and num_value_2 in (2, 0))é(
- ˘Xë‰Ã˘É Ó´ëÑ(‹0Æëü8–@˛ÃISCAN(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE [[LESS_THAN promote(@c7 AS INT)]]) ‚à™ [IN arrayDistinct(@c16)] INUNION q0 -> { ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE [[GREATER_THAN promote(@c12 AS INT)]]) | FILTER _.NUM_VALUE_2 EQUALS q0 } COMPARE BY (_.NUM_VALUE_UNIQUE, _.REC_NO, _.NUM_VALUE_2) COMPARE BY (_.NUM_VALUE_UNIQUE, _.REC_NO)ö%digraph G {
+in-query-oryEXPLAIN select * from my_simple_record where num_value_unique < 910 or (num_value_unique > 990 and num_value_2 in (2, 0))ë(
+ ˘Xë‰Ã˘É Ó´ëÑ(‹0Æëü8–@˛œISCAN(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE [[LESS_THAN promote(@c7 AS INT)]]) ‚à™ [IN arrayDistinct(@c16)] INUNION q0 -> { ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE [[GREATER_THAN promote(@c12 AS INT)]]) | FILTER _.NUM_VALUE_2 EQUALS q0._0 } COMPARE BY (_.NUM_VALUE_UNIQUE, _.REC_NO, _.NUM_VALUE_2) COMPARE BY (_.NUM_VALUE_UNIQUE, _.REC_NO)ö%digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -52,10 +52,10 @@ y
     rankDir=LR;
     5 -> 6 [ color="red" style="invis" ];
   }
-}Ω(
+}¿(
 v
-in-query-orgEXPLAIN select * from my_simple_record where str_value_indexed = 'odd' or num_value_3_indexed in (1, 3)¬'
-„,äóÜhû öêë7(ì0ô¢€8€@ÍÂCOVERING(MY_SIMPLE_RECORD_STR_VALUE_INDEXED [EQUALS promote(@c7 AS STRING)] -> [REC_NO: KEY:[1], STR_VALUE_INDEXED: KEY:[0]]) ‚à™ [IN arrayDistinct(@c11)] INUNION q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS q0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } COMPARE BY (_.REC_NO, _.NUM_VALUE_3_INDEXED) COMPARE BY (_.REC_NO) | FETCH∑$digraph G {
+in-query-orgEXPLAIN select * from my_simple_record where str_value_indexed = 'odd' or num_value_3_indexed in (1, 3)≈'
+„,äóÜhû öêë7(ì0ô¢€8€@ÍËCOVERING(MY_SIMPLE_RECORD_STR_VALUE_INDEXED [EQUALS promote(@c7 AS STRING)] -> [REC_NO: KEY:[1], STR_VALUE_INDEXED: KEY:[0]]) ‚à™ [IN arrayDistinct(@c11)] INUNION q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS q0._0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } COMPARE BY (_.REC_NO, _.NUM_VALUE_3_INDEXED) COMPARE BY (_.REC_NO) | FETCH∑$digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -79,11 +79,11 @@ v
     rankDir=LR;
     5 -> 6 [ color="red" style="invis" ];
   }
-}ı
+}ø
 w
-in-query-orhEXPLAIN select * from my_simple_record where num_value_2 in (1, 3, 5, 7, 9) order by num_value_3_indexed˘
+in-query-orhEXPLAIN select * from my_simple_record where num_value_2 in (1, 3, 5, 7, 9) order by num_value_3_indexed√
 §¬—ù
-≤ ˜∂ç(;0ŒøH89@MISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED <,>) | FILTER _.NUM_VALUE_2 IN @c7ãdigraph G {
+≤ ˜∂ç(;0ŒøH89@ñISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(@c7)) | FILTER q0.NUM_VALUE_2 EQUALS _._0 AS q1 RETURN q0 }ãdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -92,10 +92,10 @@ w
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REC_NO, STRING AS STR_VALUE_INDEXED, INT AS NUM_VALUE_UNIQUE, INT AS NUM_VALUE_2, INT AS NUM_VALUE_3_INDEXED, ARRAY(INT) AS REPEATER)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}—
+}Œ
 U
-in-query-or-prepared=EXPLAIN select * from my_simple_record where num_value_2 in ?˜
-ßÙ⁄ﬂò Çµ˛(_0É•ç8ù@KISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_2 IN @c7âdigraph G {
+in-query-or-prepared=EXPLAIN select * from my_simple_record where num_value_2 in ?Ù
+âÆâî	~ Èπ¸(50˘ÅF8>@KISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_2 IN @c7âdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

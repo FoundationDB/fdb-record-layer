@@ -18,10 +18,10 @@ _
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}è
+}ë
 \
-merge-comparison-keysCEXPLAIN select id from t_str_a where v in ('y', 'x') order by v asc‡
-ÎÇ™“&† Þíñ(n0­à²8±@ž[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_A_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Ådigraph G {
+merge-comparison-keysCEXPLAIN select id from t_str_a where v in ('y', 'x') order by v ascŠ
+ÎÇ™“&† Þíñ(n0­à²8±@¡[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_A_V [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Ådigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -81,11 +81,11 @@ k
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ù
+}ü
 h
-merge-comparison-keysOEXPLAIN select id from t_str_a where v in ('y', 'x') order by v desc nulls lastŒ
+merge-comparison-keysOEXPLAIN select id from t_str_a where v in ('y', 'x') order by v desc nulls last
 –¶·Â’ ÚÌ­
-(t0‹€Á8¹@£[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_A_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Ådigraph G {
+(t0‹€Á8¹@¦[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_A_V [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Ådigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -145,11 +145,11 @@ h
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ù
+}Ü
 ]
-merge-comparison-keysDEXPLAIN select id from t_str_d where v in ('y', 'x') order by v desc÷
+merge-comparison-keysDEXPLAIN select id from t_str_d where v in ('y', 'x') order by v descú
 Î‘—›† ¬ä’
-(n0†°Á8±@ë[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_D_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)èdigraph G {
+(n0†°Á8±@î[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_D_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)èdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -209,10 +209,10 @@ k
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ß
+}â
 h
-merge-comparison-keysOEXPLAIN select id from t_str_d where v in ('y', 'x') order by v asc nulls firstò
-–ŸØ¿’ ¢Ê„	(t0Ð°8¹@æ[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_D_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)èdigraph G {
+merge-comparison-keysOEXPLAIN select id from t_str_d where v in ('y', 'x') order by v asc nulls firstõ
+–ŸØ¿’ ¢Ê„	(t0Ð°8¹@é[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_D_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)èdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -272,10 +272,10 @@ m
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ú
+}ý
 j
-merge-comparison-keysQEXPLAIN select id from t_str_anf where v in ('y', 'x') order by v asc nulls first‹
-Î–‹â† ÷Ìá(n0ý­˜8±@ [IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_ANF_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Çdigraph G {
+merge-comparison-keysQEXPLAIN select id from t_str_anf where v in ('y', 'x') order by v asc nulls firstŽ
+Î–‹â† ÷Ìá(n0ý­˜8±@£[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_ANF_V [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Çdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -336,10 +336,10 @@ m
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ÿ
+}‚
 j
-merge-comparison-keysQEXPLAIN select id from t_str_anf where v in ('y', 'x') order by v desc nulls last
-–‰Û’’ ’æÛ(t0ºÞ½8¹@¥[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_ANF_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Çdigraph G {
+merge-comparison-keysQEXPLAIN select id from t_str_anf where v in ('y', 'x') order by v desc nulls last“
+–‰Û’’ ’æÛ(t0ºÞ½8¹@¨[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_ANF_V [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Çdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -400,10 +400,10 @@ l
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}á
+}ä
 i
-merge-comparison-keysPEXPLAIN select id from t_str_anl where v in ('y', 'x') order by v asc nulls lastó
-¤Éúýƒ ½çà(k0³è~8¬@—[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_ANL_V [EQUALS to_ordered_bytes(q0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)¹digraph G {
+merge-comparison-keysPEXPLAIN select id from t_str_anl where v in ('y', 'x') order by v asc nulls lastö
+¤Éúýƒ ½çà(k0³è~8¬@š[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_ANL_V [EQUALS to_ordered_bytes(q0._0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)¹digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -463,10 +463,10 @@ n
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}è
+}ë
 k
-merge-comparison-keysREXPLAIN select id from t_str_anl where v in ('y', 'x') order by v desc nulls firstø
-Òš ÚŒ ãØ›	(o0÷¨‚8±@™[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_ANL_V [EQUALS to_ordered_bytes(q0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)»digraph G {
+merge-comparison-keysREXPLAIN select id from t_str_anl where v in ('y', 'x') order by v desc nulls firstû
+Òš ÚŒ ãØ›	(o0÷¨‚8±@œ[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_ANL_V [EQUALS to_ordered_bytes(q0._0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)»digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -526,10 +526,10 @@ n
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}í
+}ð
 k
-merge-comparison-keysREXPLAIN select id from t_str_dnf where v in ('y', 'x') order by v desc nulls firstý
-¤á¬ôƒ ‘øÆ(k0¦–w8¬@[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_DNF_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)½digraph G {
+merge-comparison-keysREXPLAIN select id from t_str_dnf where v in ('y', 'x') order by v desc nulls first€
+¤á¬ôƒ ‘øÆ(k0¦–w8¬@ [IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_DNF_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)½digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -589,10 +589,10 @@ l
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ç
+}ê
 i
-merge-comparison-keysPEXPLAIN select id from t_str_dnf where v in ('y', 'x') order by v asc nulls lastù
-Ò¥”ñŒ ¨‹(o0öŠm8±@›[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_DNF_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)»digraph G {
+merge-comparison-keysPEXPLAIN select id from t_str_dnf where v in ('y', 'x') order by v asc nulls lastü
+Ò¥”ñŒ ¨‹(o0öŠm8±@ž[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_DNF_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)»digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -652,10 +652,10 @@ m
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}é
+}ì
 j
-merge-comparison-keysQEXPLAIN select id from t_str_dnl where v in ('y', 'x') order by v desc nulls lastú
-Îã„ƒ† Ô‰Ã(n0Š¬n8±@í[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_DNL_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)êdigraph G {
+merge-comparison-keysQEXPLAIN select id from t_str_dnl where v in ('y', 'x') order by v desc nulls lastý
+Îã„ƒ† Ô‰Ã(n0Š¬n8±@ð[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_DNL_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)êdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -715,10 +715,10 @@ m
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ä
+}ç
 j
-merge-comparison-keysQEXPLAIN select id from t_str_dnl where v in ('y', 'x') order by v asc nulls firstõ
-–£ÕÛ’ ¾¾Š(t0¦µp8¹@è[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_DNL_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)êdigraph G {
+merge-comparison-keysQEXPLAIN select id from t_str_dnl where v in ('y', 'x') order by v asc nulls firstø
+–£ÕÛ’ ¾¾Š(t0¦µp8¹@ë[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_DNL_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)êdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -778,10 +778,10 @@ c
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}æ
+}é
 `
-merge-comparison-keysGEXPLAIN select id from t_byt_a where v in (X'ff', X'01') order by v asc
-ÎŒÀÙ† Êõö(n0Âôo8±@ž[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_A_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Àdigraph G {
+merge-comparison-keysGEXPLAIN select id from t_byt_a where v in (X'ff', X'01') order by v asc„
+ÎŒÀÙ† Êõö(n0Âôo8±@¡[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_A_V [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Àdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -841,10 +841,10 @@ o
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}÷
+}ú
 l
-merge-comparison-keysSEXPLAIN select id from t_byt_a where v in (X'ff', X'01') order by v desc nulls last†
-–š„Þ’ ¿…Ò(t0ìÈl8¹@£[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_A_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Àdigraph G {
+merge-comparison-keysSEXPLAIN select id from t_byt_a where v in (X'ff', X'01') order by v desc nulls last‰
+–š„Þ’ ¿…Ò(t0ìÈl8¹@¦[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_A_V [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Àdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -904,10 +904,10 @@ d
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}×
+}Ú
 a
-merge-comparison-keysHEXPLAIN select id from t_byt_d where v in (X'ff', X'01') order by v descñ
-Î¬Óý† –¾€(n0ðÁi8±@ë[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_D_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)ãdigraph G {
+merge-comparison-keysHEXPLAIN select id from t_byt_d where v in (X'ff', X'01') order by v descô
+Î¬Óý† –¾€(n0ðÁi8±@î[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_D_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)ãdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -967,10 +967,10 @@ o
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ý
+}à
 l
-merge-comparison-keysSEXPLAIN select id from t_byt_d where v in (X'ff', X'01') order by v asc nulls firstì
-–•û›’ Œ©û(t0²‚v8¹@æ[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_D_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)ãdigraph G {
+merge-comparison-keysSEXPLAIN select id from t_byt_d where v in (X'ff', X'01') order by v asc nulls firstï
+–•û›’ Œ©û(t0²‚v8¹@é[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_D_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)ãdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1030,10 +1030,10 @@ q
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ø
+}û
 n
-merge-comparison-keysUEXPLAIN select id from t_byt_anf where v in (X'ff', X'01') order by v asc nulls first…
-Î÷ŒÐ† Æ£¤(n0Žõf8±@ [IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_ANF_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Âdigraph G {
+merge-comparison-keysUEXPLAIN select id from t_byt_anf where v in (X'ff', X'01') order by v asc nulls firstˆ
+Î÷ŒÐ† Æ£¤(n0Žõf8±@£[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_ANF_V [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Âdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1093,10 +1093,10 @@ q
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ý
+}€
 n
-merge-comparison-keysUEXPLAIN select id from t_byt_anf where v in (X'ff', X'01') order by v desc nulls lastŠ
-–àŒõ’ é¬ó(t0åÄV8¹@¥[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_ANF_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Âdigraph G {
+merge-comparison-keysUEXPLAIN select id from t_byt_anf where v in (X'ff', X'01') order by v desc nulls last
+–àŒõ’ é¬ó(t0åÄV8¹@¨[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_ANF_V [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Âdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1156,10 +1156,10 @@ p
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}à
+}ã
 m
-merge-comparison-keysTEXPLAIN select id from t_byt_anl where v in (X'ff', X'01') order by v asc nulls lastî
-¤‚„ƒ ý¯¿(k0ˆ‹f8¬@—[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_ANL_V [EQUALS to_ordered_bytes(q0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)´digraph G {
+merge-comparison-keysTEXPLAIN select id from t_byt_anl where v in (X'ff', X'01') order by v asc nulls lastñ
+¤‚„ƒ ý¯¿(k0ˆ‹f8¬@š[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_ANL_V [EQUALS to_ordered_bytes(q0._0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)´digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1219,10 +1219,10 @@ r
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}æ
+}é
 o
-merge-comparison-keysVEXPLAIN select id from t_byt_anl where v in (X'ff', X'01') order by v desc nulls firstò
-ÒèûƒŒ ¶‹Ä(o0¹û`8±@™[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_ANL_V [EQUALS to_ordered_bytes(q0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)¶digraph G {
+merge-comparison-keysVEXPLAIN select id from t_byt_anl where v in (X'ff', X'01') order by v desc nulls firstõ
+ÒèûƒŒ ¶‹Ä(o0¹û`8±@œ[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_ANL_V [EQUALS to_ordered_bytes(q0._0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)¶digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1282,10 +1282,10 @@ r
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ì
+}ï
 o
-merge-comparison-keysVEXPLAIN select id from t_byt_dnf where v in (X'ff', X'01') order by v desc nulls firstø
-¤ Íöƒ ‡ê‰(k0ÀÉU8¬@[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_DNF_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)¸digraph G {
+merge-comparison-keysVEXPLAIN select id from t_byt_dnf where v in (X'ff', X'01') order by v desc nulls firstû
+¤ Íöƒ ‡ê‰(k0ÀÉU8¬@ [IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_DNF_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)¸digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1345,10 +1345,10 @@ p
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}æ
+}é
 m
-merge-comparison-keysTEXPLAIN select id from t_byt_dnf where v in (X'ff', X'01') order by v asc nulls lastô
-Ò¢êÙŒ  ¬ë(o0„äW8±@›[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_DNF_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)¶digraph G {
+merge-comparison-keysTEXPLAIN select id from t_byt_dnf where v in (X'ff', X'01') order by v asc nulls last÷
+Ò¢êÙŒ  ¬ë(o0„äW8±@ž[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_DNF_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)¶digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1408,10 +1408,10 @@ q
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}è
+}ë
 n
-merge-comparison-keysUEXPLAIN select id from t_byt_dnl where v in (X'ff', X'01') order by v desc nulls lastõ
-ÎÔÐý† ‹æÍ(n0· Q8±@í[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_DNL_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)ådigraph G {
+merge-comparison-keysUEXPLAIN select id from t_byt_dnl where v in (X'ff', X'01') order by v desc nulls lastø
+ÎÔÐý† ‹æÍ(n0· Q8±@ð[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_DNL_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)ådigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1471,10 +1471,10 @@ q
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ã
+}æ
 n
-merge-comparison-keysUEXPLAIN select id from t_byt_dnl where v in (X'ff', X'01') order by v asc nulls firstð
-–ÚµÚ’ Í›à(t0øèV8¹@è[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_DNL_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)ådigraph G {
+merge-comparison-keysUEXPLAIN select id from t_byt_dnl where v in (X'ff', X'01') order by v asc nulls firstó
+–ÚµÚ’ Í›à(t0øèV8¹@ë[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_DNL_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)ådigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

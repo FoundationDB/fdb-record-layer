@@ -3,9 +3,9 @@ in-query-union-intersection:
         in ? order by num_value_3_indexed
     ref: in-query-union-intersection.yamsql:64
     explain: '[IN arrayDistinct(@c7)] INUNION q0 -> { [IN arrayDistinct(@c11)] INUNION
-        q1 -> { COVERING(STR_VALUE_NUM_VALUE3 [EQUALS q1] -> [NUM_VALUE_3_INDEXED:
+        q1 -> { COVERING(STR_VALUE_NUM_VALUE3 [EQUALS q1._0] -> [NUM_VALUE_3_INDEXED:
         KEY:[1], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[0]]) ∩ COVERING(NUM_VALUE2_NUM_VALUE3
-        [EQUALS q0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], REC_NO:
+        [EQUALS q0._0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], REC_NO:
         KEY:[2]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO) | FETCH } COMPARE BY
         (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED) } COMPARE BY (_.NUM_VALUE_3_INDEXED,
         _.REC_NO, _.NUM_VALUE_2)'
@@ -21,9 +21,9 @@ in-query-union-intersection:
         in ? order by num_value_3_indexed
     ref: in-query-union-intersection.yamsql:105
     explain: '[IN arrayDistinct(@c7)] INUNION q0 -> { [IN arrayDistinct(@c11)] INUNION
-        q1 -> { COVERING(STR_VALUE_NUM_VALUE3 [EQUALS q1] -> [NUM_VALUE_3_INDEXED:
+        q1 -> { COVERING(STR_VALUE_NUM_VALUE3 [EQUALS q1._0] -> [NUM_VALUE_3_INDEXED:
         KEY:[1], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[0]]) ∩ COVERING(NUM_VALUE2_NUM_VALUE3
-        [EQUALS q0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], REC_NO:
+        [EQUALS q0._0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], REC_NO:
         KEY:[2]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO) | FETCH } COMPARE BY
         (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED) } COMPARE BY (_.NUM_VALUE_3_INDEXED,
         _.REC_NO, _.NUM_VALUE_2)'
@@ -39,9 +39,9 @@ in-query-union-intersection:
         in ? order by num_value_3_indexed
     ref: in-query-union-intersection.yamsql:145
     explain: '[IN arrayDistinct(@c7)] INUNION q0 -> { [IN arrayDistinct(@c11)] INUNION
-        q1 -> { COVERING(STR_VALUE_NUM_VALUE3 [EQUALS q1] -> [NUM_VALUE_3_INDEXED:
+        q1 -> { COVERING(STR_VALUE_NUM_VALUE3 [EQUALS q1._0] -> [NUM_VALUE_3_INDEXED:
         KEY:[1], REC_NO: KEY:[2], STR_VALUE_INDEXED: KEY:[0]]) ∩ COVERING(NUM_VALUE2_NUM_VALUE3
-        [EQUALS q0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], REC_NO:
+        [EQUALS q0._0] -> [NUM_VALUE_2: KEY:[0], NUM_VALUE_3_INDEXED: KEY:[1], REC_NO:
         KEY:[2]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO) | FETCH } COMPARE BY
         (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED) } COMPARE BY (_.NUM_VALUE_3_INDEXED,
         _.REC_NO, _.NUM_VALUE_2)'
