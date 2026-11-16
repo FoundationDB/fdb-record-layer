@@ -1,0 +1,1747 @@
+merge-comparison-keys:
+-   query: EXPLAIN select id from t_str_a where v = 'x' or v = 'y' order by v asc
+    ref: merge-comparison-keys.yamsql:160
+    explain: 'COVERING(T_STR_A_V [EQUALS promote(@c7 AS STRING)] -> [ID: KEY:[2],
+        V: KEY:[0]]) ∪ COVERING(T_STR_A_V [EQUALS promote(@c11 AS STRING)] -> [ID:
+        KEY:[2], V: KEY:[0]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V)
+        | MAP (_.ID AS ID)'
+    task_count: 3881
+    task_total_time_ms: 253
+    transform_count: 638
+    transform_time_ms: 120
+    transform_yield_count: 181
+    insert_time_ms: 19
+    insert_new_count: 446
+    insert_reused_count: 38
+-   query: EXPLAIN select id from t_str_a where v in ('y', 'x') order by v asc
+    ref: merge-comparison-keys.yamsql:164
+    explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_A_V [EQUALS
+        q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID
+        AS ID)'
+    task_count: 1486
+    task_total_time_ms: 80
+    transform_count: 390
+    transform_time_ms: 35
+    transform_yield_count: 110
+    insert_time_ms: 5
+    insert_new_count: 177
+    insert_reused_count: 4
+-   query: EXPLAIN select id from t_str_a where a = 1 and c = 1 order by v asc
+    ref: merge-comparison-keys.yamsql:168
+    explain: 'COVERING(T_STR_A_C [EQUALS promote(@c7 AS LONG)] -> [C: KEY:[0], ID:
+        KEY:[3], V: KEY:[1]]) ∩ COVERING(T_STR_A_A [EQUALS promote(@c7 AS LONG)] ->
+        [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID
+        AS ID, _.V AS V) | MAP (_.ID AS ID)'
+    task_count: 542
+    task_total_time_ms: 29
+    transform_count: 140
+    transform_time_ms: 14
+    transform_yield_count: 46
+    insert_time_ms: 1
+    insert_new_count: 56
+    insert_reused_count: 3
+-   query: EXPLAIN select id from t_str_a where v = 'x' or v = 'y' order by v desc
+        nulls last
+    ref: merge-comparison-keys.yamsql:172
+    explain: ISCAN(T_STR_A_V [EQUALS promote(@c7 AS STRING)]) ∪ ISCAN(T_STR_A_V [EQUALS
+        promote(@c11 AS STRING)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST),
+        _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3521
+    task_total_time_ms: 99
+    transform_count: 587
+    transform_time_ms: 36
+    transform_yield_count: 170
+    insert_time_ms: 8
+    insert_new_count: 405
+    insert_reused_count: 37
+-   query: EXPLAIN select id from t_str_a where v in ('y', 'x') order by v desc nulls
+        last
+    ref: merge-comparison-keys.yamsql:176
+    explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_A_V
+        [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } |
+        MAP (_.ID AS ID)'
+    task_count: 1558
+    task_total_time_ms: 55
+    transform_count: 402
+    transform_time_ms: 21
+    transform_yield_count: 116
+    insert_time_ms: 3
+    insert_new_count: 185
+    insert_reused_count: 4
+-   query: EXPLAIN select id from t_str_a where a = 1 and c = 1 order by v desc nulls
+        last
+    ref: merge-comparison-keys.yamsql:180
+    explain: 'COVERING(T_STR_A_C [EQUALS promote(@c7 AS LONG)] REVERSE -> [C: KEY:[0],
+        ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_STR_A_A [EQUALS promote(@c7 AS LONG)]
+        REVERSE -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) |
+        MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
+    task_count: 542
+    task_total_time_ms: 19
+    transform_count: 140
+    transform_time_ms: 9
+    transform_yield_count: 46
+    insert_time_ms: 0
+    insert_new_count: 56
+    insert_reused_count: 3
+-   query: EXPLAIN select id from t_str_d where v = 'x' or v = 'y' order by v desc
+    ref: merge-comparison-keys.yamsql:184
+    explain: ISCAN(T_STR_D_V [EQUALS to_ordered_bytes(promote(@c7 AS STRING), DESC_NULLS_LAST)])
+        ∪ ISCAN(T_STR_D_V [EQUALS to_ordered_bytes(promote(@c11 AS STRING), DESC_NULLS_LAST)])
+        COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID,
+        _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3389
+    task_total_time_ms: 89
+    transform_count: 571
+    transform_time_ms: 37
+    transform_yield_count: 163
+    insert_time_ms: 7
+    insert_new_count: 389
+    insert_reused_count: 35
+-   query: EXPLAIN select id from t_str_d where v in ('y', 'x') order by v desc
+    ref: merge-comparison-keys.yamsql:188
+    explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_D_V
+        [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)'
+    task_count: 1486
+    task_total_time_ms: 50
+    transform_count: 390
+    transform_time_ms: 21
+    transform_yield_count: 110
+    insert_time_ms: 3
+    insert_new_count: 177
+    insert_reused_count: 4
+-   query: EXPLAIN select id from t_str_d where a = 1 and c = 1 order by v desc
+    ref: merge-comparison-keys.yamsql:192
+    explain: ISCAN(T_STR_D_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_STR_D_A [EQUALS
+        promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST),
+        _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 17
+    transform_count: 127
+    transform_time_ms: 9
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select id from t_str_d where v = 'x' or v = 'y' order by v asc
+        nulls first
+    ref: merge-comparison-keys.yamsql:196
+    explain: 'COVERING(T_STR_D_V [EQUALS to_ordered_bytes(promote(@c7 AS STRING),
+        DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)])
+        ∪ COVERING(T_STR_D_V [EQUALS to_ordered_bytes(promote(@c11 AS STRING), DESC_NULLS_LAST)]
+        -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) COMPARE
+        BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
+    task_count: 3683
+    task_total_time_ms: 79
+    transform_count: 611
+    transform_time_ms: 28
+    transform_yield_count: 176
+    insert_time_ms: 7
+    insert_new_count: 425
+    insert_reused_count: 39
+-   query: EXPLAIN select id from t_str_d where v in ('y', 'x') order by v asc nulls
+        first
+    ref: merge-comparison-keys.yamsql:200
+    explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_D_V [EQUALS
+        to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)'
+    task_count: 1558
+    task_total_time_ms: 47
+    transform_count: 402
+    transform_time_ms: 18
+    transform_yield_count: 116
+    insert_time_ms: 2
+    insert_new_count: 185
+    insert_reused_count: 4
+-   query: EXPLAIN select id from t_str_d where a = 1 and c = 1 order by v asc nulls
+        first
+    ref: merge-comparison-keys.yamsql:204
+    explain: ISCAN(T_STR_D_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_STR_D_A
+        [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (_.V, to_ordered_bytes(_.ID,
+        DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 16
+    transform_count: 127
+    transform_time_ms: 8
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select id from t_str_anf where v = 'x' or v = 'y' order by v asc
+        nulls first
+    ref: merge-comparison-keys.yamsql:208
+    explain: 'COVERING(T_STR_ANF_V [EQUALS promote(@c7 AS STRING)] -> [ID: KEY:[2],
+        V: KEY:[0]]) ∪ COVERING(T_STR_ANF_V [EQUALS promote(@c11 AS STRING)] -> [ID:
+        KEY:[2], V: KEY:[0]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V)
+        | MAP (_.ID AS ID)'
+    task_count: 3881
+    task_total_time_ms: 70
+    transform_count: 638
+    transform_time_ms: 24
+    transform_yield_count: 181
+    insert_time_ms: 6
+    insert_new_count: 446
+    insert_reused_count: 38
+-   query: EXPLAIN select id from t_str_anf where v in ('y', 'x') order by v asc nulls
+        first
+    ref: merge-comparison-keys.yamsql:212
+    explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_ANF_V
+        [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } |
+        MAP (_.ID AS ID)'
+    task_count: 1486
+    task_total_time_ms: 39
+    transform_count: 390
+    transform_time_ms: 16
+    transform_yield_count: 110
+    insert_time_ms: 2
+    insert_new_count: 177
+    insert_reused_count: 4
+-   query: EXPLAIN select id from t_str_anf where a = 1 and c = 1 order by v asc nulls
+        first
+    ref: merge-comparison-keys.yamsql:216
+    explain: 'COVERING(T_STR_ANF_C [EQUALS promote(@c7 AS LONG)] -> [C: KEY:[0], ID:
+        KEY:[3], V: KEY:[1]]) ∩ COVERING(T_STR_ANF_A [EQUALS promote(@c7 AS LONG)]
+        -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID
+        AS ID, _.V AS V) | MAP (_.ID AS ID)'
+    task_count: 542
+    task_total_time_ms: 16
+    transform_count: 140
+    transform_time_ms: 8
+    transform_yield_count: 46
+    insert_time_ms: 1
+    insert_new_count: 56
+    insert_reused_count: 3
+-   query: EXPLAIN select id from t_str_anf where v = 'x' or v = 'y' order by v desc
+        nulls last
+    ref: merge-comparison-keys.yamsql:220
+    explain: ISCAN(T_STR_ANF_V [EQUALS promote(@c7 AS STRING)]) ∪ ISCAN(T_STR_ANF_V
+        [EQUALS promote(@c11 AS STRING)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST),
+        _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3521
+    task_total_time_ms: 61
+    transform_count: 587
+    transform_time_ms: 22
+    transform_yield_count: 170
+    insert_time_ms: 7
+    insert_new_count: 405
+    insert_reused_count: 37
+-   query: EXPLAIN select id from t_str_anf where v in ('y', 'x') order by v desc
+        nulls last
+    ref: merge-comparison-keys.yamsql:224
+    explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_ANF_V
+        [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } |
+        MAP (_.ID AS ID)'
+    task_count: 1558
+    task_total_time_ms: 42
+    transform_count: 402
+    transform_time_ms: 16
+    transform_yield_count: 116
+    insert_time_ms: 3
+    insert_new_count: 185
+    insert_reused_count: 4
+-   query: EXPLAIN select id from t_str_anf where a = 1 and c = 1 order by v desc
+        nulls last
+    ref: merge-comparison-keys.yamsql:228
+    explain: 'COVERING(T_STR_ANF_C [EQUALS promote(@c7 AS LONG)] REVERSE -> [C: KEY:[0],
+        ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_STR_ANF_A [EQUALS promote(@c7 AS LONG)]
+        REVERSE -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) |
+        MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
+    task_count: 542
+    task_total_time_ms: 15
+    transform_count: 140
+    transform_time_ms: 7
+    transform_yield_count: 46
+    insert_time_ms: 0
+    insert_new_count: 56
+    insert_reused_count: 3
+-   query: EXPLAIN select id from t_str_anl where v = 'x' or v = 'y' order by v asc
+        nulls last
+    ref: merge-comparison-keys.yamsql:232
+    explain: ISCAN(T_STR_ANL_V [EQUALS to_ordered_bytes(promote(@c7 AS STRING), ASC_NULLS_LAST)])
+        ∪ ISCAN(T_STR_ANL_V [EQUALS to_ordered_bytes(promote(@c11 AS STRING), ASC_NULLS_LAST)])
+        COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID,
+        _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3389
+    task_total_time_ms: 57
+    transform_count: 571
+    transform_time_ms: 21
+    transform_yield_count: 163
+    insert_time_ms: 5
+    insert_new_count: 389
+    insert_reused_count: 35
+-   query: EXPLAIN select id from t_str_anl where v in ('y', 'x') order by v asc nulls
+        last
+    ref: merge-comparison-keys.yamsql:236
+    explain: '[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_ANL_V [EQUALS
+        to_ordered_bytes(q0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V,
+        ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)'
+    task_count: 1444
+    task_total_time_ms: 35
+    transform_count: 387
+    transform_time_ms: 14
+    transform_yield_count: 107
+    insert_time_ms: 2
+    insert_new_count: 172
+    insert_reused_count: 4
+-   query: EXPLAIN select id from t_str_anl where a = 1 and c = 1 order by v asc nulls
+        last
+    ref: merge-comparison-keys.yamsql:240
+    explain: ISCAN(T_STR_ANL_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_STR_ANL_A
+        [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST),
+        _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 12
+    transform_count: 127
+    transform_time_ms: 6
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select id from t_str_anl where v = 'x' or v = 'y' order by v desc
+        nulls first
+    ref: merge-comparison-keys.yamsql:244
+    explain: ISCAN(T_STR_ANL_V [EQUALS to_ordered_bytes(promote(@c7 AS STRING), ASC_NULLS_LAST)])
+        ∪ ISCAN(T_STR_ANL_V [EQUALS to_ordered_bytes(promote(@c11 AS STRING), ASC_NULLS_LAST)])
+        COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS
+        ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3437
+    task_total_time_ms: 56
+    transform_count: 576
+    transform_time_ms: 20
+    transform_yield_count: 167
+    insert_time_ms: 4
+    insert_new_count: 395
+    insert_reused_count: 36
+-   query: EXPLAIN select id from t_str_anl where v in ('y', 'x') order by v desc
+        nulls first
+    ref: merge-comparison-keys.yamsql:248
+    explain: '[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_ANL_V [EQUALS
+        to_ordered_bytes(q0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V,
+        DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)'
+    task_count: 1490
+    task_total_time_ms: 41
+    transform_count: 396
+    transform_time_ms: 19
+    transform_yield_count: 111
+    insert_time_ms: 2
+    insert_new_count: 177
+    insert_reused_count: 4
+-   query: EXPLAIN select id from t_str_anl where a = 1 and c = 1 order by v desc
+        nulls first
+    ref: merge-comparison-keys.yamsql:252
+    explain: ISCAN(T_STR_ANL_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_STR_ANL_A
+        [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST),
+        _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 13
+    transform_count: 127
+    transform_time_ms: 7
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select id from t_str_dnf where v = 'x' or v = 'y' order by v desc
+        nulls first
+    ref: merge-comparison-keys.yamsql:256
+    explain: ISCAN(T_STR_DNF_V [EQUALS to_ordered_bytes(promote(@c7 AS STRING), DESC_NULLS_FIRST)])
+        ∪ ISCAN(T_STR_DNF_V [EQUALS to_ordered_bytes(promote(@c11 AS STRING), DESC_NULLS_FIRST)])
+        COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS
+        ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3389
+    task_total_time_ms: 50
+    transform_count: 571
+    transform_time_ms: 18
+    transform_yield_count: 163
+    insert_time_ms: 3
+    insert_new_count: 389
+    insert_reused_count: 35
+-   query: EXPLAIN select id from t_str_dnf where v in ('y', 'x') order by v desc
+        nulls first
+    ref: merge-comparison-keys.yamsql:260
+    explain: '[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_DNF_V [EQUALS
+        to_ordered_bytes(q0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V,
+        DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)'
+    task_count: 1444
+    task_total_time_ms: 33
+    transform_count: 387
+    transform_time_ms: 13
+    transform_yield_count: 107
+    insert_time_ms: 1
+    insert_new_count: 172
+    insert_reused_count: 4
+-   query: EXPLAIN select id from t_str_dnf where a = 1 and c = 1 order by v desc
+        nulls first
+    ref: merge-comparison-keys.yamsql:264
+    explain: ISCAN(T_STR_DNF_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_STR_DNF_A
+        [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST),
+        _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 12
+    transform_count: 127
+    transform_time_ms: 6
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select id from t_str_dnf where v = 'x' or v = 'y' order by v asc
+        nulls last
+    ref: merge-comparison-keys.yamsql:268
+    explain: ISCAN(T_STR_DNF_V [EQUALS to_ordered_bytes(promote(@c7 AS STRING), DESC_NULLS_FIRST)])
+        ∪ ISCAN(T_STR_DNF_V [EQUALS to_ordered_bytes(promote(@c11 AS STRING), DESC_NULLS_FIRST)])
+        COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID,
+        _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3437
+    task_total_time_ms: 53
+    transform_count: 576
+    transform_time_ms: 20
+    transform_yield_count: 167
+    insert_time_ms: 4
+    insert_new_count: 395
+    insert_reused_count: 36
+-   query: EXPLAIN select id from t_str_dnf where v in ('y', 'x') order by v asc nulls
+        last
+    ref: merge-comparison-keys.yamsql:272
+    explain: '[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_DNF_V [EQUALS
+        to_ordered_bytes(q0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V,
+        ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)'
+    task_count: 1490
+    task_total_time_ms: 33
+    transform_count: 396
+    transform_time_ms: 13
+    transform_yield_count: 111
+    insert_time_ms: 1
+    insert_new_count: 177
+    insert_reused_count: 4
+-   query: EXPLAIN select id from t_str_dnf where a = 1 and c = 1 order by v asc nulls
+        last
+    ref: merge-comparison-keys.yamsql:276
+    explain: ISCAN(T_STR_DNF_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_STR_DNF_A
+        [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST),
+        to_ordered_bytes(_.ID, DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP
+        (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 12
+    transform_count: 127
+    transform_time_ms: 6
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select id from t_str_dnl where v = 'x' or v = 'y' order by v desc
+        nulls last
+    ref: merge-comparison-keys.yamsql:280
+    explain: ISCAN(T_STR_DNL_V [EQUALS to_ordered_bytes(promote(@c7 AS STRING), DESC_NULLS_LAST)])
+        ∪ ISCAN(T_STR_DNL_V [EQUALS to_ordered_bytes(promote(@c11 AS STRING), DESC_NULLS_LAST)])
+        COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID,
+        _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3389
+    task_total_time_ms: 49
+    transform_count: 571
+    transform_time_ms: 17
+    transform_yield_count: 163
+    insert_time_ms: 3
+    insert_new_count: 389
+    insert_reused_count: 35
+-   query: EXPLAIN select id from t_str_dnl where v in ('y', 'x') order by v desc
+        nulls last
+    ref: merge-comparison-keys.yamsql:284
+    explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_DNL_V
+        [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)'
+    task_count: 1486
+    task_total_time_ms: 33
+    transform_count: 390
+    transform_time_ms: 13
+    transform_yield_count: 110
+    insert_time_ms: 1
+    insert_new_count: 177
+    insert_reused_count: 4
+-   query: EXPLAIN select id from t_str_dnl where a = 1 and c = 1 order by v desc
+        nulls last
+    ref: merge-comparison-keys.yamsql:288
+    explain: ISCAN(T_STR_DNL_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_STR_DNL_A
+        [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST),
+        _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 12
+    transform_count: 127
+    transform_time_ms: 6
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select id from t_str_dnl where v = 'x' or v = 'y' order by v asc
+        nulls first
+    ref: merge-comparison-keys.yamsql:292
+    explain: 'COVERING(T_STR_DNL_V [EQUALS to_ordered_bytes(promote(@c7 AS STRING),
+        DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)])
+        ∪ COVERING(T_STR_DNL_V [EQUALS to_ordered_bytes(promote(@c11 AS STRING), DESC_NULLS_LAST)]
+        -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) COMPARE
+        BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
+    task_count: 3683
+    task_total_time_ms: 56
+    transform_count: 611
+    transform_time_ms: 20
+    transform_yield_count: 176
+    insert_time_ms: 4
+    insert_new_count: 425
+    insert_reused_count: 39
+-   query: EXPLAIN select id from t_str_dnl where v in ('y', 'x') order by v asc nulls
+        first
+    ref: merge-comparison-keys.yamsql:296
+    explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_DNL_V
+        [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)'
+    task_count: 1558
+    task_total_time_ms: 32
+    transform_count: 402
+    transform_time_ms: 12
+    transform_yield_count: 116
+    insert_time_ms: 1
+    insert_new_count: 185
+    insert_reused_count: 4
+-   query: EXPLAIN select id from t_str_dnl where a = 1 and c = 1 order by v asc nulls
+        first
+    ref: merge-comparison-keys.yamsql:300
+    explain: ISCAN(T_STR_DNL_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_STR_DNL_A
+        [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (_.V, to_ordered_bytes(_.ID,
+        DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 13
+    transform_count: 127
+    transform_time_ms: 6
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select id from t_byt_a where v = X'01' or v = X'ff' order by v
+        asc
+    ref: merge-comparison-keys.yamsql:304
+    explain: 'COVERING(T_BYT_A_V [EQUALS promote(@c7 AS BYTES)] -> [ID: KEY:[2], V:
+        KEY:[0]]) ∪ COVERING(T_BYT_A_V [EQUALS promote(@c11 AS BYTES)] -> [ID: KEY:[2],
+        V: KEY:[0]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID
+        AS ID)'
+    task_count: 3881
+    task_total_time_ms: 52
+    transform_count: 638
+    transform_time_ms: 17
+    transform_yield_count: 181
+    insert_time_ms: 4
+    insert_new_count: 446
+    insert_reused_count: 38
+-   query: EXPLAIN select id from t_byt_a where v in (X'ff', X'01') order by v asc
+    ref: merge-comparison-keys.yamsql:308
+    explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_A_V [EQUALS
+        q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID
+        AS ID)'
+    task_count: 1486
+    task_total_time_ms: 30
+    transform_count: 390
+    transform_time_ms: 12
+    transform_yield_count: 110
+    insert_time_ms: 1
+    insert_new_count: 177
+    insert_reused_count: 4
+-   query: EXPLAIN select id from t_byt_a where a = 1 and c = 1 order by v asc
+    ref: merge-comparison-keys.yamsql:312
+    explain: 'COVERING(T_BYT_A_C [EQUALS promote(@c7 AS LONG)] -> [C: KEY:[0], ID:
+        KEY:[3], V: KEY:[1]]) ∩ COVERING(T_BYT_A_A [EQUALS promote(@c7 AS LONG)] ->
+        [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID
+        AS ID, _.V AS V) | MAP (_.ID AS ID)'
+    task_count: 542
+    task_total_time_ms: 12
+    transform_count: 140
+    transform_time_ms: 6
+    transform_yield_count: 46
+    insert_time_ms: 0
+    insert_new_count: 56
+    insert_reused_count: 3
+-   query: EXPLAIN select id from t_byt_a where v = X'01' or v = X'ff' order by v
+        desc nulls last
+    ref: merge-comparison-keys.yamsql:316
+    explain: ISCAN(T_BYT_A_V [EQUALS promote(@c7 AS BYTES)]) ∪ ISCAN(T_BYT_A_V [EQUALS
+        promote(@c11 AS BYTES)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST),
+        _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3521
+    task_total_time_ms: 49
+    transform_count: 587
+    transform_time_ms: 20
+    transform_yield_count: 170
+    insert_time_ms: 3
+    insert_new_count: 405
+    insert_reused_count: 37
+-   query: EXPLAIN select id from t_byt_a where v in (X'ff', X'01') order by v desc
+        nulls last
+    ref: merge-comparison-keys.yamsql:320
+    explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_A_V
+        [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } |
+        MAP (_.ID AS ID)'
+    task_count: 1558
+    task_total_time_ms: 30
+    transform_count: 402
+    transform_time_ms: 11
+    transform_yield_count: 116
+    insert_time_ms: 1
+    insert_new_count: 185
+    insert_reused_count: 4
+-   query: EXPLAIN select id from t_byt_a where a = 1 and c = 1 order by v desc nulls
+        last
+    ref: merge-comparison-keys.yamsql:324
+    explain: 'COVERING(T_BYT_A_C [EQUALS promote(@c7 AS LONG)] REVERSE -> [C: KEY:[0],
+        ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_BYT_A_A [EQUALS promote(@c7 AS LONG)]
+        REVERSE -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) |
+        MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
+    task_count: 542
+    task_total_time_ms: 12
+    transform_count: 140
+    transform_time_ms: 5
+    transform_yield_count: 46
+    insert_time_ms: 0
+    insert_new_count: 56
+    insert_reused_count: 3
+-   query: EXPLAIN select id from t_byt_d where v = X'01' or v = X'ff' order by v
+        desc
+    ref: merge-comparison-keys.yamsql:328
+    explain: ISCAN(T_BYT_D_V [EQUALS to_ordered_bytes(promote(@c7 AS BYTES), DESC_NULLS_LAST)])
+        ∪ ISCAN(T_BYT_D_V [EQUALS to_ordered_bytes(promote(@c11 AS BYTES), DESC_NULLS_LAST)])
+        COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID,
+        _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3389
+    task_total_time_ms: 45
+    transform_count: 571
+    transform_time_ms: 16
+    transform_yield_count: 163
+    insert_time_ms: 3
+    insert_new_count: 389
+    insert_reused_count: 35
+-   query: EXPLAIN select id from t_byt_d where v in (X'ff', X'01') order by v desc
+    ref: merge-comparison-keys.yamsql:332
+    explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_D_V
+        [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)'
+    task_count: 1486
+    task_total_time_ms: 31
+    transform_count: 390
+    transform_time_ms: 12
+    transform_yield_count: 110
+    insert_time_ms: 1
+    insert_new_count: 177
+    insert_reused_count: 4
+-   query: EXPLAIN select id from t_byt_d where a = 1 and c = 1 order by v desc
+    ref: merge-comparison-keys.yamsql:336
+    explain: ISCAN(T_BYT_D_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_BYT_D_A [EQUALS
+        promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST),
+        _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 10
+    transform_count: 127
+    transform_time_ms: 5
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select id from t_byt_d where v = X'01' or v = X'ff' order by v
+        asc nulls first
+    ref: merge-comparison-keys.yamsql:340
+    explain: 'COVERING(T_BYT_D_V [EQUALS to_ordered_bytes(promote(@c7 AS BYTES), DESC_NULLS_LAST)]
+        -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) ∪ COVERING(T_BYT_D_V
+        [EQUALS to_ordered_bytes(promote(@c11 AS BYTES), DESC_NULLS_LAST)] -> [ID:
+        KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) COMPARE BY (_.V,
+        _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
+    task_count: 3683
+    task_total_time_ms: 50
+    transform_count: 611
+    transform_time_ms: 17
+    transform_yield_count: 176
+    insert_time_ms: 4
+    insert_new_count: 425
+    insert_reused_count: 39
+-   query: EXPLAIN select id from t_byt_d where v in (X'ff', X'01') order by v asc
+        nulls first
+    ref: merge-comparison-keys.yamsql:344
+    explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_D_V [EQUALS
+        to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)'
+    task_count: 1558
+    task_total_time_ms: 31
+    transform_count: 402
+    transform_time_ms: 12
+    transform_yield_count: 116
+    insert_time_ms: 1
+    insert_new_count: 185
+    insert_reused_count: 4
+-   query: EXPLAIN select id from t_byt_d where a = 1 and c = 1 order by v asc nulls
+        first
+    ref: merge-comparison-keys.yamsql:348
+    explain: ISCAN(T_BYT_D_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_BYT_D_A
+        [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (_.V, to_ordered_bytes(_.ID,
+        DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 11
+    transform_count: 127
+    transform_time_ms: 5
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select id from t_byt_anf where v = X'01' or v = X'ff' order by
+        v asc nulls first
+    ref: merge-comparison-keys.yamsql:352
+    explain: 'COVERING(T_BYT_ANF_V [EQUALS promote(@c7 AS BYTES)] -> [ID: KEY:[2],
+        V: KEY:[0]]) ∪ COVERING(T_BYT_ANF_V [EQUALS promote(@c11 AS BYTES)] -> [ID:
+        KEY:[2], V: KEY:[0]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V)
+        | MAP (_.ID AS ID)'
+    task_count: 3881
+    task_total_time_ms: 53
+    transform_count: 638
+    transform_time_ms: 15
+    transform_yield_count: 181
+    insert_time_ms: 4
+    insert_new_count: 446
+    insert_reused_count: 38
+-   query: EXPLAIN select id from t_byt_anf where v in (X'ff', X'01') order by v asc
+        nulls first
+    ref: merge-comparison-keys.yamsql:356
+    explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_ANF_V
+        [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } |
+        MAP (_.ID AS ID)'
+    task_count: 1486
+    task_total_time_ms: 30
+    transform_count: 390
+    transform_time_ms: 13
+    transform_yield_count: 110
+    insert_time_ms: 1
+    insert_new_count: 177
+    insert_reused_count: 4
+-   query: EXPLAIN select id from t_byt_anf where a = 1 and c = 1 order by v asc nulls
+        first
+    ref: merge-comparison-keys.yamsql:360
+    explain: 'COVERING(T_BYT_ANF_C [EQUALS promote(@c7 AS LONG)] -> [C: KEY:[0], ID:
+        KEY:[3], V: KEY:[1]]) ∩ COVERING(T_BYT_ANF_A [EQUALS promote(@c7 AS LONG)]
+        -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID
+        AS ID, _.V AS V) | MAP (_.ID AS ID)'
+    task_count: 542
+    task_total_time_ms: 10
+    transform_count: 140
+    transform_time_ms: 4
+    transform_yield_count: 46
+    insert_time_ms: 0
+    insert_new_count: 56
+    insert_reused_count: 3
+-   query: EXPLAIN select id from t_byt_anf where v = X'01' or v = X'ff' order by
+        v desc nulls last
+    ref: merge-comparison-keys.yamsql:364
+    explain: ISCAN(T_BYT_ANF_V [EQUALS promote(@c7 AS BYTES)]) ∪ ISCAN(T_BYT_ANF_V
+        [EQUALS promote(@c11 AS BYTES)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST),
+        _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3521
+    task_total_time_ms: 42
+    transform_count: 587
+    transform_time_ms: 14
+    transform_yield_count: 170
+    insert_time_ms: 3
+    insert_new_count: 405
+    insert_reused_count: 37
+-   query: EXPLAIN select id from t_byt_anf where v in (X'ff', X'01') order by v desc
+        nulls last
+    ref: merge-comparison-keys.yamsql:368
+    explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_ANF_V
+        [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } |
+        MAP (_.ID AS ID)'
+    task_count: 1558
+    task_total_time_ms: 27
+    transform_count: 402
+    transform_time_ms: 10
+    transform_yield_count: 116
+    insert_time_ms: 1
+    insert_new_count: 185
+    insert_reused_count: 4
+-   query: EXPLAIN select id from t_byt_anf where a = 1 and c = 1 order by v desc
+        nulls last
+    ref: merge-comparison-keys.yamsql:372
+    explain: 'COVERING(T_BYT_ANF_C [EQUALS promote(@c7 AS LONG)] REVERSE -> [C: KEY:[0],
+        ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_BYT_ANF_A [EQUALS promote(@c7 AS LONG)]
+        REVERSE -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) |
+        MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
+    task_count: 542
+    task_total_time_ms: 10
+    transform_count: 140
+    transform_time_ms: 4
+    transform_yield_count: 46
+    insert_time_ms: 0
+    insert_new_count: 56
+    insert_reused_count: 3
+-   query: EXPLAIN select id from t_byt_anl where v = X'01' or v = X'ff' order by
+        v asc nulls last
+    ref: merge-comparison-keys.yamsql:376
+    explain: ISCAN(T_BYT_ANL_V [EQUALS to_ordered_bytes(promote(@c7 AS BYTES), ASC_NULLS_LAST)])
+        ∪ ISCAN(T_BYT_ANL_V [EQUALS to_ordered_bytes(promote(@c11 AS BYTES), ASC_NULLS_LAST)])
+        COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID,
+        _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3389
+    task_total_time_ms: 43
+    transform_count: 571
+    transform_time_ms: 15
+    transform_yield_count: 163
+    insert_time_ms: 3
+    insert_new_count: 389
+    insert_reused_count: 35
+-   query: EXPLAIN select id from t_byt_anl where v in (X'ff', X'01') order by v asc
+        nulls last
+    ref: merge-comparison-keys.yamsql:380
+    explain: '[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_ANL_V [EQUALS
+        to_ordered_bytes(q0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V,
+        ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)'
+    task_count: 1444
+    task_total_time_ms: 29
+    transform_count: 387
+    transform_time_ms: 11
+    transform_yield_count: 107
+    insert_time_ms: 1
+    insert_new_count: 172
+    insert_reused_count: 4
+-   query: EXPLAIN select id from t_byt_anl where a = 1 and c = 1 order by v asc nulls
+        last
+    ref: merge-comparison-keys.yamsql:384
+    explain: ISCAN(T_BYT_ANL_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_BYT_ANL_A
+        [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST),
+        _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 14
+    transform_count: 127
+    transform_time_ms: 9
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select id from t_byt_anl where v = X'01' or v = X'ff' order by
+        v desc nulls first
+    ref: merge-comparison-keys.yamsql:388
+    explain: ISCAN(T_BYT_ANL_V [EQUALS to_ordered_bytes(promote(@c7 AS BYTES), ASC_NULLS_LAST)])
+        ∪ ISCAN(T_BYT_ANL_V [EQUALS to_ordered_bytes(promote(@c11 AS BYTES), ASC_NULLS_LAST)])
+        COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS
+        ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3437
+    task_total_time_ms: 43
+    transform_count: 576
+    transform_time_ms: 15
+    transform_yield_count: 167
+    insert_time_ms: 3
+    insert_new_count: 395
+    insert_reused_count: 36
+-   query: EXPLAIN select id from t_byt_anl where v in (X'ff', X'01') order by v desc
+        nulls first
+    ref: merge-comparison-keys.yamsql:392
+    explain: '[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_ANL_V [EQUALS
+        to_ordered_bytes(q0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V,
+        DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)'
+    task_count: 1490
+    task_total_time_ms: 29
+    transform_count: 396
+    transform_time_ms: 11
+    transform_yield_count: 111
+    insert_time_ms: 1
+    insert_new_count: 177
+    insert_reused_count: 4
+-   query: EXPLAIN select id from t_byt_anl where a = 1 and c = 1 order by v desc
+        nulls first
+    ref: merge-comparison-keys.yamsql:396
+    explain: ISCAN(T_BYT_ANL_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_BYT_ANL_A
+        [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST),
+        _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 9
+    transform_count: 127
+    transform_time_ms: 4
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select id from t_byt_dnf where v = X'01' or v = X'ff' order by
+        v desc nulls first
+    ref: merge-comparison-keys.yamsql:400
+    explain: ISCAN(T_BYT_DNF_V [EQUALS to_ordered_bytes(promote(@c7 AS BYTES), DESC_NULLS_FIRST)])
+        ∪ ISCAN(T_BYT_DNF_V [EQUALS to_ordered_bytes(promote(@c11 AS BYTES), DESC_NULLS_FIRST)])
+        COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS
+        ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3389
+    task_total_time_ms: 39
+    transform_count: 571
+    transform_time_ms: 13
+    transform_yield_count: 163
+    insert_time_ms: 3
+    insert_new_count: 389
+    insert_reused_count: 35
+-   query: EXPLAIN select id from t_byt_dnf where v in (X'ff', X'01') order by v desc
+        nulls first
+    ref: merge-comparison-keys.yamsql:404
+    explain: '[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_DNF_V [EQUALS
+        to_ordered_bytes(q0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V,
+        DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)'
+    task_count: 1444
+    task_total_time_ms: 27
+    transform_count: 387
+    transform_time_ms: 10
+    transform_yield_count: 107
+    insert_time_ms: 1
+    insert_new_count: 172
+    insert_reused_count: 4
+-   query: EXPLAIN select id from t_byt_dnf where a = 1 and c = 1 order by v desc
+        nulls first
+    ref: merge-comparison-keys.yamsql:408
+    explain: ISCAN(T_BYT_DNF_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_BYT_DNF_A
+        [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST),
+        _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 9
+    transform_count: 127
+    transform_time_ms: 4
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select id from t_byt_dnf where v = X'01' or v = X'ff' order by
+        v asc nulls last
+    ref: merge-comparison-keys.yamsql:412
+    explain: ISCAN(T_BYT_DNF_V [EQUALS to_ordered_bytes(promote(@c7 AS BYTES), DESC_NULLS_FIRST)])
+        ∪ ISCAN(T_BYT_DNF_V [EQUALS to_ordered_bytes(promote(@c11 AS BYTES), DESC_NULLS_FIRST)])
+        COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID,
+        _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3437
+    task_total_time_ms: 40
+    transform_count: 576
+    transform_time_ms: 14
+    transform_yield_count: 167
+    insert_time_ms: 3
+    insert_new_count: 395
+    insert_reused_count: 36
+-   query: EXPLAIN select id from t_byt_dnf where v in (X'ff', X'01') order by v asc
+        nulls last
+    ref: merge-comparison-keys.yamsql:416
+    explain: '[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_DNF_V [EQUALS
+        to_ordered_bytes(q0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V,
+        ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)'
+    task_count: 1490
+    task_total_time_ms: 30
+    transform_count: 396
+    transform_time_ms: 10
+    transform_yield_count: 111
+    insert_time_ms: 1
+    insert_new_count: 177
+    insert_reused_count: 4
+-   query: EXPLAIN select id from t_byt_dnf where a = 1 and c = 1 order by v asc nulls
+        last
+    ref: merge-comparison-keys.yamsql:420
+    explain: ISCAN(T_BYT_DNF_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_BYT_DNF_A
+        [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST),
+        to_ordered_bytes(_.ID, DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP
+        (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 11
+    transform_count: 127
+    transform_time_ms: 5
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select id from t_byt_dnl where v = X'01' or v = X'ff' order by
+        v desc nulls last
+    ref: merge-comparison-keys.yamsql:424
+    explain: ISCAN(T_BYT_DNL_V [EQUALS to_ordered_bytes(promote(@c7 AS BYTES), DESC_NULLS_LAST)])
+        ∪ ISCAN(T_BYT_DNL_V [EQUALS to_ordered_bytes(promote(@c11 AS BYTES), DESC_NULLS_LAST)])
+        COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID,
+        _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3389
+    task_total_time_ms: 42
+    transform_count: 571
+    transform_time_ms: 15
+    transform_yield_count: 163
+    insert_time_ms: 3
+    insert_new_count: 389
+    insert_reused_count: 35
+-   query: EXPLAIN select id from t_byt_dnl where v in (X'ff', X'01') order by v desc
+        nulls last
+    ref: merge-comparison-keys.yamsql:428
+    explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_DNL_V
+        [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)'
+    task_count: 1486
+    task_total_time_ms: 25
+    transform_count: 390
+    transform_time_ms: 9
+    transform_yield_count: 110
+    insert_time_ms: 1
+    insert_new_count: 177
+    insert_reused_count: 4
+-   query: EXPLAIN select id from t_byt_dnl where a = 1 and c = 1 order by v desc
+        nulls last
+    ref: merge-comparison-keys.yamsql:432
+    explain: ISCAN(T_BYT_DNL_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_BYT_DNL_A
+        [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST),
+        _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 9
+    transform_count: 127
+    transform_time_ms: 4
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select id from t_byt_dnl where v = X'01' or v = X'ff' order by
+        v asc nulls first
+    ref: merge-comparison-keys.yamsql:436
+    explain: 'COVERING(T_BYT_DNL_V [EQUALS to_ordered_bytes(promote(@c7 AS BYTES),
+        DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)])
+        ∪ COVERING(T_BYT_DNL_V [EQUALS to_ordered_bytes(promote(@c11 AS BYTES), DESC_NULLS_LAST)]
+        -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) COMPARE
+        BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
+    task_count: 3683
+    task_total_time_ms: 44
+    transform_count: 611
+    transform_time_ms: 14
+    transform_yield_count: 176
+    insert_time_ms: 3
+    insert_new_count: 425
+    insert_reused_count: 39
+-   query: EXPLAIN select id from t_byt_dnl where v in (X'ff', X'01') order by v asc
+        nulls first
+    ref: merge-comparison-keys.yamsql:440
+    explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_DNL_V
+        [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)'
+    task_count: 1558
+    task_total_time_ms: 26
+    transform_count: 402
+    transform_time_ms: 9
+    transform_yield_count: 116
+    insert_time_ms: 1
+    insert_new_count: 185
+    insert_reused_count: 4
+-   query: EXPLAIN select id from t_byt_dnl where a = 1 and c = 1 order by v asc nulls
+        first
+    ref: merge-comparison-keys.yamsql:444
+    explain: ISCAN(T_BYT_DNL_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_BYT_DNL_A
+        [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (_.V, to_ordered_bytes(_.ID,
+        DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 10
+    transform_count: 127
+    transform_time_ms: 5
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select id from t_enm_a where v = 'red' or v = 'blue' order by v
+        asc
+    ref: merge-comparison-keys.yamsql:448
+    explain: 'COVERING(T_ENM_A_V [EQUALS promote(@c7 AS ENUM<red(0), green(1), blue(2)>)]
+        -> [ID: KEY:[2], V: KEY:[0]]) ∪ COVERING(T_ENM_A_V [EQUALS promote(@c11 AS
+        ENUM<red(0), green(1), blue(2)>)] -> [ID: KEY:[2], V: KEY:[0]]) COMPARE BY
+        (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
+    task_count: 3867
+    task_total_time_ms: 41
+    transform_count: 633
+    transform_time_ms: 12
+    transform_yield_count: 179
+    insert_time_ms: 3
+    insert_new_count: 442
+    insert_reused_count: 38
+-   query: EXPLAIN select id from t_enm_a where a = 1 and c = 1 order by v asc
+    ref: merge-comparison-keys.yamsql:452
+    explain: 'COVERING(T_ENM_A_C [EQUALS promote(@c7 AS LONG)] -> [C: KEY:[0], ID:
+        KEY:[3], V: KEY:[1]]) ∩ COVERING(T_ENM_A_A [EQUALS promote(@c7 AS LONG)] ->
+        [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID
+        AS ID, _.V AS V) | MAP (_.ID AS ID)'
+    task_count: 542
+    task_total_time_ms: 11
+    transform_count: 140
+    transform_time_ms: 5
+    transform_yield_count: 46
+    insert_time_ms: 0
+    insert_new_count: 56
+    insert_reused_count: 3
+-   query: EXPLAIN select id from t_enm_a where v = 'red' or v = 'blue' order by v
+        desc nulls last
+    ref: merge-comparison-keys.yamsql:456
+    explain: ISCAN(T_ENM_A_V [EQUALS promote(@c7 AS ENUM<red(0), green(1), blue(2)>)])
+        ∪ ISCAN(T_ENM_A_V [EQUALS promote(@c11 AS ENUM<red(0), green(1), blue(2)>)])
+        COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID,
+        _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3507
+    task_total_time_ms: 39
+    transform_count: 582
+    transform_time_ms: 14
+    transform_yield_count: 168
+    insert_time_ms: 3
+    insert_new_count: 401
+    insert_reused_count: 37
+-   query: EXPLAIN select id from t_enm_a where a = 1 and c = 1 order by v desc nulls
+        last
+    ref: merge-comparison-keys.yamsql:460
+    explain: 'COVERING(T_ENM_A_C [EQUALS promote(@c7 AS LONG)] REVERSE -> [C: KEY:[0],
+        ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_ENM_A_A [EQUALS promote(@c7 AS LONG)]
+        REVERSE -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) |
+        MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
+    task_count: 542
+    task_total_time_ms: 10
+    transform_count: 140
+    transform_time_ms: 4
+    transform_yield_count: 46
+    insert_time_ms: 0
+    insert_new_count: 56
+    insert_reused_count: 3
+-   query: EXPLAIN select id from t_enm_d where v = 'red' or v = 'blue' order by v
+        desc
+    ref: merge-comparison-keys.yamsql:464
+    explain: ISCAN(T_ENM_D_V [EQUALS to_ordered_bytes(promote(@c7 AS ENUM<red(0),
+        green(1), blue(2)>), DESC_NULLS_LAST)]) ∪ ISCAN(T_ENM_D_V [EQUALS to_ordered_bytes(promote(@c11
+        AS ENUM<red(0), green(1), blue(2)>), DESC_NULLS_LAST)]) COMPARE BY (to_ordered_bytes(_.V,
+        DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3375
+    task_total_time_ms: 38
+    transform_count: 566
+    transform_time_ms: 13
+    transform_yield_count: 161
+    insert_time_ms: 3
+    insert_new_count: 385
+    insert_reused_count: 35
+-   query: EXPLAIN select id from t_enm_d where a = 1 and c = 1 order by v desc
+    ref: merge-comparison-keys.yamsql:468
+    explain: ISCAN(T_ENM_D_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_ENM_D_A [EQUALS
+        promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST),
+        _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 9
+    transform_count: 127
+    transform_time_ms: 4
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select id from t_enm_d where v = 'red' or v = 'blue' order by v
+        asc nulls first
+    ref: merge-comparison-keys.yamsql:472
+    explain: 'COVERING(T_ENM_D_V [EQUALS to_ordered_bytes(promote(@c7 AS ENUM<red(0),
+        green(1), blue(2)>), DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        DESC_NULLS_LAST)]) ∪ COVERING(T_ENM_D_V [EQUALS to_ordered_bytes(promote(@c11
+        AS ENUM<red(0), green(1), blue(2)>), DESC_NULLS_LAST)] -> [ID: KEY:[2], V:
+        from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) COMPARE BY (_.V, _.ID) | MAP
+        (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
+    task_count: 3669
+    task_total_time_ms: 39
+    transform_count: 606
+    transform_time_ms: 13
+    transform_yield_count: 174
+    insert_time_ms: 3
+    insert_new_count: 421
+    insert_reused_count: 39
+-   query: EXPLAIN select id from t_enm_d where a = 1 and c = 1 order by v asc nulls
+        first
+    ref: merge-comparison-keys.yamsql:476
+    explain: ISCAN(T_ENM_D_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_ENM_D_A
+        [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (_.V, to_ordered_bytes(_.ID,
+        DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 8
+    transform_count: 127
+    transform_time_ms: 4
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select id from t_enm_anf where v = 'red' or v = 'blue' order by
+        v asc nulls first
+    ref: merge-comparison-keys.yamsql:480
+    explain: 'COVERING(T_ENM_ANF_V [EQUALS promote(@c7 AS ENUM<red(0), green(1), blue(2)>)]
+        -> [ID: KEY:[2], V: KEY:[0]]) ∪ COVERING(T_ENM_ANF_V [EQUALS promote(@c11
+        AS ENUM<red(0), green(1), blue(2)>)] -> [ID: KEY:[2], V: KEY:[0]]) COMPARE
+        BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
+    task_count: 3867
+    task_total_time_ms: 41
+    transform_count: 633
+    transform_time_ms: 13
+    transform_yield_count: 179
+    insert_time_ms: 3
+    insert_new_count: 442
+    insert_reused_count: 38
+-   query: EXPLAIN select id from t_enm_anf where a = 1 and c = 1 order by v asc nulls
+        first
+    ref: merge-comparison-keys.yamsql:484
+    explain: 'COVERING(T_ENM_ANF_C [EQUALS promote(@c7 AS LONG)] -> [C: KEY:[0], ID:
+        KEY:[3], V: KEY:[1]]) ∩ COVERING(T_ENM_ANF_A [EQUALS promote(@c7 AS LONG)]
+        -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID
+        AS ID, _.V AS V) | MAP (_.ID AS ID)'
+    task_count: 542
+    task_total_time_ms: 15
+    transform_count: 140
+    transform_time_ms: 4
+    transform_yield_count: 46
+    insert_time_ms: 0
+    insert_new_count: 56
+    insert_reused_count: 3
+-   query: EXPLAIN select id from t_enm_anf where v = 'red' or v = 'blue' order by
+        v desc nulls last
+    ref: merge-comparison-keys.yamsql:488
+    explain: ISCAN(T_ENM_ANF_V [EQUALS promote(@c7 AS ENUM<red(0), green(1), blue(2)>)])
+        ∪ ISCAN(T_ENM_ANF_V [EQUALS promote(@c11 AS ENUM<red(0), green(1), blue(2)>)])
+        COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID,
+        _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3507
+    task_total_time_ms: 36
+    transform_count: 582
+    transform_time_ms: 12
+    transform_yield_count: 168
+    insert_time_ms: 2
+    insert_new_count: 401
+    insert_reused_count: 37
+-   query: EXPLAIN select id from t_enm_anf where a = 1 and c = 1 order by v desc
+        nulls last
+    ref: merge-comparison-keys.yamsql:492
+    explain: 'COVERING(T_ENM_ANF_C [EQUALS promote(@c7 AS LONG)] REVERSE -> [C: KEY:[0],
+        ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_ENM_ANF_A [EQUALS promote(@c7 AS LONG)]
+        REVERSE -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) |
+        MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
+    task_count: 542
+    task_total_time_ms: 10
+    transform_count: 140
+    transform_time_ms: 4
+    transform_yield_count: 46
+    insert_time_ms: 0
+    insert_new_count: 56
+    insert_reused_count: 3
+-   query: EXPLAIN select id from t_enm_anl where v = 'red' or v = 'blue' order by
+        v asc nulls last
+    ref: merge-comparison-keys.yamsql:496
+    explain: ISCAN(T_ENM_ANL_V [EQUALS to_ordered_bytes(promote(@c7 AS ENUM<red(0),
+        green(1), blue(2)>), ASC_NULLS_LAST)]) ∪ ISCAN(T_ENM_ANL_V [EQUALS to_ordered_bytes(promote(@c11
+        AS ENUM<red(0), green(1), blue(2)>), ASC_NULLS_LAST)]) COMPARE BY (to_ordered_bytes(_.V,
+        ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3375
+    task_total_time_ms: 36
+    transform_count: 566
+    transform_time_ms: 12
+    transform_yield_count: 161
+    insert_time_ms: 2
+    insert_new_count: 385
+    insert_reused_count: 35
+-   query: EXPLAIN select id from t_enm_anl where a = 1 and c = 1 order by v asc nulls
+        last
+    ref: merge-comparison-keys.yamsql:500
+    explain: ISCAN(T_ENM_ANL_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_ENM_ANL_A
+        [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST),
+        _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 9
+    transform_count: 127
+    transform_time_ms: 4
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select id from t_enm_anl where v = 'red' or v = 'blue' order by
+        v desc nulls first
+    ref: merge-comparison-keys.yamsql:504
+    explain: ISCAN(T_ENM_ANL_V [EQUALS to_ordered_bytes(promote(@c7 AS ENUM<red(0),
+        green(1), blue(2)>), ASC_NULLS_LAST)]) ∪ ISCAN(T_ENM_ANL_V [EQUALS to_ordered_bytes(promote(@c11
+        AS ENUM<red(0), green(1), blue(2)>), ASC_NULLS_LAST)]) COMPARE BY (to_ordered_bytes(_.V,
+        DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3423
+    task_total_time_ms: 37
+    transform_count: 571
+    transform_time_ms: 13
+    transform_yield_count: 165
+    insert_time_ms: 2
+    insert_new_count: 391
+    insert_reused_count: 36
+-   query: EXPLAIN select id from t_enm_anl where a = 1 and c = 1 order by v desc
+        nulls first
+    ref: merge-comparison-keys.yamsql:508
+    explain: ISCAN(T_ENM_ANL_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_ENM_ANL_A
+        [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST),
+        _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 8
+    transform_count: 127
+    transform_time_ms: 4
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select id from t_enm_dnf where v = 'red' or v = 'blue' order by
+        v desc nulls first
+    ref: merge-comparison-keys.yamsql:512
+    explain: ISCAN(T_ENM_DNF_V [EQUALS to_ordered_bytes(promote(@c7 AS ENUM<red(0),
+        green(1), blue(2)>), DESC_NULLS_FIRST)]) ∪ ISCAN(T_ENM_DNF_V [EQUALS to_ordered_bytes(promote(@c11
+        AS ENUM<red(0), green(1), blue(2)>), DESC_NULLS_FIRST)]) COMPARE BY (to_ordered_bytes(_.V,
+        DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3375
+    task_total_time_ms: 36
+    transform_count: 566
+    transform_time_ms: 12
+    transform_yield_count: 161
+    insert_time_ms: 2
+    insert_new_count: 385
+    insert_reused_count: 35
+-   query: EXPLAIN select id from t_enm_dnf where a = 1 and c = 1 order by v desc
+        nulls first
+    ref: merge-comparison-keys.yamsql:516
+    explain: ISCAN(T_ENM_DNF_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_ENM_DNF_A
+        [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST),
+        _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 10
+    transform_count: 127
+    transform_time_ms: 5
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select id from t_enm_dnf where v = 'red' or v = 'blue' order by
+        v asc nulls last
+    ref: merge-comparison-keys.yamsql:520
+    explain: ISCAN(T_ENM_DNF_V [EQUALS to_ordered_bytes(promote(@c7 AS ENUM<red(0),
+        green(1), blue(2)>), DESC_NULLS_FIRST)]) ∪ ISCAN(T_ENM_DNF_V [EQUALS to_ordered_bytes(promote(@c11
+        AS ENUM<red(0), green(1), blue(2)>), DESC_NULLS_FIRST)]) COMPARE BY (to_ordered_bytes(_.V,
+        ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3423
+    task_total_time_ms: 41
+    transform_count: 571
+    transform_time_ms: 13
+    transform_yield_count: 165
+    insert_time_ms: 6
+    insert_new_count: 391
+    insert_reused_count: 36
+-   query: EXPLAIN select id from t_enm_dnf where a = 1 and c = 1 order by v asc nulls
+        last
+    ref: merge-comparison-keys.yamsql:524
+    explain: ISCAN(T_ENM_DNF_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_ENM_DNF_A
+        [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST),
+        to_ordered_bytes(_.ID, DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP
+        (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 8
+    transform_count: 127
+    transform_time_ms: 4
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select id from t_enm_dnl where v = 'red' or v = 'blue' order by
+        v desc nulls last
+    ref: merge-comparison-keys.yamsql:528
+    explain: ISCAN(T_ENM_DNL_V [EQUALS to_ordered_bytes(promote(@c7 AS ENUM<red(0),
+        green(1), blue(2)>), DESC_NULLS_LAST)]) ∪ ISCAN(T_ENM_DNL_V [EQUALS to_ordered_bytes(promote(@c11
+        AS ENUM<red(0), green(1), blue(2)>), DESC_NULLS_LAST)]) COMPARE BY (to_ordered_bytes(_.V,
+        DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3375
+    task_total_time_ms: 34
+    transform_count: 566
+    transform_time_ms: 11
+    transform_yield_count: 161
+    insert_time_ms: 2
+    insert_new_count: 385
+    insert_reused_count: 35
+-   query: EXPLAIN select id from t_enm_dnl where a = 1 and c = 1 order by v desc
+        nulls last
+    ref: merge-comparison-keys.yamsql:532
+    explain: ISCAN(T_ENM_DNL_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_ENM_DNL_A
+        [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST),
+        _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 8
+    transform_count: 127
+    transform_time_ms: 4
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select id from t_enm_dnl where v = 'red' or v = 'blue' order by
+        v asc nulls first
+    ref: merge-comparison-keys.yamsql:536
+    explain: 'COVERING(T_ENM_DNL_V [EQUALS to_ordered_bytes(promote(@c7 AS ENUM<red(0),
+        green(1), blue(2)>), DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        DESC_NULLS_LAST)]) ∪ COVERING(T_ENM_DNL_V [EQUALS to_ordered_bytes(promote(@c11
+        AS ENUM<red(0), green(1), blue(2)>), DESC_NULLS_LAST)] -> [ID: KEY:[2], V:
+        from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) COMPARE BY (_.V, _.ID) | MAP
+        (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
+    task_count: 3669
+    task_total_time_ms: 37
+    transform_count: 606
+    transform_time_ms: 12
+    transform_yield_count: 174
+    insert_time_ms: 2
+    insert_new_count: 421
+    insert_reused_count: 39
+-   query: EXPLAIN select id from t_enm_dnl where a = 1 and c = 1 order by v asc nulls
+        first
+    ref: merge-comparison-keys.yamsql:540
+    explain: ISCAN(T_ENM_DNL_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_ENM_DNL_A
+        [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (_.V, to_ordered_bytes(_.ID,
+        DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 9
+    transform_count: 127
+    transform_time_ms: 5
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select id from t_uid_a where v = '00000000-0000-0000-0000-000000000001'
+        or v = 'ffffffff-0000-0000-0000-000000000001' order by v asc
+    ref: merge-comparison-keys.yamsql:544
+    explain: 'COVERING(T_UID_A_V [EQUALS promote(@c7 AS UUID)] -> [ID: KEY:[2], V:
+        KEY:[0]]) ∪ COVERING(T_UID_A_V [EQUALS promote(@c11 AS UUID)] -> [ID: KEY:[2],
+        V: KEY:[0]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID
+        AS ID)'
+    task_count: 3867
+    task_total_time_ms: 37
+    transform_count: 633
+    transform_time_ms: 12
+    transform_yield_count: 179
+    insert_time_ms: 2
+    insert_new_count: 442
+    insert_reused_count: 38
+-   query: EXPLAIN select id from t_uid_a where a = 1 and c = 1 order by v asc
+    ref: merge-comparison-keys.yamsql:548
+    explain: 'COVERING(T_UID_A_C [EQUALS promote(@c7 AS LONG)] -> [C: KEY:[0], ID:
+        KEY:[3], V: KEY:[1]]) ∩ COVERING(T_UID_A_A [EQUALS promote(@c7 AS LONG)] ->
+        [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID
+        AS ID, _.V AS V) | MAP (_.ID AS ID)'
+    task_count: 542
+    task_total_time_ms: 9
+    transform_count: 140
+    transform_time_ms: 4
+    transform_yield_count: 46
+    insert_time_ms: 0
+    insert_new_count: 56
+    insert_reused_count: 3
+-   query: EXPLAIN select id from t_uid_a where v = '00000000-0000-0000-0000-000000000001'
+        or v = 'ffffffff-0000-0000-0000-000000000001' order by v desc nulls last
+    ref: merge-comparison-keys.yamsql:552
+    explain: ISCAN(T_UID_A_V [EQUALS promote(@c7 AS UUID)]) ∪ ISCAN(T_UID_A_V [EQUALS
+        promote(@c11 AS UUID)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST),
+        _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3507
+    task_total_time_ms: 37
+    transform_count: 582
+    transform_time_ms: 12
+    transform_yield_count: 168
+    insert_time_ms: 2
+    insert_new_count: 401
+    insert_reused_count: 37
+-   query: EXPLAIN select id from t_uid_a where a = 1 and c = 1 order by v desc nulls
+        last
+    ref: merge-comparison-keys.yamsql:556
+    explain: 'COVERING(T_UID_A_C [EQUALS promote(@c7 AS LONG)] REVERSE -> [C: KEY:[0],
+        ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_UID_A_A [EQUALS promote(@c7 AS LONG)]
+        REVERSE -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) |
+        MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
+    task_count: 542
+    task_total_time_ms: 9
+    transform_count: 140
+    transform_time_ms: 4
+    transform_yield_count: 46
+    insert_time_ms: 0
+    insert_new_count: 56
+    insert_reused_count: 3
+-   query: EXPLAIN select id from t_uid_d where v = '00000000-0000-0000-0000-000000000001'
+        or v = 'ffffffff-0000-0000-0000-000000000001' order by v desc
+    ref: merge-comparison-keys.yamsql:560
+    explain: ISCAN(T_UID_D_V [EQUALS to_ordered_bytes(promote(@c7 AS UUID), DESC_NULLS_LAST)])
+        ∪ ISCAN(T_UID_D_V [EQUALS to_ordered_bytes(promote(@c11 AS UUID), DESC_NULLS_LAST)])
+        COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID,
+        _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3375
+    task_total_time_ms: 32
+    transform_count: 566
+    transform_time_ms: 10
+    transform_yield_count: 161
+    insert_time_ms: 2
+    insert_new_count: 385
+    insert_reused_count: 35
+-   query: EXPLAIN select id from t_uid_d where a = 1 and c = 1 order by v desc
+    ref: merge-comparison-keys.yamsql:564
+    explain: ISCAN(T_UID_D_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_UID_D_A [EQUALS
+        promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST),
+        _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 8
+    transform_count: 127
+    transform_time_ms: 4
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select id from t_uid_d where v = '00000000-0000-0000-0000-000000000001'
+        or v = 'ffffffff-0000-0000-0000-000000000001' order by v asc nulls first
+    ref: merge-comparison-keys.yamsql:568
+    explain: 'COVERING(T_UID_D_V [EQUALS to_ordered_bytes(promote(@c7 AS UUID), DESC_NULLS_LAST)]
+        -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) ∪ COVERING(T_UID_D_V
+        [EQUALS to_ordered_bytes(promote(@c11 AS UUID), DESC_NULLS_LAST)] -> [ID:
+        KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) COMPARE BY (_.V,
+        _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
+    task_count: 3669
+    task_total_time_ms: 38
+    transform_count: 606
+    transform_time_ms: 12
+    transform_yield_count: 174
+    insert_time_ms: 2
+    insert_new_count: 421
+    insert_reused_count: 39
+-   query: EXPLAIN select id from t_uid_d where a = 1 and c = 1 order by v asc nulls
+        first
+    ref: merge-comparison-keys.yamsql:572
+    explain: ISCAN(T_UID_D_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_UID_D_A
+        [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (_.V, to_ordered_bytes(_.ID,
+        DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 8
+    transform_count: 127
+    transform_time_ms: 4
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select id from t_uid_anf where v = '00000000-0000-0000-0000-000000000001'
+        or v = 'ffffffff-0000-0000-0000-000000000001' order by v asc nulls first
+    ref: merge-comparison-keys.yamsql:576
+    explain: 'COVERING(T_UID_ANF_V [EQUALS promote(@c7 AS UUID)] -> [ID: KEY:[2],
+        V: KEY:[0]]) ∪ COVERING(T_UID_ANF_V [EQUALS promote(@c11 AS UUID)] -> [ID:
+        KEY:[2], V: KEY:[0]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V)
+        | MAP (_.ID AS ID)'
+    task_count: 3867
+    task_total_time_ms: 37
+    transform_count: 633
+    transform_time_ms: 11
+    transform_yield_count: 179
+    insert_time_ms: 2
+    insert_new_count: 442
+    insert_reused_count: 38
+-   query: EXPLAIN select id from t_uid_anf where a = 1 and c = 1 order by v asc nulls
+        first
+    ref: merge-comparison-keys.yamsql:580
+    explain: 'COVERING(T_UID_ANF_C [EQUALS promote(@c7 AS LONG)] -> [C: KEY:[0], ID:
+        KEY:[3], V: KEY:[1]]) ∩ COVERING(T_UID_ANF_A [EQUALS promote(@c7 AS LONG)]
+        -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID
+        AS ID, _.V AS V) | MAP (_.ID AS ID)'
+    task_count: 542
+    task_total_time_ms: 9
+    transform_count: 140
+    transform_time_ms: 4
+    transform_yield_count: 46
+    insert_time_ms: 0
+    insert_new_count: 56
+    insert_reused_count: 3
+-   query: EXPLAIN select id from t_uid_anf where v = '00000000-0000-0000-0000-000000000001'
+        or v = 'ffffffff-0000-0000-0000-000000000001' order by v desc nulls last
+    ref: merge-comparison-keys.yamsql:584
+    explain: ISCAN(T_UID_ANF_V [EQUALS promote(@c7 AS UUID)]) ∪ ISCAN(T_UID_ANF_V
+        [EQUALS promote(@c11 AS UUID)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST),
+        _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3507
+    task_total_time_ms: 38
+    transform_count: 582
+    transform_time_ms: 11
+    transform_yield_count: 168
+    insert_time_ms: 2
+    insert_new_count: 401
+    insert_reused_count: 37
+-   query: EXPLAIN select id from t_uid_anf where a = 1 and c = 1 order by v desc
+        nulls last
+    ref: merge-comparison-keys.yamsql:588
+    explain: 'COVERING(T_UID_ANF_C [EQUALS promote(@c7 AS LONG)] REVERSE -> [C: KEY:[0],
+        ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_UID_ANF_A [EQUALS promote(@c7 AS LONG)]
+        REVERSE -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) |
+        MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
+    task_count: 542
+    task_total_time_ms: 10
+    transform_count: 140
+    transform_time_ms: 4
+    transform_yield_count: 46
+    insert_time_ms: 0
+    insert_new_count: 56
+    insert_reused_count: 3
+-   query: EXPLAIN select id from t_uid_anl where v = '00000000-0000-0000-0000-000000000001'
+        or v = 'ffffffff-0000-0000-0000-000000000001' order by v asc nulls last
+    ref: merge-comparison-keys.yamsql:592
+    explain: ISCAN(T_UID_ANL_V [EQUALS to_ordered_bytes(promote(@c7 AS UUID), ASC_NULLS_LAST)])
+        ∪ ISCAN(T_UID_ANL_V [EQUALS to_ordered_bytes(promote(@c11 AS UUID), ASC_NULLS_LAST)])
+        COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID,
+        _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3375
+    task_total_time_ms: 33
+    transform_count: 566
+    transform_time_ms: 11
+    transform_yield_count: 161
+    insert_time_ms: 2
+    insert_new_count: 385
+    insert_reused_count: 35
+-   query: EXPLAIN select id from t_uid_anl where a = 1 and c = 1 order by v asc nulls
+        last
+    ref: merge-comparison-keys.yamsql:596
+    explain: ISCAN(T_UID_ANL_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_UID_ANL_A
+        [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST),
+        _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 8
+    transform_count: 127
+    transform_time_ms: 4
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select id from t_uid_anl where v = '00000000-0000-0000-0000-000000000001'
+        or v = 'ffffffff-0000-0000-0000-000000000001' order by v desc nulls first
+    ref: merge-comparison-keys.yamsql:600
+    explain: ISCAN(T_UID_ANL_V [EQUALS to_ordered_bytes(promote(@c7 AS UUID), ASC_NULLS_LAST)])
+        ∪ ISCAN(T_UID_ANL_V [EQUALS to_ordered_bytes(promote(@c11 AS UUID), ASC_NULLS_LAST)])
+        COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS
+        ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3423
+    task_total_time_ms: 34
+    transform_count: 571
+    transform_time_ms: 11
+    transform_yield_count: 165
+    insert_time_ms: 2
+    insert_new_count: 391
+    insert_reused_count: 36
+-   query: EXPLAIN select id from t_uid_anl where a = 1 and c = 1 order by v desc
+        nulls first
+    ref: merge-comparison-keys.yamsql:604
+    explain: ISCAN(T_UID_ANL_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_UID_ANL_A
+        [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST),
+        _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 8
+    transform_count: 127
+    transform_time_ms: 4
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select id from t_uid_dnf where v = '00000000-0000-0000-0000-000000000001'
+        or v = 'ffffffff-0000-0000-0000-000000000001' order by v desc nulls first
+    ref: merge-comparison-keys.yamsql:608
+    explain: ISCAN(T_UID_DNF_V [EQUALS to_ordered_bytes(promote(@c7 AS UUID), DESC_NULLS_FIRST)])
+        ∪ ISCAN(T_UID_DNF_V [EQUALS to_ordered_bytes(promote(@c11 AS UUID), DESC_NULLS_FIRST)])
+        COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS
+        ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3375
+    task_total_time_ms: 33
+    transform_count: 566
+    transform_time_ms: 11
+    transform_yield_count: 161
+    insert_time_ms: 2
+    insert_new_count: 385
+    insert_reused_count: 35
+-   query: EXPLAIN select id from t_uid_dnf where a = 1 and c = 1 order by v desc
+        nulls first
+    ref: merge-comparison-keys.yamsql:612
+    explain: ISCAN(T_UID_DNF_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_UID_DNF_A
+        [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST),
+        _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 8
+    transform_count: 127
+    transform_time_ms: 4
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select id from t_uid_dnf where v = '00000000-0000-0000-0000-000000000001'
+        or v = 'ffffffff-0000-0000-0000-000000000001' order by v asc nulls last
+    ref: merge-comparison-keys.yamsql:616
+    explain: ISCAN(T_UID_DNF_V [EQUALS to_ordered_bytes(promote(@c7 AS UUID), DESC_NULLS_FIRST)])
+        ∪ ISCAN(T_UID_DNF_V [EQUALS to_ordered_bytes(promote(@c11 AS UUID), DESC_NULLS_FIRST)])
+        COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID,
+        _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3423
+    task_total_time_ms: 34
+    transform_count: 571
+    transform_time_ms: 11
+    transform_yield_count: 165
+    insert_time_ms: 2
+    insert_new_count: 391
+    insert_reused_count: 36
+-   query: EXPLAIN select id from t_uid_dnf where a = 1 and c = 1 order by v asc nulls
+        last
+    ref: merge-comparison-keys.yamsql:620
+    explain: ISCAN(T_UID_DNF_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_UID_DNF_A
+        [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST),
+        to_ordered_bytes(_.ID, DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP
+        (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 9
+    transform_count: 127
+    transform_time_ms: 4
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select id from t_uid_dnl where v = '00000000-0000-0000-0000-000000000001'
+        or v = 'ffffffff-0000-0000-0000-000000000001' order by v desc nulls last
+    ref: merge-comparison-keys.yamsql:624
+    explain: ISCAN(T_UID_DNL_V [EQUALS to_ordered_bytes(promote(@c7 AS UUID), DESC_NULLS_LAST)])
+        ∪ ISCAN(T_UID_DNL_V [EQUALS to_ordered_bytes(promote(@c11 AS UUID), DESC_NULLS_LAST)])
+        COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID,
+        _.V AS V) | MAP (_.ID AS ID)
+    task_count: 3375
+    task_total_time_ms: 33
+    transform_count: 566
+    transform_time_ms: 10
+    transform_yield_count: 161
+    insert_time_ms: 2
+    insert_new_count: 385
+    insert_reused_count: 35
+-   query: EXPLAIN select id from t_uid_dnl where a = 1 and c = 1 order by v desc
+        nulls last
+    ref: merge-comparison-keys.yamsql:628
+    explain: ISCAN(T_UID_DNL_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_UID_DNL_A
+        [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST),
+        _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 8
+    transform_count: 127
+    transform_time_ms: 4
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
+-   query: EXPLAIN select id from t_uid_dnl where v = '00000000-0000-0000-0000-000000000001'
+        or v = 'ffffffff-0000-0000-0000-000000000001' order by v asc nulls first
+    ref: merge-comparison-keys.yamsql:632
+    explain: 'COVERING(T_UID_DNL_V [EQUALS to_ordered_bytes(promote(@c7 AS UUID),
+        DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)])
+        ∪ COVERING(T_UID_DNL_V [EQUALS to_ordered_bytes(promote(@c11 AS UUID), DESC_NULLS_LAST)]
+        -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) COMPARE
+        BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
+    task_count: 3669
+    task_total_time_ms: 35
+    transform_count: 606
+    transform_time_ms: 11
+    transform_yield_count: 174
+    insert_time_ms: 2
+    insert_new_count: 421
+    insert_reused_count: 39
+-   query: EXPLAIN select id from t_uid_dnl where a = 1 and c = 1 order by v asc nulls
+        first
+    ref: merge-comparison-keys.yamsql:636
+    explain: ISCAN(T_UID_DNL_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_UID_DNL_A
+        [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (_.V, to_ordered_bytes(_.ID,
+        DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
+    task_count: 464
+    task_total_time_ms: 7
+    transform_count: 127
+    transform_time_ms: 3
+    transform_yield_count: 43
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 2
