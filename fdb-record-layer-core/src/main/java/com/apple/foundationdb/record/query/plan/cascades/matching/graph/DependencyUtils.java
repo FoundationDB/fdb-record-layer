@@ -46,6 +46,7 @@ public class DependencyUtils {
      * Static helper to compute a set of {@link CorrelationIdentifier}s from a collection of elements of type {@code T}
      * using the given element-to-alias function. Note that we allow a collection of elements to be passed in, we
      * compute a set of {@link CorrelationIdentifier}s from it (i.e. duplicate aliases are not allowed).
+     *
      * @param elements an iterable of elements of type {@code T}
      * @param elementToAliasFn element to alias function
      * @param <T> element type
@@ -62,6 +63,7 @@ public class DependencyUtils {
     /**
      * Static helper to compute the alias-to-element map based on a collection of elements and on the element-to-alias function
      * tht are both passed in.
+     *
      * @param elements an iterable of elements of type {@code T}
      * @param elementToAliasFn element to alias function
      * @param <T> element type
@@ -78,6 +80,7 @@ public class DependencyUtils {
     /**
      * Static helper to compute a dependency map from {@link CorrelationIdentifier} to {@link CorrelationIdentifier} based
      * on a set of aliases and mappings between {@link CorrelationIdentifier} and type {@code T}.
+     *
      * @param aliases a set of aliases
      * @param elementToAliasFn element to alias function
      * @param aliasToElementMap a map from {@link CorrelationIdentifier} to {@code T} representing the conceptual inverse of the
@@ -111,6 +114,7 @@ public class DependencyUtils {
      * for the case that the client uses dependsOn functions that already map to {@link CorrelationIdentifier} as opposed
      * to type {@code T}. See the matching logic in {@link com.apple.foundationdb.record.query.plan.cascades.Quantifiers}
      * for examples.
+     *
      * @param aliases a set of aliases
      * @param aliasToElementMap a map from {@link CorrelationIdentifier} to {@code T}
      * @param dependsOnFn function defining the dependOn relationships between an element and aliases ({@link CorrelationIdentifier}s)

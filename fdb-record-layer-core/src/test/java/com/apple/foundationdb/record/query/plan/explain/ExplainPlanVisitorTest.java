@@ -102,6 +102,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.protobuf.Message;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -746,6 +747,12 @@ public class ExplainPlanVisitorTest {
         @Override
         public Value getResultValue() {
             return new NullValue(Type.primitiveType(Type.TypeCode.UNKNOWN, true));
+        }
+
+        @NonNull
+        @Override
+        public Set<Type> getDynamicTypes() {
+            return Set.of();
         }
 
         @Nonnull

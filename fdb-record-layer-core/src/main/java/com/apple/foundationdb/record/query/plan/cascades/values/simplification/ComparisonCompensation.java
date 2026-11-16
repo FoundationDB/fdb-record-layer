@@ -73,6 +73,7 @@ public interface ComparisonCompensation {
 
     /**
      * Apply the compensation to a value tree.
+     *
      * @param value the original value
      * @return the compensated value
      */
@@ -83,6 +84,7 @@ public interface ComparisonCompensation {
      * Unapply the compensation. For example, if {@code value} is {@code [< to_ordered_bytes(some value, "↓")]} and the
      * compensation was computed by matching {@code fieldValue(qov(q), a) --> to_ordered_bytes(fieldValue(qov(q'), a), "↓")},
      * this method returns {@code some value}
+     *
      * @param value the value to unapply the compensation to
      * @return the original value
      */
@@ -91,6 +93,7 @@ public interface ComparisonCompensation {
 
     /**
      * Apply the compensation to a value tree.
+     *
      * @param comparison the original comparison
      * @return the compensated adjusted comparison
      */

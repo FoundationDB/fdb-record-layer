@@ -41,6 +41,7 @@ public class OrderQueryKeyExpression extends QueryKeyExpression {
      * Turn a comparison on the inner key (usually a field) into the corresponding comparison on this
      * ordering key. In addition to encoding the comparand, the direction of the comparison may need to
      * be reversed if the ordering is (@code DESC).
+     *
      * @param comparison the comparison on the inner key expression
      * @return a comparison on this order key expression, plus a possible second comparison to exclude nulls,
      * or {@code null} if not supported

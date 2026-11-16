@@ -85,6 +85,7 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
 
     /**
      * Create a new extension with some configuration.
+     *
      * @param clusterFile a custom cluster file to use as the primary.
      * @param includeMethodInDescriptions Set this to {@code true} if publishing test results to something that cannot
      * handle complex test hierarchies. In the record layer we maintain the full hierarchy in the output, so this is not
@@ -97,6 +98,7 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
 
     /**
      * Create a new extension with an explicit list of cluster files.
+     *
      * @param clusterFiles the cluster files to use, where index 0 is the primary cluster
      * @param includeMethodInDescriptions Set this to {@code true} if publishing test results to something that cannot
      * handle complex test hierarchies.

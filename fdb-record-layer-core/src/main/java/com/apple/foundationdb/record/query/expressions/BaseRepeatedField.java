@@ -87,6 +87,7 @@ abstract class BaseRepeatedField extends BaseField {
      * This implementation makes each concrete subclass implement its own version of {@link #planHash(PlanHashMode)} so
      * that they are guided to add their own class modifier (See {@link ObjectPlanHash ObjectPlanHash}).
      * This implementation is meant to give subclasses common functionality for their own implementation.
+     *
      * @param mode the plan hash kind to use
      * @param baseHash the subclass' base hash (concrete identifier)
      * @param hashables the rest of the subclass' hashable parameters (if any)

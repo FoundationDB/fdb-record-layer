@@ -45,6 +45,7 @@ import java.util.List;
 /**
  * Expression to allow a static value to be utilized in a key expression.  This primary use case for this
  * is for passing static arguments to functions (see {@link FunctionKeyExpression} for details).
+ *
  * @param <T> the type of the literal value
  */
 @API(API.Status.UNSTABLE)

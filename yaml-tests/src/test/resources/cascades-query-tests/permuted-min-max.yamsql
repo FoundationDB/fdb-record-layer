@@ -1,0 +1,164 @@
+#
+# permuted-min-max.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+# Ported from `FDBPermutedMinMaxQueryTest.selectMaxWithInOrderByMax`, which uses `maxUniqueBy2And3` — a
+# PERMUTED_MAX index over max(num_value_unique) grouped by (num_value_2, num_value_3_indexed) with
+# `PERMUTED_SIZE_OPTION = 1`.
+#
+# The permuted size is not written out in SQL; it is *derived* from where the aggregate sits in the
+# index's ORDER BY — `permutedSize = fieldValues.size() - aggregateOrderIndex`
+# (`MaterializedViewIndexGenerator:238-240`). Two grouping columns with the aggregate at position 1
+# therefore gives 1, which is what puts NUM_VALUE_3_INDEXED after the max in the index key and makes
+# `ORDER BY max(num_value_unique)` free. The idiom is the one `aggregate-index-tests.yamsql:36` uses.
+#
+# Index set: the three proto-declared indexes plus this one. `complexQuerySetup(hook)` does *not* apply
+# `complexQuerySetupHook()`, so there is no MULTI_INDEX and no repeater fan-out index here.
+#
+# The source's `InComparisonCase` parameterization has three cases. `byLiteral` and `byConstantObjectValue`
+# are the same query in SQL, since `AstNormalizer` lifts every literal into a `ConstantObjectValue`, so the
+# first block is a literal IN list. `byParameter` is the second block, with the IN list parameter-injected
+# and `statement_type: prepared`.
+#
+---
+schema_template:
+    create table my_simple_record(
+        rec_no bigint,
+        str_value_indexed string,
+        num_value_unique integer,
+        num_value_2 integer,
+        num_value_3_indexed integer,
+        repeater integer array,
+        primary key(rec_no))
+    create index my_simple_record_str_value_indexed as select str_value_indexed from my_simple_record
+    create index my_simple_record_num_value_3_indexed as select num_value_3_indexed from my_simple_record
+    create unique index my_simple_record_num_value_unique as select num_value_unique from my_simple_record
+    create index max_num_value_unique_by_2_and_3 as
+        select num_value_2, max(num_value_unique), num_value_3_indexed from my_simple_record
+        group by num_value_2, num_value_3_indexed
+        order by num_value_2, max(num_value_unique), num_value_3_indexed
+    WITH OPTIONS(INTERMINGLE_TABLES=true)
+---
+include:
+    cascades-query-tests/includes/simple-record-100.yamsql
+---
+test_block:
+  name: permuted-min-max
+  preset: single_repetition_ordered
+  tests:
+    -
+      # selectMaxWithInOrderByMax [literal IN list: byLiteral / byConstantObjectValue]
+      # selectMaxWithInOrderByMax — an in-union over the aggregate index, comparison key
+      # (m, num_value_2, num_value_3_indexed). The source runs every pair (i, j) with i, j in
+      # -1..3; two representative pairs are used here.
+      - query: select num_value_2, num_value_3_indexed, max(num_value_unique) as m
+               from my_simple_record
+               group by num_value_2, num_value_3_indexed
+               having num_value_2 in (0, 2)
+               order by max(num_value_unique) desc
+      - explain: "[IN arrayDistinct(@c21)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3 [EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._0 AS NUM_VALUE_2, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE BY (_.M, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED)"
+      - result: [{NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, M: 1000},
+                 {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, M: 998},
+                 {NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, M: 997},
+                 {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0, M: 995},
+                 {NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, M: 994},
+                 {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3, M: 992},
+                 {NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 4, M: 991},
+                 {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1, M: 989},
+                 {NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 2, M: 988},
+                 {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 4, M: 986}]
+    -
+      # selectMaxWithInOrderByMax [literal IN list: byLiteral / byConstantObjectValue]
+      # The same with a repeated IN value. The source deduplicates its expectation, so the union
+      # must not emit a group twice.
+      - query: select num_value_2, num_value_3_indexed, max(num_value_unique) as m
+               from my_simple_record
+               group by num_value_2, num_value_3_indexed
+               having num_value_2 in (1, 1)
+               order by max(num_value_unique) desc
+      - explain: "[IN arrayDistinct(@c21)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3 [EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._0 AS NUM_VALUE_2, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE BY (_.M, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED)"
+      - result: [{NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, M: 999},
+                 {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4, M: 996},
+                 {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 2, M: 993},
+                 {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 0, M: 990},
+                 {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 3, M: 987}]
+    -
+      # selectMaxWithInOrderByMax [literal IN list: byLiteral / byConstantObjectValue]
+      # An IN list that matches nothing.
+      - query: select num_value_2, num_value_3_indexed, max(num_value_unique) as m
+               from my_simple_record
+               group by num_value_2, num_value_3_indexed
+               having num_value_2 in (-1, -1)
+               order by max(num_value_unique) desc
+      - explain: "[IN arrayDistinct(@c21)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3 [EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._0 AS NUM_VALUE_2, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE BY (_.M, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED)"
+      - result: []
+---
+test_block:
+  name: permuted-min-max-prepared
+  preset: single_repetition_ordered
+  options:
+    statement_type: prepared
+  tests:
+    -
+      # selectMaxWithInOrderByMax [parameter: byParameter]
+      # selectMaxWithInOrderByMax — an in-union over the aggregate index, comparison key
+      # (m, num_value_2, num_value_3_indexed). The source runs every pair (i, j) with i, j in
+      # -1..3; two representative pairs are used here.
+      - query: select num_value_2, num_value_3_indexed, max(num_value_unique) as m
+               from my_simple_record
+               group by num_value_2, num_value_3_indexed
+               having num_value_2 in !! !in {[0, 2]} !!
+               order by max(num_value_unique) desc
+      - explain: "[IN arrayDistinct(@c21)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3 [EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._0 AS NUM_VALUE_2, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE BY (_.M, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED)"
+      - result: [{NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 0, M: 1000},
+                 {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 2, M: 998},
+                 {NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 3, M: 997},
+                 {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0, M: 995},
+                 {NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, M: 994},
+                 {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 3, M: 992},
+                 {NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 4, M: 991},
+                 {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 1, M: 989},
+                 {NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 2, M: 988},
+                 {NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 4, M: 986}]
+    -
+      # selectMaxWithInOrderByMax [parameter: byParameter]
+      # The same with a repeated IN value. The source deduplicates its expectation, so the union
+      # must not emit a group twice.
+      - query: select num_value_2, num_value_3_indexed, max(num_value_unique) as m
+               from my_simple_record
+               group by num_value_2, num_value_3_indexed
+               having num_value_2 in !! !in {[1, 1]} !!
+               order by max(num_value_unique) desc
+      - explain: "[IN arrayDistinct(@c21)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3 [EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._0 AS NUM_VALUE_2, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE BY (_.M, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED)"
+      - result: [{NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, M: 999},
+                 {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4, M: 996},
+                 {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 2, M: 993},
+                 {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 0, M: 990},
+                 {NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 3, M: 987}]
+    -
+      # selectMaxWithInOrderByMax [parameter: byParameter]
+      # An IN list that matches nothing.
+      - query: select num_value_2, num_value_3_indexed, max(num_value_unique) as m
+               from my_simple_record
+               group by num_value_2, num_value_3_indexed
+               having num_value_2 in !! !in {[-1, -1]} !!
+               order by max(num_value_unique) desc
+      - explain: "[IN arrayDistinct(@c21)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_UNIQUE_BY_2_AND_3 [EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._0 AS NUM_VALUE_2, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE BY (_.M, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED)"
+      - result: []
+...

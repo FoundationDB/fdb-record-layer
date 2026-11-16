@@ -49,7 +49,6 @@ final class IndexPredicates {
      * expressed as ranges. The predicates have to be over the record type the index is on.
      *
      * @param predicates the predicates to store, at least one
-     *
      * @return the predicate to store
      */
     @Nonnull

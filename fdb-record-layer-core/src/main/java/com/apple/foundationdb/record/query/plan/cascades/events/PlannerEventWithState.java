@@ -33,6 +33,7 @@ import java.util.Deque;
 public interface PlannerEventWithState extends PlannerEvent {
     /**
      * Getter.
+     *
      * @return the current planner phase.
      */
     @Nonnull
@@ -40,6 +41,7 @@ public interface PlannerEventWithState extends PlannerEvent {
 
     /**
      * Getter.
+     *
      * @return the root reference of the event
      */
     @Nonnull

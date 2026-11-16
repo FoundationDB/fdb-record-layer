@@ -55,6 +55,7 @@ public @interface YamlTest {
     interface Runner {
         /**
          * Run a {@code .yamsql} test.
+         *
          * @param fileName the filename of the {@code .yamsql} resource
          * @throws Exception if the test has issues
          */

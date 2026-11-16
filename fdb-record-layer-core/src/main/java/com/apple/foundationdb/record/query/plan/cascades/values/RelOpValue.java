@@ -107,6 +107,7 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
 
     /**
      * Creates a new instance of {@link RelOpValue}.
+     *
      * @param functionName The function name.
      * @param comparisonType The comparison type.
      * @param children The child expression(s).

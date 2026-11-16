@@ -101,6 +101,7 @@ public class ScopedDirectoryLayer extends LocatableResolver {
     /**
      * Creates a default instance of the scoped directory layer. This is a {@link LocatableResolver} that is backed by
      * the default instance of the FDB directory layer.
+     *
      * @param database the {@link FDBDatabase} for this resolver
      * @return the global <code>ScopedDirectoryLayer</code> for this database
      */

@@ -54,6 +54,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ExistentialV
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
@@ -136,6 +137,15 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
     @Override
     public List<? extends QueryPredicate> getPredicates() {
         return predicates;
+    }
+
+    @Nonnull
+    @Override
+    protected Set<Type> computeDynamicTypes() {
+        return ImmutableSet.<Type>builder()
+                .addAll(super.computeDynamicTypes())
+                .addAll(RelationalExpressionWithPredicates.super.dynamicTypesFromPredicates())
+                .build();
     }
 
     public boolean hasPredicates() {
@@ -236,6 +246,7 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
      * Returns the partitioning of independent {@link Quantifier}s (via their aliases). A set of quantifiers is
      * independent of another set of {@link Quantifier}s if no elements in these two sets are correlated to one another
      * or are connected by join predicates.
+     *
      * @return a set of sets of aliases where each element is a set of aliases that is only correlated or connected to
      *         other elements of the same set. Any element (alias) from two different partitions are independent.
      */
@@ -676,6 +687,7 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
 
     /**
      * Breaks a list of predicates into a number of sargables and value predicates.
+     *
      * @param predicates The predicates to partition.
      * @return a list of sargables and value predicates.
      */
@@ -762,6 +774,7 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
     /**
      * Flattens a {@link QueryPredicate} (potentially a tree) of predicates into an equivalent linear
      * structure of predicates.
+     *
      * @param classToLift a class of at least type {@link AndOrPredicate}.
      * @param predicate The {@link QueryPredicate}.
      * @return an equivalent, linear, {@link QueryPredicate}.

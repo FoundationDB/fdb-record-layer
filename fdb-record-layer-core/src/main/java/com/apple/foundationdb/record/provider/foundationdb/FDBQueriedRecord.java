@@ -36,6 +36,7 @@ import java.util.Objects;
 
 /**
  * A record returned by a query and therefore possibly associated with a particular entry in some index.
+ *
  * @param <M> type used to represent stored records
  */
 @API(API.Status.UNSTABLE)
@@ -44,6 +45,7 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
      * Get the stored record, if any, that produced this query result record.
      * <code>null</code> if this query result record was assembled without loading the whole record,
      * for example, from a covering index.
+     *
      * @return the stored record form of this record
      */
     @Nullable
@@ -52,6 +54,7 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
     /**
      * Get the index, if any, that produced this query result record.
      * <code>null</code> if this query result record was gotten by some other means than an index scan.
+     *
      * @return the index that was queried to produce this record
      */
     @Nullable
@@ -60,6 +63,7 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
     /**
      * Get the index entry, if any, that produced this query result record.
      * <code>null</code> if this query result record was gotten by direct lookup or scan and not an index.
+     *
      * @return this record's index entry
      */
     @Nullable
@@ -67,6 +71,7 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
 
     /**
      * Get the synthetic record if this is a synthetic record type..
+     *
      * @return a synthetic record of {@code null}
      */
     @Nullable
@@ -74,6 +79,7 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
 
     /**
      * Get a constituent record of this record if it is a synthetic record type.
+     *
      * @param constituentName name of the constituent
      * @return a constituent record of {@code null}
      */
@@ -82,6 +88,7 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
 
     /**
      * Get the name of this constituent if it comes from a synthetic record.
+     *
      * @return a constituent name of {@code null}
      */
     @Nullable
@@ -412,6 +419,7 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
         /**
          * Returns the associated protobuf message as object of type {@code M}. This will do an unchecked cast.
          * It is the responsibility of the caller to not call this method using a typed store.
+         *
          * @return the message associated with this record
          */
         @Nonnull
@@ -508,6 +516,7 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
         /**
          * Returns the associated protobuf message as object of type {@code M}. This will do an unchecked cast.
          * It is the responsibility of the caller to not call this method using a typed store.
+         *
          * @return the message associated with this record
          */
         @Nonnull

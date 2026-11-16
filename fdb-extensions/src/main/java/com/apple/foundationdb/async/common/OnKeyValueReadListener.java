@@ -32,6 +32,7 @@ public interface OnKeyValueReadListener {
      *
      * <p>This method is typically called during a scan or iteration over data for each key/value pair.
      * The default implementation is a no-op and does nothing.
+     *
      * @param key the key that was read, guaranteed to be non-null.
      * @param value the value associated with the key, can be null if the key was not found
      */

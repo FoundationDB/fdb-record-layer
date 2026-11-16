@@ -71,6 +71,7 @@ public interface BooleanValue extends Value {
      * {@code value} doesn't implement {@link BooleanValue} itself (e.g. a boolean literal, constant, or column).
      * Callers that combine boolean operands (e.g. {@link AndOrValue#toQueryPredicate}) should use this for each
      * operand rather than casting to {@link BooleanValue} directly.
+     *
      * @param value a boolean-typed value, which may or may not implement {@link BooleanValue}
      * @param typeRepository a type repository that can be passed to e.g. compile-time evaluable functions
      * @param localAliases set of aliases which are immediately visible to the expression

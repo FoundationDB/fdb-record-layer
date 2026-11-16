@@ -192,7 +192,6 @@ public final class Half extends Number implements Comparable<Half> {
      *
      * @param shortBits
      *            a short.
-     *
      * @return the {@code Half} float-point object with the same bit pattern.
      */
     public static Half shortBitsToHalf(short shortBits) {
@@ -261,7 +260,6 @@ public final class Half extends Number implements Comparable<Half> {
      *
      * @param half
      *            a Half object.
-     *
      * @return the bits that represent the floating-point number.
      */
     public static short halfToShortBits(Half half) {
@@ -292,7 +290,6 @@ public final class Half extends Number implements Comparable<Half> {
      *
      * @param floatRepresentation
      *            a float representation as used within a {@code Half} object.
-     *
      * @return the bits that represent the floating-point number.
      */
     public static short floatToShortBitsCollapseNaN(final float floatRepresentation) {
@@ -324,7 +321,6 @@ public final class Half extends Number implements Comparable<Half> {
      *
      * @param half
      *            a Half object.
-     *
      * @return the bits that represent the half-point number.
      */
     public static short halfToRawShortBits(Half half) {
@@ -518,9 +514,7 @@ public final class Half extends Number implements Comparable<Half> {
      *
      * @param s
      *            the string to be parsed.
-     *
      * @return a {@code Half} object holding the value represented by the {@code String} argument.
-     *
      * @throws NumberFormatException
      *             if the string does not contain a parsable number.
      */
@@ -533,7 +527,6 @@ public final class Half extends Number implements Comparable<Half> {
      *
      * @param doubleValue
      *            a double value.
-     *
      * @return a {@code Half} instance representing {@code doubleValue}.
      */
     public static Half valueOf(double doubleValue) {
@@ -545,7 +538,6 @@ public final class Half extends Number implements Comparable<Half> {
      *
      * @param doubleValue
      *            a double value.
-     *
      * @return a {@code Half} instance representing {@code doubleValue}.
      */
     public static Half valueOf(Double doubleValue) {
@@ -557,7 +549,6 @@ public final class Half extends Number implements Comparable<Half> {
      *
      * @param floatValue
      *            a float value.
-     *
      * @return a {@code Half} instance representing {@code floatValue}.
      */
     public static Half valueOf(float floatValue) {
@@ -575,7 +566,6 @@ public final class Half extends Number implements Comparable<Half> {
      *
      * @param floatValue
      *            a float value.
-     *
      * @return a {@code Half} instance representing {@code floatValue}.
      */
     public static Half valueOf(Float floatValue) {
@@ -587,7 +577,6 @@ public final class Half extends Number implements Comparable<Half> {
      *
      * @param half
      *            a half instance.
-     *
      * @return a {@code Half} instance representing {@code doubleValue}.
      */
     public static Half valueOf(Half half) {
@@ -599,7 +588,6 @@ public final class Half extends Number implements Comparable<Half> {
      *
      * @param half
      *            the {@code Half} to be tested.
-     *
      * @return {@code true} if the argument is NaN; {@code false} otherwise.
      */
     public static boolean isNaN(Half half) {
@@ -620,7 +608,6 @@ public final class Half extends Number implements Comparable<Half> {
      *
      * @param half
      *            the {@code Half} to be tested.
-     *
      * @return {@code true} if the argument is positive infinity or negative infinity; {@code false} otherwise.
      */
     public static boolean isInfinite(Half half) {
@@ -643,7 +630,6 @@ public final class Half extends Number implements Comparable<Half> {
      *
      * @param half
      *            the {@code Half} to be tested
-     *
      * @return {@code true} if the argument is a finite floating-point value, {@code false} otherwise.
      */
     public static boolean isFinite(Half half) {
@@ -695,7 +681,6 @@ public final class Half extends Number implements Comparable<Half> {
      *
      * @param half
      *            the Half to be converted.
-     *
      * @return a string representation of the argument.
      */
     public static String toString(Half half) {
@@ -781,7 +766,6 @@ public final class Half extends Number implements Comparable<Half> {
      *
      * @param half
      *            the {@code Half} to be converted.
-     *
      * @return a hex string representation of the argument.
      */
     public static String toHexString(Half half) {
@@ -806,7 +790,6 @@ public final class Half extends Number implements Comparable<Half> {
      *
      * @param half
      *            the {@code Half} to hash
-     *
      * @return a hash code value for a {@code Half} value.
      */
     public static int hashCode(Half half) {
@@ -836,7 +819,6 @@ public final class Half extends Number implements Comparable<Half> {
      *            the first {@code Half} to compare.
      * @param half2
      *            the second {@code Half} to compare.
-     *
      * @return the value {@code 0} if {@code half1} is numerically equal to {@code half2}; a value less than {@code 0}
      *         if {@code half1} is numerically less than {@code half2}; and a value greater than {@code 0} if
      *         {@code half1} is numerically greater than {@code half2}.
@@ -857,9 +839,7 @@ public final class Half extends Number implements Comparable<Half> {
      *            the first operand
      * @param b
      *            the second operand
-     *
      * @return the sum of {@code a} and {@code b}
-     *
      * @see java.util.function.BinaryOperator
      */
     public static Half sum(Half a, Half b) {
@@ -875,9 +855,7 @@ public final class Half extends Number implements Comparable<Half> {
      *            the first operand
      * @param b
      *            the second operand
-     *
      * @return the greater of {@code a} and {@code b}
-     *
      * @see java.util.function.BinaryOperator
      */
     public static Half max(Half a, Half b) {
@@ -893,9 +871,7 @@ public final class Half extends Number implements Comparable<Half> {
      *            the first operand
      * @param b
      *            the second operand
-     *
      * @return the smaller of {@code a} and {@code b}
-     *
      * @see java.util.function.BinaryOperator
      */
     public static Half min(Half a, Half b) {

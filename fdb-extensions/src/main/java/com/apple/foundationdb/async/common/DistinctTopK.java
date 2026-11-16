@@ -64,7 +64,6 @@ public class DistinctTopK<T> {
      * compares strictly greater than the current worst, which it then evicts.
      *
      * @param item the element to offer
-     *
      * @return {@code true} if the element was retained, {@code false} if it was a duplicate or was rejected
      */
     public boolean add(@Nonnull T item) {
@@ -115,7 +114,6 @@ public class DistinctTopK<T> {
      *
      * @param iterable the elements to offer
      * @param executor the executor to use for asynchronous iteration
-     *
      * @return a future completing with the retained distinct top-K elements, sorted from best to worst
      */
     @Nonnull
@@ -130,7 +128,6 @@ public class DistinctTopK<T> {
      *
      * @param iterator the source of data over which to iterate. This function will exhaust the iterator.
      * @param executor the {@link Executor} to use for asynchronous operations
-     *
      * @return a {@code CompletableFuture} completing with the retained distinct top-K elements, sorted
      */
     public CompletableFuture<List<T>> collectRemaining(final AsyncIterator<T> iterator,
@@ -145,9 +142,7 @@ public class DistinctTopK<T> {
      * @param comparator the comparator defining element order
      * @param k the maximum number of distinct elements to retain; must be positive
      * @param <T> the type of element collected
-     *
      * @return a new collector retaining the k smallest distinct elements
-     *
      * @throws IllegalArgumentException if {@code k} is not positive
      */
     @Nonnull
@@ -162,9 +157,7 @@ public class DistinctTopK<T> {
      * @param comparator the comparator defining element order
      * @param k the maximum number of distinct elements to retain; must be positive
      * @param <T> the type of element collected
-     *
      * @return a new collector retaining the k largest distinct elements
-     *
      * @throws IllegalArgumentException if {@code k} is not positive
      */
     @Nonnull

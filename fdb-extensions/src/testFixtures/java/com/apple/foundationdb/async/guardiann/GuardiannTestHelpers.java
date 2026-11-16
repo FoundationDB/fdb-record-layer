@@ -114,9 +114,7 @@ public class GuardiannTestHelpers {
      * @param batchSize the maximum number of records to insert
      * @param firstId the id handed to {@code insertFunction} for the first record of the batch
      * @param insertFunction produces the record for a given id, or {@code null} to end the batch before that id
-     *
      * @return the records that were actually inserted, in order
-     *
      * @throws ExecutionException if the insert transaction fails
      * @throws InterruptedException if interrupted while waiting for the insert transaction
      * @throws TimeoutException if the insert transaction, including retries, does not finish in time
@@ -185,9 +183,7 @@ public class GuardiannTestHelpers {
      * @param db the database
      * @param guardiann the structure to delete from
      * @param recordsToDelete the records to delete, in order
-     *
      * @return the records that were actually issued for deletion, in order
-     *
      * @throws ExecutionException if the delete transaction fails
      * @throws InterruptedException if interrupted while waiting for the delete transaction
      * @throws TimeoutException if the delete transaction, including retries, does not finish in time
@@ -243,7 +239,6 @@ public class GuardiannTestHelpers {
      * @param db the database
      * @param guardiann the structure to delete from
      * @param records the records to delete
-     *
      * @throws ExecutionException if a delete transaction fails
      * @throws InterruptedException if interrupted while waiting for a delete transaction
      * @throws TimeoutException if a delete transaction, including retries, does not finish in time
@@ -265,7 +260,6 @@ public class GuardiannTestHelpers {
      *
      * @param db the database
      * @param guardiann the structure to inspect
-     *
      * @return the total number of under-replicated primaries across all clusters ({@code 0} if there are none)
      */
     public static int countUnderReplicatedPrimaries(@Nonnull final Database db, @Nonnull final Guardiann guardiann) {
@@ -278,7 +272,6 @@ public class GuardiannTestHelpers {
      * {@link #countUnderReplicatedPrimaries(Database, Guardiann)}.
      *
      * @param snapshot the structure snapshot to aggregate over
-     *
      * @return the total number of under-replicated primaries across all clusters
      */
     static int countUnderReplicatedPrimaries(@Nonnull final StructureSnapshot snapshot) {
@@ -313,7 +306,6 @@ public class GuardiannTestHelpers {
      * @param sizeA size of the first sample
      * @param sizeB size of the second sample
      * @return a {@link Samples} pair
-     *
      * @throws IOException if {@code baseFile} cannot be read
      */
     @Nonnull
@@ -334,9 +326,7 @@ public class GuardiannTestHelpers {
      * @param baseFile path to the {@code .fvecs} base file to sample from
      * @param seed seed for the reservoir's replacement decisions and the post-pass shuffle
      * @param size number of records to sample
-     *
      * @return the sampled records
-     *
      * @throws IOException if {@code baseFile} cannot be read
      */
     @Nonnull
@@ -409,7 +399,6 @@ public class GuardiannTestHelpers {
      * @param guardiann the structure to insert into
      * @param records the records to insert, in order
      * @param batchSize the number of records per insert transaction
-     *
      * @throws Exception if an insert transaction fails or does not finish in time
      */
     public static void insertRecords(@Nonnull final Database db,
@@ -834,7 +823,6 @@ public class GuardiannTestHelpers {
      * @param a the records to delete, in order
      * @param b the records to insert, in order
      * @param batchSize the number of records per step
-     *
      * @return the steps, in order
      */
     @Nonnull
@@ -872,7 +860,6 @@ public class GuardiannTestHelpers {
      * @param seed the seed for the shuffle
      * @param records the records to delete (left untouched)
      * @param batchSize the number of records per batch
-     *
      * @return the batches, in order
      */
     @Nonnull
@@ -892,7 +879,6 @@ public class GuardiannTestHelpers {
      * A mutable {@code primaryKey -> vector} map over {@code records}, mirroring what is live in the index.
      *
      * @param records the records live in the index
-     *
      * @return a fresh, mutable map from each record's primary key to its vector
      */
     @Nonnull

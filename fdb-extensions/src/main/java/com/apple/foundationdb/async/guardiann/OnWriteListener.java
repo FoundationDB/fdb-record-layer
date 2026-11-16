@@ -80,6 +80,7 @@ public interface OnWriteListener extends OnKeyValueWriteListener {
      *
      * <p>This is a default method with an empty implementation, allowing implementing classes to override it only if they
      * need to react to this event.
+     *
      * @param taskKind kind of task
      * @param taskId task identifier
      * @param targetClusterIds target cluster ids of the task
@@ -99,6 +100,7 @@ public interface OnWriteListener extends OnKeyValueWriteListener {
      *
      * <p>As a {@code default} method, the base implementation does nothing. Implementers can override this to perform
      * custom actions, such as updating caches or triggering subsequent events in response to the change.
+     *
      * @param layer the index of the layer where the neighbor write operation occurred
      * @param node the {@link Node} for which the neighbor was written; must not be null
      * @param neighbor the {@link NodeReference} of the neighbor that was written; must not be null
@@ -114,6 +116,7 @@ public interface OnWriteListener extends OnKeyValueWriteListener {
      *
      * <p>This is a default method with an empty implementation, allowing implementing classes to override it only if they
      * need to react to this event.
+     *
      * @param layer the index of the layer where the node was deleted.
      * @param primaryKey the {@link Tuple} used as key to identify the node that was deleted; guaranteed to be non-null.
      */
@@ -128,6 +131,7 @@ public interface OnWriteListener extends OnKeyValueWriteListener {
      * <p>This is a default method and its base implementation is a no-op. Implementors of the interface can override this
      * method to react to the deletion of a neighbor node, for example, to clean up related resources or update internal
      * state.
+     *
      * @param layer the layer index where the deletion occurred
      * @param node the {@link Node} whose neighbor was deleted
      * @param neighborPrimaryKey the primary key (as a {@link Tuple}) of the neighbor that was deleted

@@ -46,6 +46,7 @@ public abstract class BuiltInFunction<T extends Typed> extends CatalogedFunction
 
     /**
      * Creates a new instance of {@link BuiltInFunction}.
+     *
      * @param functionName The name of the function.
      * @param parameterTypes The type of the parameter(s).
      * @param encapsulationFunction An encapsulation of the function's runtime computation.
@@ -56,6 +57,7 @@ public abstract class BuiltInFunction<T extends Typed> extends CatalogedFunction
 
     /**
      * Creates a new instance of {@link BuiltInFunction}.
+     *
      * @param functionName The name of the function.
      * @param parameterTypes The type of the parameter(s).
      * @param variadicSuffixType The type of the function's vararg.

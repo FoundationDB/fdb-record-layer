@@ -30,7 +30,7 @@ apply from: rootProject.file('gradle/publishing.gradle')
 protobuf {
     plugins {
         grpc {
-            artifact = "io.grpc:protoc-gen-grpc-java:${libs.versions.grpc.asProvider().get()}"
+            artifact = "io.grpc:protoc-gen-grpc-java:${libs.versions.grpc.get()}"
         }
     }
     generateProtoTasks {
@@ -48,7 +48,6 @@ dependencies {
     implementation project(":fdb-extensions")
     compileOnly(libs.jsr305)
     implementation(libs.generatedAnnotation)
-    implementation(libs.grpc.commonProtos)
     implementation(libs.grpc.netty)
     implementation(libs.grpc.protobuf)
     implementation(libs.grpc.stub)

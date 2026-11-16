@@ -36,6 +36,7 @@ import java.util.Set;
 
 /**
  * A relational planner expression that represents an unimplemented union of its children.
+ *
  * @see com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan for the fallback implementation
  */
 @API(API.Status.EXPERIMENTAL)

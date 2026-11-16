@@ -108,6 +108,7 @@ class Search {
 
     /**
      * Get the executor used by this hnsw.
+     *
      * @return executor used when running asynchronous tasks
      */
     @Nonnull
@@ -116,8 +117,7 @@ class Search {
     }
 
     /**
-     * Get the configuration of this hnsw.
-     * @return hnsw configuration
+     * {@return the configuration of this hnsw}
      */
     @Nonnull
     public Config getConfig() {
@@ -125,8 +125,7 @@ class Search {
     }
 
     /**
-     * Get the on-write listener.
-     * @return the on-write listener
+     * {@return the on-write listener}
      */
     @Nonnull
     public OnWriteListener getOnWriteListener() {
@@ -134,8 +133,7 @@ class Search {
     }
 
     /**
-     * Get the on-read listener.
-     * @return the on-read listener
+     * {@return the on-read listener}
      */
     @Nonnull
     public OnReadListener getOnReadListener() {

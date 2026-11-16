@@ -37,6 +37,7 @@ public interface WithPlanGenerationSideEffects {
 
     /**
      * Retrieve any extra literals that might have been either extracted away, or provided as a prepared parameter.
+     *
      * @return any extra function literals.
      */
     @Nonnull

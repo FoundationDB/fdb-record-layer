@@ -291,10 +291,10 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
 
     @Nonnull
     @Override
-    public Set<Type> getDynamicTypes() {
+    protected Set<Type> computeDynamicTypes() {
         return ImmutableSet.<Type>builder()
+                .addAll(super.computeDynamicTypes())
                 .addAll(collectionValue.getDynamicTypes())
-                .addAll(getResultValue().getDynamicTypes())
                 .build();
     }
 

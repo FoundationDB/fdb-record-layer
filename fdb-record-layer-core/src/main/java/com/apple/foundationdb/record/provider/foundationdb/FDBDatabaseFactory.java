@@ -264,7 +264,6 @@ public abstract class FDBDatabaseFactory {
      * attempts that an operation is retried. The default value is 10.
      *
      * @param maxAttempts the maximum number of times to run a transactional database operation
-     *
      * @throws IllegalArgumentException if a non-positive number is given
      */
     public void setMaxAttempts(int maxAttempts) {
@@ -297,7 +296,6 @@ public abstract class FDBDatabaseFactory {
      * there will not be more than 1 second between attempts.
      *
      * @param maxDelayMillis the maximum delay between attempts when retrying operations
-     *
      * @throws IllegalArgumentException if the value is negative or less than the minimum delay
      */
     public void setMaxDelayMillis(long maxDelayMillis) {
@@ -336,7 +334,6 @@ public abstract class FDBDatabaseFactory {
      * how long that wait should be. The default value is 10 milliseconds.
      *
      * @param initialDelayMillis the delay ceiling between the first and second attempts at running a database operation
-     *
      * @throws IllegalArgumentException if the value is negative or greater than the maximum delay
      */
     public void setInitialDelayMillis(long initialDelayMillis) {
@@ -446,9 +443,7 @@ public abstract class FDBDatabaseFactory {
     }
 
     /**
-     * Returns the current latency injector.
-     *
-     * @return the current latency injector
+     * {@return the current latency injector}
      */
     @Nonnull
     public Function<FDBLatencySource, Long> getLatencyInjector() {
@@ -506,7 +501,6 @@ public abstract class FDBDatabaseFactory {
      * {@link #UNLIMITED_TR_TIMEOUT_MILLIS}.
      *
      * @return the transaction timeout time in milliseconds
-     *
      * @see #setTransactionTimeoutMillis(long)
      */
     public long getTransactionTimeoutMillis() {
@@ -542,7 +536,6 @@ public abstract class FDBDatabaseFactory {
      * @param storeStateCacheFactory a factory of {@link com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache
      * FDBRecordStoreStateCache}s
      * to use when initializing {@link FDBDatabase}s
-     *
      * @see com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache
      */
     @API(API.Status.EXPERIMENTAL)
@@ -556,7 +549,6 @@ public abstract class FDBDatabaseFactory {
      * executor thread.
      *
      * @param mdcContext if present, the MDC context to be made available within the executors threads
-     *
      * @return a new executor to be used by a {@code FDBRecordContext}
      */
     @Nonnull
@@ -578,7 +570,6 @@ public abstract class FDBDatabaseFactory {
      * {@link FDBDatabaseFactoryImpl#setThreadsPerClientVersion(int)}.
      *
      * @param threadsPerClientV the number of threads per client version. Cannot be less than 1.
-     *
      * @deprecated Call directly on {@link FDBDatabaseFactoryImpl}. This will be removed in a future release.
      */
     @Deprecated
@@ -590,7 +581,6 @@ public abstract class FDBDatabaseFactory {
      * Get the number of threads per FDB client version. The default value is 1.
      *
      * @return the number of threads per client version to use.
-     *
      * @deprecated Call directly on {@link FDBDatabaseFactoryImpl}. This will be removed in a future release.
      */
     @Deprecated
@@ -609,7 +599,6 @@ public abstract class FDBDatabaseFactory {
      * care to ensure that they are thread safe and efficiently process the provided metrics before returning.
      *
      * @param listener the listener to install
-     *
      * @return this factory
      */
     @Nonnull
@@ -657,7 +646,6 @@ public abstract class FDBDatabaseFactory {
      * time a database is needed, and subsequent calls to this method will have no effect.
      *
      * @param traceFormat the output format for client trace logs
-     *
      * @see #setTrace(String, String)
      * @see FDBTraceFormat
      */
@@ -707,9 +695,7 @@ public abstract class FDBDatabaseFactory {
      *
      * @param knob the knob to set
      * @param value the value to set the knob to
-     *
      * @throws RecordCoreArgumentException if {@code value} is not of the type that {@code knob} expects
-     *
      * @see #setKnob(String, String)
      * @see FDBClientKnob
      */
@@ -730,11 +716,9 @@ public abstract class FDBDatabaseFactory {
      *
      * @param knobName the (lower-case) name of the knob to set
      * @param value the value to set the knob to
-     *
      * @throws RecordCoreArgumentException if {@code knobName} is blank or contains an {@code =} character, or
      * if {@code knobName} matches a known {@link FDBClientKnob} and {@code value} is not of the type that knob
      * expects
-     *
      * @see #setKnob(FDBClientKnob, String)
      * @see com.apple.foundationdb.NetworkOptions#setKnob(String)
      */
@@ -746,7 +730,6 @@ public abstract class FDBDatabaseFactory {
      * for example, by setting the {@code FDB_NETWORK_OPTION_KNOB} environment variable.
      *
      * @return an unmodifiable view of the client knobs configured on this factory
-     *
      * @see #setKnob(FDBClientKnob, String)
      * @see #setKnob(String, String)
      */
@@ -760,7 +743,6 @@ public abstract class FDBDatabaseFactory {
      * this method may only be called before {@link FDB} initialization.
      *
      * @throws RecordCoreException if the client has already been initialized
-     *
      * @see #setKnob(FDBClientKnob, String)
      * @see #setKnob(String, String)
      */
@@ -775,7 +757,6 @@ public abstract class FDBDatabaseFactory {
      * sense to call this method if one also calls {@link #setTrace(String, String)}.
      *
      * @param runLoopProfilingEnabled whether run-loop profiling should be enabled
-     *
      * @see NetworkOptions#setEnableSlowTaskProfiling()
      */
     public abstract void setRunLoopProfilingEnabled(boolean runLoopProfilingEnabled);
@@ -784,7 +765,6 @@ public abstract class FDBDatabaseFactory {
      * Get whether additional run-loop profiling has been been enabled.
      *
      * @return whether additional run-loop profiling has been enabled
-     *
      * @see #setRunLoopProfilingEnabled(boolean)
      */
     public abstract boolean isRunLoopProfilingEnabled();
@@ -855,7 +835,6 @@ public abstract class FDBDatabaseFactory {
      * Set the locality provider that is used to discover the server location of the keys.
      *
      * @param localityProvider the locality provider
-     *
      * @see FDBLocalityUtil
      */
     public abstract void setLocalityProvider(@Nonnull FDBLocalityProvider localityProvider);
@@ -864,7 +843,6 @@ public abstract class FDBDatabaseFactory {
      * Return a {@link Database} object from the factory.
      *
      * @param clusterFile Cluster file.
-     *
      * @return FDB Database object.
      */
     @Nonnull

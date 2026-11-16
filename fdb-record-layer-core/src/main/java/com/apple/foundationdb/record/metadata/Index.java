@@ -98,6 +98,7 @@ public class Index {
 
     /**
      * Construct new index meta-data.
+     *
      * @param name the name of the index, which is unique for the whole meta-data
      * @param rootExpression the key expression for the index, such as what field(s) to index
      * @param type the type of index
@@ -113,6 +114,7 @@ public class Index {
 
     /**
      * Construct new index meta-data.
+     *
      * @param name the name of the index, which is unique for the whole meta-data
      * @param rootExpression the key expression for the index, such as what field(s) to index
      * @param type the type of index
@@ -165,6 +167,7 @@ public class Index {
     /**
      * Copy constructor. This will create an index that is identical to the current <code>Index</code>
      * instance.
+     *
      * @param orig original index to copy
      */
     public Index(@Nonnull Index orig) {
@@ -174,6 +177,7 @@ public class Index {
     /**
      * Copy constructor. This will create an index that is identical to the current <code>Index</code> with a given
      * <code>IndexPredicate</code>
+     *
      * @param orig original index to copy
      * @param predicate the index predicate
      */
@@ -295,9 +299,8 @@ public class Index {
     }
 
     /**
-     * Returns the type of the index.
+     * {@return the type of the index}
      *
-     * @return the type of the index.
      * @see IndexTypes
      */
     @Nonnull
@@ -334,6 +337,7 @@ public class Index {
      * with different primary keys should have different values for this
      * index. The default value for this is <code>false</code> if the
      * option is not set explicitly.
+     *
      * @return the value of the "unique" option
      */
     public boolean isUnique() {
@@ -415,6 +419,7 @@ public class Index {
 
     /**
      * Checks whether the subspace key was set using {@link #setSubspaceKey(Object)}.
+     *
      * @return {@code true} if the subspace key was set using {@code #setSubspaceKey(Object)}
      */
     public boolean hasExplicitSubspaceKey() {
@@ -519,8 +524,7 @@ public class Index {
     }
 
     /**
-     * Get the number of indexed value columns.
-     * @return the number of columns
+     * {@return the number of indexed value columns}
      */
     public int getColumnSize() {
         return rootExpression.getColumnSize();
@@ -529,6 +533,7 @@ public class Index {
     /**
      * The number of columns stored for an index entry.
      * Does not count primary key columns that are part of the indexed value, which do not need to be duplicated.
+     *
      * @param primaryKey the primary key for eliminating duplicates
      * @return the size of an index entry
      */
@@ -546,6 +551,7 @@ public class Index {
 
     /**
      * Get the primary key portion of an index entry.
+     *
      * @param entry the index entry
      * @return the primary key extracted from the entry
      */
@@ -566,9 +572,9 @@ public class Index {
     }
 
     /**
-     * Get the primary key positions of an index entry.
+     * {@return a list of the primary key positions for an entry of this index}
+     *
      * @param primaryKeyLength the number of elements in the primary key for the record
-     * @return a list of the primary key positions for an entry of this index
      */
     @Nonnull
     public List<Integer> getEntryPrimaryKeyPositions(int primaryKeyLength) {
@@ -589,6 +595,7 @@ public class Index {
 
     /**
      * Get the version at which the index was first added.
+     *
      * @return the added version
      */
     public int getAddedVersion() {
@@ -597,6 +604,7 @@ public class Index {
 
     /**
      * Set the version at which the index was first added.
+     *
      * @param addedVersion the added version
      */
     public void setAddedVersion(int addedVersion) {
@@ -607,6 +615,7 @@ public class Index {
      * Get the version at which the index was changed.
      *
      * <p>Any record store older than this will need to have the index rebuilt.
+     *
      * @return the last modified version
      */
     public int getLastModifiedVersion() {
@@ -614,9 +623,7 @@ public class Index {
     }
 
     /**
-     * Returns the predicate associated with the index in case of a filtered (sparse) index.
-     *
-     * @return The predicate associated with the index if the index is filtered (sparse), otherwise {@code null}.
+     * {@return the predicate associated with the index if the index is filtered (sparse), otherwise {@code null}}
      */
     @Nullable
     public IndexPredicate getPredicate() {
@@ -634,6 +641,7 @@ public class Index {
 
     /**
      * Set the version at which the index was changed.
+     *
      * @param lastModifiedVersion the last modified version
      */
     public void setLastModifiedVersion(int lastModifiedVersion) {

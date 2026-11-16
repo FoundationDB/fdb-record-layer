@@ -85,6 +85,7 @@ public abstract class ValueEquivalence {
      * Method that returns the inverse of this value equivalence. Note that the inverse may not exist due to
      * ambiguous left sides that are equal to one right side. This does not happen currently, but it is possible
      * it may happen in the future, thus the inverse may or may not be defined.
+     *
      * @return the inverse if it exists, {@code Optional.empty()} otherwise.
      */
     @Nonnull
@@ -374,6 +375,11 @@ public abstract class ValueEquivalence {
         @Nonnull
         public ConstrainedBoolean isDefinedEqual(@Nonnull final ConstantObjectValue constantObjectValue,
                                                  @Nonnull final LiteralValue<?> literalValue) {
+            if (evaluationContext.isValueFreeConstant(constantObjectValue.getAlias(),
+                    constantObjectValue.getConstantId())) {
+                // The constant has no value, so it equals no literal.
+                return falseValue();
+            }
             final var constantObject = constantObjectValue.evalWithoutStore(evaluationContext);
             final var literalObject = literalValue.getLiteralValue();
             if (constantObject == null && literalObject == null) {

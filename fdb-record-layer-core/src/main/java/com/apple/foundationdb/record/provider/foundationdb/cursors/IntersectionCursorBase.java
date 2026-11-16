@@ -171,6 +171,7 @@ abstract class IntersectionCursorBase<T, U> extends MergeCursor<T, U, KeyedMerge
      * will return a child with no next element if any of its child cursors have stopped, it is likely that there are
      * only a small number (maybe one or two) cursors that have actually stopped when this method is called (e.g., the
      * first cursor to exhaust its source or the first cursor to hit a limit imposed by the element scan limiter).
+     *
      * @return the weakest reason for stopping
      */
     @Override

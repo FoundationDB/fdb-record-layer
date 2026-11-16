@@ -20,6 +20,7 @@
 
 /**
  * Classes for validating and repairing records in the DB.
+ *
  * @see com.apple.foundationdb.record.provider.foundationdb.recordrepair.RecordValidator
  */
 package com.apple.foundationdb.record.provider.foundationdb.recordrepair;

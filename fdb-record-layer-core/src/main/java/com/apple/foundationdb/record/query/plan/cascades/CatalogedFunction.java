@@ -206,6 +206,7 @@ public abstract class CatalogedFunction {
      * Validates the function invocation using named arguments. It checks whether the argument names match parameter
      * names, and that any missing parameter has a default value. It effectively leaves all the work related to handling
      * permissible implicit promotions to the actual function invocation.
+     *
      * @param namedArgumentsTypeMap a list of named arguments.
      * @return if the arguments type match, an {@link Optional} containing <code>this</code> instance, otherwise
      * and empty {@link Optional}.
@@ -240,6 +241,7 @@ public abstract class CatalogedFunction {
      * Validates the function invocation using unnamed arguments. It checks whether the argument names match parameter
      * names, and that any missing parameter has a default value. It effectively leaves all the work related to handling
      * permissible implicit promotions to the actual function invocation.
+     *
      * @param unnamedArguments a list of named arguments.
      * @return if the arguments type match, an {@link Optional} containing <code>this</code> instance, otherwise
      * and empty {@link Optional}.

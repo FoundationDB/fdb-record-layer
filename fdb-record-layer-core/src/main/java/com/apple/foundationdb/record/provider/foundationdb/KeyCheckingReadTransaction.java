@@ -40,6 +40,7 @@ import java.util.function.Function;
 
 /**
  * Wrapper around {@link Transaction} that performs checks on keys passed to various operations.
+ *
  * @param <T> type of transaction
  */
 @API(API.Status.EXPERIMENTAL)

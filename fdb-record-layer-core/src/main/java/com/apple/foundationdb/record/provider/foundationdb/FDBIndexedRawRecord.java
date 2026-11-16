@@ -53,8 +53,7 @@ public class FDBIndexedRawRecord {
     }
 
     /**
-     * Get the index for this record.
-     * @return the index that contained the entry pointing to this record
+     * {@return the index that contained the entry pointing to this record}
      */
     @Nonnull
     public Index getIndex() {
@@ -62,8 +61,7 @@ public class FDBIndexedRawRecord {
     }
 
     /**
-     * Get the index entry for this record.
-     * @return the index entry that pointed to this record
+     * {@return the index entry that pointed to this record}
      */
     @Nonnull
     public IndexEntry getIndexEntry() {

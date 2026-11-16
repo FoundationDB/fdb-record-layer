@@ -445,6 +445,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
 
     /**
      * Utility helper to run a query and assert the results.
+     *
      * @param query the query to run
      * @param fieldName the field value to extract from each record
      * @param expectedValues a map of PK value to a field value to expect
@@ -457,6 +458,7 @@ public class LuceneStoredFieldsTest extends FDBRecordStoreTestBase {
 
     /**
      * Utility helper to run a query and assert the results.
+     *
      * @param query the query to run
      * @param fieldName the field value to extract from each record
      * @param expectedValues a map of PK Tuple to a field value to expect

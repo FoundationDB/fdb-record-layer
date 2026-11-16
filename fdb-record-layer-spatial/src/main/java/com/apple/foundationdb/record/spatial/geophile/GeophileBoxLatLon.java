@@ -37,6 +37,7 @@ public class GeophileBoxLatLon {
 
     /**
      * Get a box with possible wraparound.
+     *
      * @param latLo low latitude value
      * @param latHi high latitude value
      * @param lonLo low longitude value

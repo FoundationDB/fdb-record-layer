@@ -31,6 +31,7 @@ public final class TestConfigurationUtils {
 
     /**
      * Provide the given parameters to a parameterized test only if we are running nightly tests.
+     *
      * @param arguments a list of arguments for a parameterized test
      * @param <T> the type of arguments
      * @return if we are running the nightly tests, the provided arguments, otherwise {@code Stream.of()}.

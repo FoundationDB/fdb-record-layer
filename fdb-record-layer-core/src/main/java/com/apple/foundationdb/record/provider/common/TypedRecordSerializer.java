@@ -38,6 +38,7 @@ import java.util.function.Supplier;
  * Serialize records using default Protobuf serialization using supplied message builder
  * for the union message type and two accessors for the message field corresponding to the
  * known record type.
+ *
  * @param <M> generated Protobuf class for the record message type
  * @param <U> generated Protobuf class for the union message
  * @param <B> generated Protobuf class for the union message's builder

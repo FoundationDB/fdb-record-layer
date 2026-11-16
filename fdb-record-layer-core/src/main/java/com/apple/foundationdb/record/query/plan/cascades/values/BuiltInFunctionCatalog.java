@@ -101,6 +101,7 @@ public class BuiltInFunctionCatalog {
 
     /**
      * Get the loaded representative function singleton for a function class.
+     *
      * @param clazz the class to look up
      * @return an {@link Optional} containing the function singleton or {@code Optional.empty()}
      */

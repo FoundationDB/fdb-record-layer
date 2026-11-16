@@ -122,6 +122,7 @@ class RemoteFetchTest extends RemoteFetchTestBase {
      * entries), this test uses a different index ("PrimaryKeyIndex"). The test runs through a scenario where the primary
      * key component is also present in the index entry and is therefore removed from the actual index key primary key
      * location (since it is duplicate) - see {@link Index#getEntryPrimaryKeyPositions(int)}
+     *
      * @param useIndexPrefetch the fetch method mode to use
      */
     @ParameterizedTest(name = "indexPrefetchPrimaryKeyIndexTest(" + ARGUMENTS_WITH_NAMES_PLACEHOLDER + ")")

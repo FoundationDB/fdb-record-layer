@@ -35,6 +35,7 @@ public interface QueryPredicateWithChild extends QueryPredicate {
 
     /**
      * Method to retrieve a list of children values.
+     *
      * @return a list of children
      */
     @Nonnull
@@ -45,6 +46,7 @@ public interface QueryPredicateWithChild extends QueryPredicate {
 
     /**
      * Method to retrieve the only child predicate.
+     *
      * @return this child {@link QueryPredicate}
      */
     @Nonnull

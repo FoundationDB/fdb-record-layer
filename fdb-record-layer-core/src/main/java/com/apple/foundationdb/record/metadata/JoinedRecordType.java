@@ -31,15 +31,24 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.provider.foundationdb.RecordDoesNotExistException;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHint;
+import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.ScalarTranslationVisitor;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -222,7 +231,41 @@ public class JoinedRecordType extends SyntheticRecordType<JoinedRecordType.JoinC
     @Override
     @API(API.Status.INTERNAL)
     public GraphExpansion expand(@Nonnull final AccessHint accessHint) {
-        throw new UnsupportedOperationException("cannot expand an index defined on a " + getClass().getSimpleName());
+        final GraphExpansion.Builder builder = GraphExpansion.builder();
+        final Map<String, Quantifier> quantifiersByConstituent = new HashMap<>();
+        for (final JoinConstituent constituent : getConstituents()) {
+            if (constituent.isOuterJoined()) {
+                throw new UnsupportedOperationException("cannot expand an outer-joined constituent of a " +
+                        getClass().getSimpleName());
+            }
+            final GraphExpansion constituentExpansion = constituent.getRecordType().expand(accessHint);
+            final Quantifier constituentQuantifier = Iterables.getOnlyElement(constituentExpansion.getQuantifiers());
+            builder.addQuantifier(constituentQuantifier);
+            builder.addResultColumn(Column.of(Optional.of(constituent.getName()),
+                    Iterables.getOnlyElement(constituentExpansion.getResultColumns()).getValue()));
+            quantifiersByConstituent.put(constituent.getName(), constituentQuantifier);
+        }
+        // a joined record is a combination of constituent records satisfying every join, an inner join of them
+        for (final Join join : getJoins()) {
+            final Value leftValue = joinColumnValue(quantifiersByConstituent.get(join.getLeft().getName()),
+                    join.getLeftExpression());
+            final Value rightValue = joinColumnValue(quantifiersByConstituent.get(join.getRight().getName()),
+                    join.getRightExpression());
+            builder.addPredicate(new ValuePredicate(leftValue,
+                    new Comparisons.ValueComparison(Comparisons.Type.EQUALS, rightValue)));
+        }
+        return builder.build();
+    }
+
+    /**
+     * The value a join reads from a constituent: its expression, which addresses a single column, over the records the
+     * constituent's quantifier flows.
+     */
+    @Nonnull
+    private static Value joinColumnValue(@Nonnull final Quantifier constituentQuantifier,
+                                         @Nonnull final KeyExpression expression) {
+        return new ScalarTranslationVisitor(expression).toResultValue(constituentQuantifier.getAlias(),
+                constituentQuantifier.getFlowedObjectType());
     }
 
 }

@@ -34,6 +34,7 @@ import javax.annotation.Nonnull;
 public interface VectorOperator {
     /**
      * Returns the numbers of dimensions a vector must have to be able to be applied or apply-inverted.
+     *
      * @return the numbers of dimensions this vector operator supports; can be {@code -1} if any number of dimensions
      *         is supported.
      */
@@ -41,6 +42,7 @@ public interface VectorOperator {
 
     /**
      * Apply this operator to the vector passed in.
+     *
      * @param vector the vector
      * @return a new vector
      */
@@ -49,6 +51,7 @@ public interface VectorOperator {
 
     /**
      * Apply the inverted operator to the vector passed in. {@code applyInverted(apply(v)) == v} should hold.
+     *
      * @param vector the vector
      * @return a new vector
      */
@@ -57,6 +60,7 @@ public interface VectorOperator {
 
     /**
      * Applies the operator to the vector that is passed in and creates a `Transformed` wrapper wrapping the result.
+     *
      * @param vector the vector
      * @return a {@link Transformed}-wrapped result
      */
@@ -68,6 +72,7 @@ public interface VectorOperator {
     /**
      * Inverted-applies the operator to a transformed vector that is passed in and returns a naked (unwrapped)
      * {@link RealVector}.
+     *
      * @param vector the vector
      * @return a {@link Transformed}-wrapped result
      */

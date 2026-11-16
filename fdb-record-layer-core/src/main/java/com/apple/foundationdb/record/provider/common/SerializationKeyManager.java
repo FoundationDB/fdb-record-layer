@@ -35,12 +35,14 @@ public interface SerializationKeyManager {
     /**
      * Get the key number to be used for <em>serializing</em> a record.
      * Typically, this would be the <em>latest</em> key.
+     *
      * @return the key number to use
      */
     int getSerializationKey();
 
     /**
      * Get the key with the given key number.
+     *
      * @param keyNumber the unique key identifier
      * @return the cipher used with this key
      */
@@ -48,6 +50,7 @@ public interface SerializationKeyManager {
 
     /**
      * Get the name of the cipher used with the given key number.
+     *
      * @param keyNumber the unique key identifier
      * @return the cipher used with this key
      */

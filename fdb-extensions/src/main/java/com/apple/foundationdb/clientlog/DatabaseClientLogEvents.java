@@ -233,6 +233,7 @@ public class DatabaseClientLogEvents {
 
     /**
      * Apply a callback to client latency events recorded in the given database between two commit versions.
+     *
      * @param database the database to open and read events from
      * @param executor executor to use when running transactions
      * @param callback the callback to apply
@@ -254,6 +255,7 @@ public class DatabaseClientLogEvents {
 
     /**
      * Apply a callback to client latency events recorded in the given database between two commit versions.
+     *
      * @param database the database to open and read events from
      * @param executor executor to use when running transactions
      * @param callback the callback to apply
@@ -280,6 +282,7 @@ public class DatabaseClientLogEvents {
 
     /**
      * Apply a callback to client latency events following an early return due to reaching a limit.
+     *
      * @param database the database to open and read events from
      * @param executor executor to use when running transactions
      * @param callback the callback to apply

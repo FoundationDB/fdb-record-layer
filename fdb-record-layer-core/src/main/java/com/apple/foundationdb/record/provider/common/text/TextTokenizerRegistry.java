@@ -68,6 +68,7 @@ public interface TextTokenizerRegistry {
 
     /**
      * Returns all registered tokenizers.
+     *
      * @return a map from tokenizer name to {@link TextTokenizerFactory}
      */
     @Nonnull

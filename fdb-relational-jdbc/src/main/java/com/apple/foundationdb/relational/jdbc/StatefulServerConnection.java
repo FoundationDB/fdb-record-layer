@@ -73,7 +73,6 @@ public final class StatefulServerConnection implements StreamObserver<Transactio
      * protocol.
      *
      * @param request the request to send
-     *
      * @return the response returned by the server
      */
     public TransactionalResponse sendRequest(TransactionalRequest request) {
@@ -137,6 +136,7 @@ public final class StatefulServerConnection implements StreamObserver<Transactio
     /**
      * Got an error from the server.
      * This is closing the connection, and no other calls can be made.
+     *
      * @param t the error occurred on the stream
      */
     @Override

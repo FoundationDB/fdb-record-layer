@@ -164,6 +164,7 @@ public class TypeRepository {
 
     /**
      * Returns the protobuf type name of the given {@link Type}.
+     *
      * @param type The type to get the name of.
      * @return The protobuf type name of the {@link Type}.
      */

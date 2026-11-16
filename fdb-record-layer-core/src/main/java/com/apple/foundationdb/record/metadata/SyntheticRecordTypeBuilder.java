@@ -36,6 +36,7 @@ import java.util.stream.Collectors;
 
 /**
  * A builder for {@link SyntheticRecordType}.
+ *
  * @param <C> type of constituent record types
  */
 @API(API.Status.EXPERIMENTAL)
@@ -87,6 +88,7 @@ public abstract class SyntheticRecordTypeBuilder<C extends SyntheticRecordTypeBu
 
     /**
      * Get the constitutents of this synthetic record type.
+     *
      * @return list of constituents
      */
     @Nonnull
@@ -99,6 +101,7 @@ public abstract class SyntheticRecordTypeBuilder<C extends SyntheticRecordTypeBu
 
     /**
      * Add a new constituent.
+     *
      * @param constituent the new constituent
      * @return the newly added constituent
      */
@@ -110,6 +113,7 @@ public abstract class SyntheticRecordTypeBuilder<C extends SyntheticRecordTypeBu
 
     /**
      * Add a new constituent by name.
+     *
      * @param name the correlation name for the new constituent
      * @param recordType the record type for the new constituent
      * @return the newly added constituent
@@ -121,6 +125,7 @@ public abstract class SyntheticRecordTypeBuilder<C extends SyntheticRecordTypeBu
 
     /**
      * Add a new constituent by name.
+     *
      * @param name the correlation name for the new constituent
      * @param recordType the name of the record type for the new constituent
      * @return the newly added constituent
@@ -132,6 +137,7 @@ public abstract class SyntheticRecordTypeBuilder<C extends SyntheticRecordTypeBu
 
     /**
      * Add a new constituent with a correlation name that is the same as the record type name.
+     *
      * @param recordType the record type for the new constituent
      * @return the newly added constituent
      */
@@ -142,6 +148,7 @@ public abstract class SyntheticRecordTypeBuilder<C extends SyntheticRecordTypeBu
 
     /**
      * Add a new constituent with a correlation name that is the same as the record type name.
+     *
      * @param constituent name of the record type for the new constituent
      * @return the newly added constituent
      */

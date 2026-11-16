@@ -37,9 +37,7 @@ public interface Table extends Metadata {
     // List<Column> getPrimaryKey();
 
     /**
-     * Retrieves a list of the table {@link Column}s.
-     *
-     * @return A list of the table {@link Column}s.
+     * {@return a list of the table {@link Column}s}
      */
     @Nonnull
     Collection<? extends Column> getColumns();
@@ -58,9 +56,8 @@ public interface Table extends Metadata {
     }
 
     /**
-     * Returns the {@link DataType} of the {@link Table}.
+     * {@return the {@link DataType} of the {@link Table}}
      *
-     * @return The {@link DataType} of the {@link Table}.
      * @apiNote Because of our nested {@link DataType} model, {@link Table}s have a compliant {@link DataType} which
      * is a {@link DataType.StructType}.
      */

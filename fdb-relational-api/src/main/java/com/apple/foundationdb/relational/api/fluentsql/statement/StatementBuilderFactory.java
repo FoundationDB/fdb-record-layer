@@ -42,7 +42,6 @@ public interface StatementBuilderFactory {
      * @param updateQuery The update query.
      * @param columnSynonyms A map of column synonyms (aliases).
      * @return An update builder that corresponds to the SQL statement.
-     *
      * @apiNote this method should not exist, instead the metadata itself should hold the synonym information.
      * TODO: remove once (TODO ([POST] Synonym support in Relational Metadata) is implemented.
      */
@@ -58,7 +57,6 @@ public interface StatementBuilderFactory {
      * @param parseTree The update query parse tree.
      * @param columnSynonyms A map of column synonyms (aliases).
      * @return An update builder that corresponds to the SQL statement.
-     *
      * @apiNote this method should not exist, instead the metadata itself should hold the synonym information.
      * TODO: remove once (TODO ([POST] Synonym support in Relational Metadata) is implemented.
      */

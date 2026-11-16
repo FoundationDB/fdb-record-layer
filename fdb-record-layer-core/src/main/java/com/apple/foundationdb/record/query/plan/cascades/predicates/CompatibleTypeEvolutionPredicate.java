@@ -110,6 +110,7 @@ public class CompatibleTypeEvolutionPredicate extends AbstractQueryPredicate imp
 
     /**
      * Constructs a new {@link CompatibleTypeEvolutionPredicate} instance.
+     *
      * @param recordTypeNameFieldAccessMap a map from record type names to field access tries that for each referenced
      *        record type in a query (designated by its record type name) encodes the accessed fields of that record
      *        type in that query.

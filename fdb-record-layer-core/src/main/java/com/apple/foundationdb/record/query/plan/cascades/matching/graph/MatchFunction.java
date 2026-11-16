@@ -34,6 +34,7 @@ import javax.annotation.Nonnull;
 public interface MatchFunction<T, M> {
     /**
      * Compute a match result.
+     *
      * @param element element on this side
      * @param otherElement element on the other side
      * @param aliasMap bindings that already have been established

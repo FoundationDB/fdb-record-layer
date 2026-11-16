@@ -167,7 +167,6 @@ public final class RecordLayerJoinedSyntheticTable extends RecordLayerSyntheticT
          *
          * @param alias the correlation the definition referenced the table by
          * @param tableType the stored table
-         *
          * @return this builder
          */
         @Nonnull

@@ -28,6 +28,7 @@ import javax.annotation.Nonnull;
 /**
  * A record-like class wrapping a {@link RealVector} and a count. This data structure is used to keep a running sum
  * of many vectors in order to compute their centroid at a later time.
+ *
  * @param partialCount count aggregate to indicate how many vectors have been aggregated to form {@code partialVector}
  * @param partialVector the vector aggregate (mostly the sum of all individual vectors)
  */

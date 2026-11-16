@@ -157,6 +157,7 @@ public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpre
     /**
      * Get number of leading columns that select the group (e.g., ranked set or atomic aggregate);
      * remaining fields are the value (e.g., score) within the set.
+     *
      * @return the number of leading columns that select the group
      * @see #getGroupedCount()
      */

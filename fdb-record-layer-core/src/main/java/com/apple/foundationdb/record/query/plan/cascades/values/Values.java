@@ -46,6 +46,7 @@ import java.util.stream.StreamSupport;
 public class Values {
     /**
      * Expand a record value into its field values.
+     *
      * @param recordValue the record value
      * @return a list of field values
      */
@@ -91,6 +92,7 @@ public class Values {
      * method uses this type information to construct a list of accessors that retrieve the primitive data elements of
      * that flowed record, i.e, this method would return {@code {_.x.a, _.x,b, _.y}}.
      * <br>
+     *
      * @param type the type used to construct accessors for
      * @param baseValueSupplier a supplier that creates a base value the accessors are expressed over
      * @return a list of {@link Value}s consisting of the accessors to primitive elements of the given type.
@@ -139,10 +141,6 @@ public class Values {
      * <li>All field values must reference the same underlying record</li>
      * <li>The result type must match the underlying record's type</li>
      * </ul>
-     *
-     * <p>Note that this method will still return the underlying record value even if it contains more fields than the
-     * record. This is considered to be fine as it does not influence the semantics of any {@code Value} operating on
-     * top of the record, because any invisible fields to an upper {@code Value} remain invisible.
      *
      * @param recordConstructorValue the record constructor to potentially collapse
      * @return an {@link Optional} containing the underlying record value if collapse is possible,

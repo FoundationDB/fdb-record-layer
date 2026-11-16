@@ -79,6 +79,7 @@ final class VectorIndexTaskCounts {
     /**
      * A handle bound to one partition prefix that the maintenance write listener uses to bump the counts as tasks are
      * enqueued and executed.
+     *
      * @param prefix the partition prefix (empty for an unpartitioned index)
      * @return a register handle for {@code prefix}
      */
@@ -89,6 +90,7 @@ final class VectorIndexTaskCounts {
 
     /**
      * Adds {@code +1} to the prefix's count, in {@code transaction}.
+     *
      * @param transaction the transaction the enqueue happened in
      * @param prefix the partition prefix
      */
@@ -98,6 +100,7 @@ final class VectorIndexTaskCounts {
 
     /**
      * Adds {@code -1} to the prefix's count, in {@code transaction}.
+     *
      * @param transaction the transaction the execution happened in
      * @param prefix the partition prefix
      */
@@ -120,6 +123,7 @@ final class VectorIndexTaskCounts {
     /**
      * Clears the per-prefix counts for every prefix that begins with {@code prefix} (a possibly-partial group prefix, as
      * used by {@code deleteWhere}), dropping the outstanding-work entries for whole groups that are being removed.
+     *
      * @param transaction the transaction to clear in
      * @param prefix the (possibly partial) prefix whose counts to remove
      */
@@ -132,6 +136,7 @@ final class VectorIndexTaskCounts {
      * (count &gt; 0), each paired with its count. The read streams lazily (an {@link AsyncIterator} rather than a
      * materialized list) so a merge driver can walk partitions and stop as soon as its budget is spent, without ever
      * pulling every partition into memory.
+     *
      * @param snapshot a snapshot read view (adds no read conflicts)
      * @param executor the executor to advance the filtering iterator on
      * @return an iterator over the prefixes with outstanding tasks and their counts
@@ -167,6 +172,7 @@ final class VectorIndexTaskCounts {
     /**
      * Snapshot-reads whether any prefix has outstanding work. Since a count is dropped the instant it hits zero, the
      * per-prefix map holds only positive entries, so the presence of any entry means work.
+     *
      * @param snapshot a snapshot read view
      * @return whether any prefix has outstanding tasks
      */
@@ -193,6 +199,7 @@ final class VectorIndexTaskCounts {
      * transaction — the atomic {@code ADD}/{@code COMPARE_AND_CLEAR} mutations of a drain in flight are reflected — so a
      * merge can ask "is this partition empty now?" immediately after draining it (including any follow-up tasks the
      * drain enqueued).
+     *
      * @param snapshot a snapshot read view
      * @param prefix the partition prefix
      * @return a future of the current outstanding count for {@code prefix} ({@code 0} if the entry is absent)

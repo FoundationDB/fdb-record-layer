@@ -130,6 +130,7 @@ public class PullUp {
      * {@link com.apple.foundationdb.record.query.plan.cascades.PartialMatch} in the matching path. If there is such a
      * pulled up value, the compensation can be expressed and realized by a filter or map or similar. Note that it is
      * possible that the passed in value cannot be pulled up. This method returns {@code Optional.empty()} in such case.
+     *
      * @param value the {@link Value} to be pulled up
      * @return an optional contained the pulled up {@link Value} of {@code value} or {@code Optional.empty()} if
      *         {@code value} could not be pulled up.

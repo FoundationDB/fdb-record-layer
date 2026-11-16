@@ -86,6 +86,7 @@ public final class FDBTestEnvironment {
 
     /**
      * Marks the current test as skipped if there are not the desired number of clusters available to test against.
+     *
      * @param desiredCount the number of clusters to test against
      */
     public static void assumeClusterCount(final int desiredCount) {

@@ -58,6 +58,7 @@ public class ResolverCreateHooks {
 
     /**
      * Gets the default set of no-op create hooks.
+     *
      * @return the {@link ResolverCreateHooks}
      */
     public static ResolverCreateHooks getDefault() {

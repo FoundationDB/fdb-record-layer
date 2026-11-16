@@ -27,6 +27,7 @@ import javax.annotation.Nullable;
 
 /**
  * Trait for classes containing a {@code Value}.
+ *
  * @param <T> The self type of {@code this}.
  */
 public interface WithValue<T extends WithValue<T>> {

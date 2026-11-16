@@ -190,6 +190,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
      * with the additional support for {@link ExecuteProperties} and continuation.
      * This method returns the last result encountered. In the case where the row limit was encountered, this would be the one
      * result that contains the continuation that should be used on the next call.
+     *
      * @param recordMetaDataHook Metadata hook to invoke while opening store
      * @param plan the plan to execute
      * @param contextSupplier provider method to get execution context
@@ -624,6 +625,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
 
     /**
      * For the cascades planner, plan the query, serialize the plan to bytes, parse those bytes and reconstruct the plan.
+     *
      * @param query the query
      * @return the plan that is either just planned or planned, then serialized, deserialized, and reconstructed
      */
@@ -634,6 +636,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
 
     /**
      * For the cascades planner, plan the query, serialize the plan to bytes, parse those bytes and reconstruct the plan.
+     *
      * @param planner the planner to use
      * @param query the query
      * @return the plan that is either just planned or planned, then serialized, deserialized, and reconstructed
@@ -700,6 +703,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     /**
      * Serialize the plan to bytes, parse those bytes, reconstruct, and compare the deserialized plan against the
      * original plan.
+     *
      * @param plan the original plan
      * @return the deserialized and verified plan
      */
@@ -727,6 +731,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     /**
      * Serialize the plan to bytes, parse those bytes, reconstruct, and compare the deserialized plan against the
      * original plan.
+     *
      * @param plan the original plan
      * @return the deserialized and verified plan
      */

@@ -41,6 +41,7 @@ public class VersionFromTimestamp {
 
     /**
      * Get the last version from the timekeeper at or before the given timestamp.
+     *
      * @param tr an open transaction
      * @param timestamp the wall-clock time
      * @return a future that completes with the recorded version that comes immediately before the target time
@@ -52,6 +53,7 @@ public class VersionFromTimestamp {
 
     /**
      * Get the first version from the timekeeper at or after the given timestamp.
+     *
      * @param tr an open transaction
      * @param timestamp the wall-clock time
      * @return a future that completes with the recorded version that comes immediately after the target time

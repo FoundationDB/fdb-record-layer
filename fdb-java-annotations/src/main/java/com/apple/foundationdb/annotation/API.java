@@ -46,6 +46,7 @@ import java.lang.annotation.Target;
 public @interface API {
     /**
      * Return the {@link Status} of the API element.
+     *
      * @return the current stability status of the annotated element
      */
     Status value();

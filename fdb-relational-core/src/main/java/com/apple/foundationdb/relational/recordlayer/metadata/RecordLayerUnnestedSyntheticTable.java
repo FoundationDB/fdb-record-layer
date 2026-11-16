@@ -190,7 +190,6 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
          *
          * @param alias the constituent's alias, for the rejection message
          * @param nestingExpression the expression navigating to the constituent's elements
-         *
          * @return the field names the expression walks, outermost first
          */
         @Nonnull

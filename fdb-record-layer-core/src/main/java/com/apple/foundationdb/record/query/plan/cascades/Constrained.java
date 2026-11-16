@@ -27,11 +27,13 @@ import javax.annotation.Nonnull;
 
 /**
  * A container that can carry a {@link QueryPlanConstraint}.
+ *
  * @param <T> type parameter of the type of object this container wraps.
  */
 public interface Constrained<T> {
     /**
      * Method that returns the wrapped object.
+     *
      * @return the wrapped object
      */
     @Nonnull
@@ -49,6 +51,7 @@ public interface Constrained<T> {
     /**
      * Method to compose this boolean with a {@link QueryPlanConstraint}. It is assumed that the caller just wants to
      * strengthen the constraint already recorded in {@code this}.
+     *
      * @param constraint a {@link QueryPlanConstraint}
      * @return a new {@link Constrained} that is {@code false} if {@code this} is false,
      *         and that is {@code true} otherwise under the composed constraint from the constraint of {@code this} and
@@ -59,6 +62,7 @@ public interface Constrained<T> {
 
     /**
      * Helper method to create an unconstrained wrapper.
+     *
      * @param object object to wrap
      * @return a new unconditional {@link Constrained}
      */
@@ -69,6 +73,7 @@ public interface Constrained<T> {
 
     /**
      * Helper method to create an unconstrained wrapper.
+     *
      * @param object object to wrap
      * @param queryPlanConstraint the query plan constraint
      * @return a new unconditional {@link Constrained}

@@ -46,6 +46,7 @@ public class TextCollatorRegistryJRE implements TextCollatorRegistry {
 
     /**
      * Get the singleton instance of this registry.
+     *
      * @return the text collator registry that used JRE classes.
      */
     @SuppressWarnings("squid:S1845")    // The two are the same.

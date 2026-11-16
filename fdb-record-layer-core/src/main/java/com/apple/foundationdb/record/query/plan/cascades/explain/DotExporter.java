@@ -125,7 +125,6 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
      * Test if the ID candidate is a valid ID.
      *
      * @param idCandidate the ID candidate.
-     *
      * @return <code>true</code> if it is valid; <code>false</code> otherwise.
      */
     @Override
@@ -505,6 +504,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
 
     /**
      * Write out a map of String -> Object as attributes of a vertex or edge.
+     *
      * @param context context
      * @param attributes attributes
      */
@@ -601,6 +601,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
 
     /**
      * Write out a map of String -> Object as attributes of a cluster.
+     *
      * @param context context
      * @param attributes attributes
      */
@@ -616,6 +617,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
 
     /**
      * Write out a key value pair for an attribute.
+     *
      * @param context context
      * @param attrName name
      * @param attribute attribute value

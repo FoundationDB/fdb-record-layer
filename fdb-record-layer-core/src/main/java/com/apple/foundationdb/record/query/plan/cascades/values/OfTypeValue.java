@@ -177,6 +177,7 @@ public class OfTypeValue extends AbstractValue implements Value.RangeMatchableVa
      * Derives a {@link OfTypeValue} object from a given {@link ConstantObjectValue}. It does this by constructing a new
      * {@link ConstantObjectValue} as a child requiring it to have a type that conforms to the type of the passed
      * {@link ConstantObjectValue}.
+     *
      * @param value The {@link ConstantObjectValue} object we want to derive from.
      * @return new {@link OfTypeValue} that checks whether the underlying child have a type conforming to the type of
      *         the {@link ConstantObjectValue}.

@@ -39,6 +39,7 @@ import javax.annotation.Nonnull;
 public class BunchedMapException extends LoggableException {
     /**
      * Create a new exception with a static message.
+     *
      * @param message error message
      */
     public BunchedMapException(@Nonnull String message) {

@@ -33,6 +33,7 @@ import java.util.UUID;
 public interface RelationalArrayBuilder {
     /**
      * Build a {@link RelationalArray}.
+     *
      * @return A 'built' {@link RelationalArray} instance.
      */
     RelationalArray build() throws SQLException;

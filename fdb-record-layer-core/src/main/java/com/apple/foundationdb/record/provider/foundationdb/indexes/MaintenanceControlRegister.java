@@ -71,6 +71,7 @@ final class MaintenanceControlRegister implements TaskEventRegister {
      * maintainer uses this to decide whether a follow-up check is needed: an insert/delete that enqueued nothing has
      * not raised the flag here, so the maintainer falls back to reading the outstanding-work count to keep the signal
      * self-healing.
+     *
      * @return {@code true} once {@link #onTaskEnqueued} has flagged the index during this write
      */
     boolean wasSignaled() {

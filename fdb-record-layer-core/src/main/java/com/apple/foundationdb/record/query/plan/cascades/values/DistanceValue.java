@@ -85,6 +85,7 @@ public class DistanceValue extends AbstractValue {
 
     /**
      * Constructs a new instance of {@link DistanceValue}.
+     *
      * @param operator The distance operation.
      * @param leftChild The left child (typically a vector field).
      * @param rightChild The right child (typically a query vector).

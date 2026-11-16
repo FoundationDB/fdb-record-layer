@@ -46,6 +46,7 @@ public class MockedFDBDirectoryManager extends FDBDirectoryManager {
 
     /**
      * Redefining the static method to be used in mock situations.
+     *
      * @param state the state to use for the manager
      * @return a cached instance of the manager if one exists, create a new one otherwise
      */

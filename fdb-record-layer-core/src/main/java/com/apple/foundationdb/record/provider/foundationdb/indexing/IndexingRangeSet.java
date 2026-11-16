@@ -83,10 +83,8 @@ public class IndexingRangeSet {
      * Determine if a key is in a range that has been inserted into the range set.
      *
      * @param key the key search for in the set
-     *
      * @return a future that will either be {@code true} or {@code false} depending on
      * whether a range containing the key has been inserted
-     *
      * @see RangeSet#contains(ReadTransactionContext, byte[])
      */
     @Nonnull
@@ -101,10 +99,8 @@ public class IndexingRangeSet {
      * result matters, the conflict should be added explicitly.
      *
      * @param key the key search for in the set
-     *
      * @return a future that will either be {@code true} or {@code false} depending on
      * whether a range containing the key has been inserted
-     *
      * @see RangeSet#contains(ReadTransactionContext, byte[])
      */
     @Nonnull
@@ -118,7 +114,6 @@ public class IndexingRangeSet {
      * Add the read conflict of {@link #containsAsync(byte[])} for a key that was checked by {@link #containsSnapshotAsync(byte[])}.
      *
      * @param key the key that was checked
-     *
      * @see RangeSet#addReadConflictKey(Transaction, byte[])
      */
     public void addReadConflictKey(@Nonnull byte[] key) {
@@ -130,7 +125,6 @@ public class IndexingRangeSet {
      * but it operates on the whole range set.
      *
      * @return a future that will contain the first missing range or {@code null} if the set is complete
-     *
      * @see #firstMissingRangeAsync(byte[], byte[])
      * @see RangeSet#missingRanges(ReadTransaction)
      */
@@ -147,9 +141,7 @@ public class IndexingRangeSet {
      *
      * @param begin the inclusive begin endpoint or {@code null} to indicate the beginning
      * @param end the exclusive end endpoint or {@code null} to indicate the end
-     *
      * @return a future that will either contain the first
-     *
      * @see RangeSet#missingRanges(ReadTransaction, byte[], byte[])
      */
     @Nonnull
@@ -170,7 +162,6 @@ public class IndexingRangeSet {
      * Get all missing ranges.
      *
      * @return a future containing a list of missing ranges
-     *
      * @see #listMissingRangesAsync(byte[], byte[])
      */
     @Nonnull
@@ -183,9 +174,7 @@ public class IndexingRangeSet {
      *
      * @param begin the inclusive begin endpoint or {@code null} to indicate the beginning
      * @param end the exclusive end endpoint or {@code null} to indicate the end
-     *
      * @return a future containing a list of missing ranges within the given boundaries
-     *
      * @see RangeSet#missingRanges(ReadTransaction, byte[], byte[])
      */
     @Nonnull
@@ -201,9 +190,7 @@ public class IndexingRangeSet {
      *
      * @param begin the inclusive begin endpoint or {@code null} to indicate the beginning
      * @param end the exclusive end endpoint or {@code null} to indicate the end
-     *
      * @return future that is {@code true} if there were modifications to the set and {@code false} otherwise
-     *
      * @see RangeSet#insertRange(TransactionContext, byte[], byte[])
      */
     @Nonnull
@@ -219,9 +206,7 @@ public class IndexingRangeSet {
      * @param begin the inclusive begin endpoint or {@code null} to indicate the beginning
      * @param end the exclusive end endpoint or {@code null} to indicate the end
      * @param requireEmpty whether the range should only be inserted if the range was initially empty
-     *
      * @return future that is {@code true} if there were modifications to the set and {@code false} otherwise
-     *
      * @see RangeSet#insertRange(TransactionContext, byte[], byte[], boolean)
      */
     @Nonnull
@@ -237,7 +222,6 @@ public class IndexingRangeSet {
      *
      * @param store the record store associated with the index build
      * @param index the index being built
-     *
      * @return a {@code WrappedRangeSet} for an index build of a specific store
      */
     @Nonnull
@@ -253,7 +237,6 @@ public class IndexingRangeSet {
      *
      * @param store the record store associated with the index build
      * @param index the index being built
-     *
      * @return a {@code WrappedRangeSet} for scrubbing the index's entries
      */
     @Nonnull
@@ -270,7 +253,6 @@ public class IndexingRangeSet {
      *
      * @param store the record store associated with the index build
      * @param index the index being built
-     *
      * @return a {@code WrappedRangeSet} for scrubbing the index's records
      */
     @Nonnull

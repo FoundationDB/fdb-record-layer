@@ -50,6 +50,7 @@ public final class ServerTestUtil {
      * Can happen when lots of concurrent tests running on a single host.
      * Because of the above, do not presume the Server is running at 'preferredPort';
      * be sure to read the port-to-use by calling getGrpcPort/getHttpPort on the returned Server instance.
+     *
      * @return Return a started {@link RelationalServer}
      */
     public static RelationalServer createAndStartRelationalServer(int preferredPort) throws IOException {
@@ -58,6 +59,7 @@ public final class ServerTestUtil {
 
     /**
      * Create and start a RelationalServer with a specific cluster file.
+     *
      * @param preferredPort The preferred port to start on
      * @param clusterFile The cluster file to use for FDB connection
      * @return Return a started {@link RelationalServer}

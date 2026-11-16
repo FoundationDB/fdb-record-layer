@@ -44,9 +44,7 @@ public class NullableArrayTypeUtils {
     }
 
     /**
-     * Get the fieldName of the repeated field.
-     *
-     * @return fieldName of the repeated field
+     * {@return the fieldName of the repeated field}
      */
     @Nonnull
     public static String getRepeatedFieldName() {
@@ -76,7 +74,6 @@ public class NullableArrayTypeUtils {
      * is considered to be a wrapped array.
      *
      * @param descriptor The protobuf descriptor.
-     *
      * @return <code>true</code> if it describes a wrapped array, otherwise <code>false</code>.
      */
     public static boolean describesWrappedArray(@Nonnull Descriptors.Descriptor descriptor) {
@@ -92,7 +89,6 @@ public class NullableArrayTypeUtils {
      * Check whether the given nesting key expression is a wrapped array field.
      *
      * @param nestingKeyExpression the nesting keyExpression.
-     *
      * @return The fan type of the wrapped {@code "values"} field, or empty if this is not an array wrapper.
      */
     @Nonnull
@@ -133,7 +129,6 @@ public class NullableArrayTypeUtils {
      * Check whether the given field is a wrapped array.
      *
      * @param field The input field.
-     *
      * @return The fan type if this is a wrapped array field, or empty otherwise.
      */
     @Nonnull

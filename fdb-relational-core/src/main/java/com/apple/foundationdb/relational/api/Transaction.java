@@ -54,6 +54,7 @@ public interface Transaction extends AutoCloseable {
      *
      * <p>if there is already a {@link SchemaTemplate} bound to this transaction, it will be replaced by the provided
      * {@link SchemaTemplate} argument.
+     *
      * @param schemaTemplate The {@link SchemaTemplate} to bind.  Must not be null.
      */
     void setBoundSchemaTemplate(@Nonnull SchemaTemplate schemaTemplate);

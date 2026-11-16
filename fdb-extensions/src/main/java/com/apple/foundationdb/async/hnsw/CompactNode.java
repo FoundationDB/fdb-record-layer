@@ -42,6 +42,8 @@ import java.util.Objects;
  * @see NodeReference
  */
 class CompactNode extends AbstractNode<NodeReference> {
+    static final int NOT_APPENDABLE_VALUE_SIZE = -1;
+
     @Nonnull
     private static final NodeFactory<NodeReference> FACTORY = new NodeFactory<>() {
         @SuppressWarnings("unchecked")
@@ -53,7 +55,7 @@ class CompactNode extends AbstractNode<NodeReference> {
                                                   @Nullable final Tuple additionalValues,
                                                   @Nonnull final List<? extends NodeReference> neighbors) {
             return new CompactNode(primaryKey, (List<NodeReference>)neighbors, Objects.requireNonNull(vector),
-                    additionalValues);
+                    additionalValues, NOT_APPENDABLE_VALUE_SIZE);
         }
 
         @Nonnull
@@ -70,25 +72,35 @@ class CompactNode extends AbstractNode<NodeReference> {
     private final Tuple additionalValues;
 
     /**
-     * Constructs a new {@code CompactNode} instance.
+     * The number of bytes of the value this node was read from if that value is in the appendable format (see
+     * {@link NodeKind#COMPACT_APPENDABLE}), i.e. if neighbors can be appended to it; {@code -1} otherwise, in
+     * particular for a node that was not read from the database.
+     */
+    private final int appendableValueSize;
+
+    /**
+     * Constructs a new {@code CompactNode} that was read from the database.
      *
      * <p>This constructor initializes the node with its primary key, a data vector,
      * and a list of its neighbors. It delegates the initialization of the
      * {@code primaryKey} and {@code neighbors} to the superclass constructor.
      *
-     * @param primaryKey the primary key that uniquely identifies this node; must not be {@code null}.
+     * @param primaryKey the primary key that uniquely identifies this node; must not be {@code null}
      * @param neighbors a list of {@link NodeReference} objects representing the neighbors of this node; must not be
-     *                  {@code null}.
-     * @param vector the data vector of type {@code RealVector} associated with this node; must not be {@code null}.
+     *                  {@code null}
+     * @param vector the data vector of type {@code RealVector} associated with this node; must not be {@code null}
      * @param additionalValues additional values to be stored with the node
+     * @param appendableValueSize the size of the stored value if it is in the appendable format, {@value NOT_APPENDABLE_VALUE_SIZE} otherwise
      */
-    public CompactNode(@Nonnull final Tuple primaryKey,
-                       @Nonnull final List<NodeReference> neighbors,
-                       @Nonnull final Transformed<RealVector> vector,
-                       @Nullable final Tuple additionalValues) {
+    CompactNode(@Nonnull final Tuple primaryKey,
+                @Nonnull final List<NodeReference> neighbors,
+                @Nonnull final Transformed<RealVector> vector,
+                @Nullable final Tuple additionalValues,
+                final int appendableValueSize) {
         super(primaryKey, neighbors);
         this.vector = vector;
         this.additionalValues = additionalValues;
+        this.appendableValueSize = appendableValueSize;
     }
 
     /**
@@ -99,7 +111,6 @@ class CompactNode extends AbstractNode<NodeReference> {
      *
      * @param vector the vector context, which is ignored in this implementation.
      * Per the {@code @Nullable} annotation, this can be {@code null}.
-     *
      * @return a non-null {@link NodeReference} to this node.
      */
     @Nonnull
@@ -111,6 +122,7 @@ class CompactNode extends AbstractNode<NodeReference> {
     /**
      * Gets the kind of this node.
      * This implementation always returns {@link NodeKind#COMPACT}.
+     *
      * @return the node kind, which is guaranteed to be {@link NodeKind#COMPACT}.
      */
     @Nonnull
@@ -120,8 +132,7 @@ class CompactNode extends AbstractNode<NodeReference> {
     }
 
     /**
-     * Gets the vector of {@code Half} objects.
-     * @return the non-null vector of {@link Half} objects.
+     * {@return the non-null vector of {@link Half} objects}
      */
     @Nonnull
     public Transformed<RealVector> getVector() {
@@ -133,6 +144,24 @@ class CompactNode extends AbstractNode<NodeReference> {
         return additionalValues;
     }
 
+    /**
+     * Whether neighbors can be appended to the value this node was read from.
+     *
+     * @return {@code true} iff this node was read from a value in the appendable format
+     */
+    boolean isAppendable() {
+        return appendableValueSize >= 0;
+    }
+
+    /**
+     * The size of the value this node was read from, if {@link #isAppendable()}.
+     *
+     * @return the size of the stored value in bytes, or {@code -1} if this node is not appendable
+     */
+    int getAppendableValueSize() {
+        return appendableValueSize;
+    }
+
     @Override
     public boolean isCompactNode() {
         return true;
@@ -141,6 +170,7 @@ class CompactNode extends AbstractNode<NodeReference> {
     /**
      * Returns this node as a {@code CompactNode}. As this class is already a {@code CompactNode}, this method provides
      * {@code this}.
+     *
      * @return this object cast as a {@code CompactNode}, which is guaranteed to be non-null.
      */
     @Nonnull
@@ -159,6 +189,7 @@ class CompactNode extends AbstractNode<NodeReference> {
      *
      * <p>This override is for node types that are not inlining nodes. As such, it
      * will always fail.
+     *
      * @return this node as a non-null {@link InliningNode}
      * @throws IllegalStateException always, as this is not an inlining node
      */

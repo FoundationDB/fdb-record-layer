@@ -32,6 +32,7 @@ import java.util.concurrent.Executor;
 
 /**
  * A cursor that limits the number of elements that it allows through.
+ *
  * @param <T> the type of elements of the cursor
  */
 @API(API.Status.UNSTABLE)

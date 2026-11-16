@@ -58,9 +58,7 @@ public class IndexMaintainerFactoryRegistryImpl implements IndexMaintainerFactor
      * Maps each index type to the factory that maintains it. An index type may be claimed by only one factory.
      *
      * @param factories the factories found on the class path
-     *
      * @return the index type to factory map
-     *
      * @throws RecordCoreException if two factories claim the same index type
      */
     @Nonnull

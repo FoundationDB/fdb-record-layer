@@ -52,6 +52,7 @@ public class Processors {
 
     /**
      * Event-typed processor.
+     *
      * @param <E> the type of event
      */
     public interface Processor<E extends PlannerEvent> {

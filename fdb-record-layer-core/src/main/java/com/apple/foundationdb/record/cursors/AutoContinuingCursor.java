@@ -87,6 +87,7 @@ public class AutoContinuingCursor<T> implements RecordCursor<T> {
 
     /**
      * Creates a new {@link AutoContinuingCursor}.
+     *
      * @param runner the runner from which it can open new contexts
      * @param nextCursorGenerator the method which can generate the underlying cursor given a record context and a continuation
      */
@@ -97,6 +98,7 @@ public class AutoContinuingCursor<T> implements RecordCursor<T> {
 
     /**
      * Creates a new {@link AutoContinuingCursor}.
+     *
      * @param runner the runner from which it can open new contexts
      * @param nextCursorGenerator the method which can generate the underlying cursor given a record context and a continuation
      * @param maxRetriesOnRetriableException maximum number of consecutive times retryable exceptions, such as

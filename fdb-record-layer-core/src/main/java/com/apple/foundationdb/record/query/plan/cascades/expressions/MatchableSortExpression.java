@@ -143,6 +143,7 @@ public class MatchableSortExpression extends AbstractRelationalExpressionWithChi
 
     /**
      * Overloaded constructor. Creates a new {@link MatchableSortExpression}
+     *
      * @param sortParameterIds a list of parameter ids defining the order
      * @param isReverse an indicator whether this expression should conceptually flow data according to
      *        {@link #sortParameterIds} ascending (forward) or descending (backward or reverse).
@@ -156,6 +157,7 @@ public class MatchableSortExpression extends AbstractRelationalExpressionWithChi
 
     /**
      * Overloaded constructor. Creates a new {@link MatchableSortExpression}
+     *
      * @param sortParameterIds a list of parameter ids defining the order
      * @param isReverse an indicator whether this expression should conceptually flow data according to
      *        {@link #sortParameterIds} ascending (forward) or descending (backward or reverse).
@@ -231,6 +233,7 @@ public class MatchableSortExpression extends AbstractRelationalExpressionWithChi
      * contained in this expression. It delegates to {@link MatchCandidate#computeMatchedOrderingParts} to do this work as
      * while there is a lot of commonality across different index kinds, special indexes may need to define and declare
      * their order in a specific unique way.
+     *
      * @param partialMatch the pre-existing partial match on {@code (expression, this)} that the caller wants to adjust.
      * @return a list of bound key parts that express the order of the outgoing data stream and their respective mappings
      *         between query and match candidate

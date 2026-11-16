@@ -29,6 +29,7 @@ import java.util.List;
 
 /**
  * Ordered ({@code List}) version of {@link CollectionContract}.
+ *
  * @param <T> the type parameter of the collection
  */
 public class OrderedCollectionContract<T> extends CollectionContract<T> {

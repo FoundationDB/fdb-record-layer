@@ -196,7 +196,6 @@ public class PendingWriteQueue {
      * @param scanProperties the scan properties for the cursor; the isolation level is always forced to
      * {@link IsolationLevel#SNAPSHOT}, while row/byte/skip limits are still honored at the entry level
      * @param continuation the continuation to continue from (null means start from the beginning)
-     *
      * @return a record cursor that iterates through the elements of the queue, in order
      */
     @SuppressWarnings("PMD.CloseResource")
@@ -297,7 +296,6 @@ public class PendingWriteQueue {
      * This should be called before executing a query to ensure queued writes are visible.
      *
      * @param indexWriter the index writer to write to
-     *
      * @return CompletableFuture that completes when all operations have been replayed
      */
     @Nonnull
@@ -422,6 +420,7 @@ public class PendingWriteQueue {
      * This would increment/decrement the queue size counter by the given amount. If the queue counter is not initialized
      * (key does not exist), FDB's ADD mutation treats it as 0, so the counter will be initialized to the given amount.
      * This is standard FDB behavior: ADD mutation on a non-existent key treats the original value as 0.
+     *
      * @param context the context to use
      * @param amount the amount by which to mutate the counter
      */
@@ -432,6 +431,7 @@ public class PendingWriteQueue {
     /**
      * Return TRUE if the queue has no room for new entries.
      * This method uses the queue size counter to get the queue size, defaulting to FALSE when the counter does not exist.
+     *
      * @param context the context to use to read the counter
      * @param maxQueueSize the size to check
      * @return {@code true} is the queue size is larger than or equals the given size, {@code false} if smaller or not initialized
@@ -451,7 +451,6 @@ public class PendingWriteQueue {
      * of {@link #isQueueEmpty(FDBRecordContext)}, in which case we use counting to see if the size is greater than 0).
      *
      * @param context the record context to use
-     *
      * @return a future that resolves to the queue size, or {@code null} if the counter does not exist
      */
     @Nonnull

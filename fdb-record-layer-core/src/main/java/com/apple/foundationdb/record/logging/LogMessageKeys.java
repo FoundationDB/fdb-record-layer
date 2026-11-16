@@ -175,6 +175,7 @@ public enum LogMessageKeys {
     INDEXER_MAX_RETRIES,
     /**
      * Identical to {@link #DIRECTORY}. This is included only for backwards compatibility.
+     *
      * @deprecated use {@link #DIRECTORY} instead
      */
     @Deprecated

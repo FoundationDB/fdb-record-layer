@@ -67,7 +67,6 @@ public interface NodeSlot {
      * Note that the serialization format is not yet finalized.
      *
      * @param storeHilbertValues indicator if the hilbert value should be encoded into the slot key or null-ed out
-     *
      * @return a new tuple
      */
     @Nonnull
@@ -88,7 +87,6 @@ public interface NodeSlot {
      *
      * @param hilbertValue Hilbert value
      * @param key first key
-     *
      * @return {@code -1, 0, 1} if this node slot's pair is less/equal/greater than the pair passed in
      */
     default int compareSmallestHilbertValueAndKey(@Nonnull final BigInteger hilbertValue,
@@ -102,7 +100,6 @@ public interface NodeSlot {
      *
      * @param hilbertValue Hilbert value
      * @param key first key
-     *
      * @return {@code -1, 0, 1} if this node slot's pair is less/equal/greater than the pair passed in
      */
     default int compareLargestHilbertValueAndKey(@Nonnull final BigInteger hilbertValue,

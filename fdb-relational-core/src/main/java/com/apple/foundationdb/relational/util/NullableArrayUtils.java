@@ -221,7 +221,7 @@ public final class NullableArrayUtils {
      *     parent { field_name: "ARRAY_FIELD" fan_type: SCALAR …}
      *     child { field { field_name: "values" fan_type: CONCATENATE …}}
      *   }
-     *}
+     * }
      */
     private static RecordKeyExpressionProto.Nesting splitFieldIntoNestedWithValues(@Nonnull final RecordKeyExpressionProto.Field original) {
         final var nestedArrayBuilder = RecordKeyExpressionProto.Field.newBuilder()

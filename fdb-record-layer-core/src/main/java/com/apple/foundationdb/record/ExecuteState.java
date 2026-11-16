@@ -48,6 +48,7 @@ public class ExecuteState {
 
     /**
      * Creates an execute state with a supplied set of resource limiters.
+     *
      * @param recordScanLimiter a record scan limiter or {@code null} to indicate an unlimited
      *     number of records may be scanned
      * @param byteScanLimiter a byte scan limiter or {@code null} to indicate an unlimited
@@ -68,6 +69,7 @@ public class ExecuteState {
      * of the returned {@code ExecuteState} has a limit equal to the original limit that was used to create this state's
      * {@code RecordScanLimiter}. It is up to the implementor to ensure that all components of the state are reset in
      * a meaningful way, since this might vary depending on that piece of state.
+     *
      * @return a new state that represents the same properties but does not share mutable state with this {@code ExecuteState}
      */
     @Nonnull
@@ -84,6 +86,7 @@ public class ExecuteState {
      * can always make progress. Thus, a query execution might overrun its scanned records limit by up to the number of
      * base cursors in the cursor tree.
      * Particular base cursors may exceed the record scan limit in other ways, which are documented in their Javadocs.
+     *
      * @return the record scan limiter
      */
     @Nonnull
@@ -100,6 +103,7 @@ public class ExecuteState {
      * {@link com.apple.foundationdb.record.provider.foundationdb.cursors.UnionCursor}) can always make progress.
      * Thus, a query execution might overrun the byte scan limit by an effectively arbitrary amount.
      * Particular base cursors may exceed the record scan limit in other ways which are documented in their Javadocs.
+     *
      * @return the byte scan limiter
      */
     @Nonnull
@@ -108,16 +112,14 @@ public class ExecuteState {
     }
 
     /**
-     * Return the number of records that have been scanned.
-     * @return the number of records that have been scanned
+     * {@return the number of records that have been scanned}
      */
     public int getRecordsScanned() {
         return recordScanLimiter.getRecordsScanned();
     }
 
     /**
-     * Return the number of bytes that have been scanned.
-     * @return the number of bytes that have been scanned
+     * {@return the number of bytes that have been scanned}
      */
     public long getBytesScanned() {
         return byteScanLimiter.getBytesScanned();

@@ -2101,6 +2101,44 @@ class MetaDataEvolutionValidatorTest {
         assertInvalid("index missing in new meta-data", metaData1, metaData2);
     }
 
+    /**
+     * Pins the behavior that renaming a record type by hand turns an index that is declared (only) via the
+     * {@code (field).index} extension into effectively a different index. {@link RecordMetaDataBuilder} names the
+     * derived index after the record type, and since the subspace key of an index defaults to its name, the validator
+     * treats the renamed index as a removal.
+     */
+    @Test
+    void renameRecordTypeWithExtensionOnlyIndex() {
+        final RecordMetaDataProto.MetaData originalProto = RecordMetaData.build(TestRecords1Proto.getDescriptor())
+                .toProto().toBuilder().clearIndexes().build();
+        final RecordMetaDataProto.MetaData.Builder builder = originalProto.toBuilder();
+        // Rename the message type, the type of its union field, and its entry in the record type list.
+        for (final DescriptorProtos.DescriptorProto.Builder messageType :
+                builder.getRecordsBuilder().getMessageTypeBuilderList()) {
+            if (messageType.getName().equals("MySimpleRecord")) {
+                messageType.setName("MyNewSimpleRecord");
+            } else if (messageType.getName().equals(RecordMetaDataBuilder.DEFAULT_UNION_NAME)) {
+                for (final DescriptorProtos.FieldDescriptorProto.Builder field : messageType.getFieldBuilderList()) {
+                    if (field.getTypeName().endsWith("MySimpleRecord")) {
+                        field.setTypeName(field.getTypeName().replace("MySimpleRecord", "MyNewSimpleRecord"));
+                    }
+                }
+            }
+        }
+        for (final RecordMetaDataProto.RecordType.Builder recordType : builder.getRecordTypesBuilderList()) {
+            if (recordType.getName().equals("MySimpleRecord")) {
+                recordType.setName("MyNewSimpleRecord");
+            }
+        }
+
+        final RecordMetaData metaData1 = RecordMetaData.newBuilder().setRecords(originalProto, true).build();
+        final RecordMetaData metaData2 = RecordMetaData.newBuilder().setRecords(builder.build(), true).build();
+        assertNotNull(metaData1.getIndex("MySimpleRecord$num_value_3_indexed"));
+        assertNotNull(metaData2.getIndex("MyNewSimpleRecord$num_value_3_indexed"));
+        assertInvalid("index missing in new meta-data",
+                MetaDataEvolutionValidator.newBuilder().setAllowNoVersionChange(true).build(), metaData1, metaData2);
+    }
+
     @Test
     void indexNameChanged() {
         RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());

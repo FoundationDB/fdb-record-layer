@@ -57,6 +57,7 @@ public final class IndexingSubspaces {
 
     /**
      * Subspace that stores the lock for a synced indexing session.
+     *
      * @param store store
      * @param index index
      * @return subspace
@@ -68,6 +69,7 @@ public final class IndexingSubspaces {
 
     /**
      * Subspace that stores the number of scanned items during indexing.
+     *
      * @param store store
      * @param index index
      * @return subspace
@@ -79,6 +81,7 @@ public final class IndexingSubspaces {
 
     /**
      * Subspace that stores the indexing build type stamp.
+     *
      * @param store store
      * @param index index
      * @return subspace
@@ -90,6 +93,7 @@ public final class IndexingSubspaces {
 
     /**
      * Subspace that stores the indexing heartbeat.
+     *
      * @param store store
      * @param index index
      * @return subspace
@@ -101,6 +105,7 @@ public final class IndexingSubspaces {
 
     /**
      * Subspace that stores the indexing heartbeat.
+     *
      * @param store store
      * @param index index
      * @param indexerId session id
@@ -113,6 +118,7 @@ public final class IndexingSubspaces {
 
     /**
      * Subspace that stores the indexing pending write queue.
+     *
      * @param store store
      * @param index index
      * @return subspace
@@ -124,6 +130,7 @@ public final class IndexingSubspaces {
 
     /**
      * Subspace that stores the indexing pending write queue size counter.
+     *
      * @param store store
      * @param index index
      * @return subspace
@@ -136,6 +143,7 @@ public final class IndexingSubspaces {
     /**
      * Subspace that stores the primary keys of records inserted by user io while a non-idempotent index
      * is being built in the {@link com.apple.foundationdb.record.IndexState#WRITE_ONLY_WITH_TRACKING} state.
+     *
      * @param store store
      * @param index index
      * @return subspace
@@ -148,6 +156,7 @@ public final class IndexingSubspaces {
     /**
      * Subspace that stores scrubbed records ranges of the zero range-id. This subspace is backward compatible
      * to record ranges scrubbed before range-id was introduced.
+     *
      * @param store store
      * @param index index
      * @return subspace
@@ -160,6 +169,7 @@ public final class IndexingSubspaces {
 
     /**
      * Subspace that stores scrubbed records ranges.
+     *
      * @param store store
      * @param index index
      * @return subspace
@@ -171,6 +181,7 @@ public final class IndexingSubspaces {
 
     /**
      * Subspace that stores scrubbed records ranges.
+     *
      * @param store store
      * @param index index
      * @return subspace
@@ -186,6 +197,7 @@ public final class IndexingSubspaces {
     /**
      * Subspace that stores scrubbed index entries ranges of the zero range-id. This subspace is backward compatible
      * to index entries ranges scrubbed before range-id was introduced.
+     *
      * @param store store
      * @param index index
      * @return subspace
@@ -198,6 +210,7 @@ public final class IndexingSubspaces {
 
     /**
      * Subspace that stores scrubbed index entries ranges. This subspace is expected to be followed by a range-id.
+     *
      * @param store store
      * @param index index
      * @return subspace
@@ -209,6 +222,7 @@ public final class IndexingSubspaces {
 
     /**
      * Subspace that stores scrubbed index entries ranges.
+     *
      * @param store store
      * @param index index
      * @param rangeId used by the caller to distinct different scrubbing sessions.
@@ -224,6 +238,7 @@ public final class IndexingSubspaces {
 
     /**
      * Erasing all the scrubbing ranges data. After calling this function, there would be no memory of scrubbed ranges.
+     *
      * @param context user context - the operation will run within this context
      * @param store store
      * @param index index
@@ -238,6 +253,7 @@ public final class IndexingSubspaces {
     /**
      * Delete all data related to the indexing/scrubbing process except of the index locks. Index locks are preserved because
      * often this operation is expected to be protected by this lock.
+     *
      * @param context user context - the operation will run within this context
      * @param store store
      * @param index index

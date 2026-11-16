@@ -1,0 +1,17 @@
+simple-query-graph-name-tag-index:
+-   query: EXPLAIN select r.rest_no from restaurant_record as r where r.name in ?
+        and exists (select 1 from r.tags as t where t.value in ?)
+    ref: simple-query-graph-name-tag-index.yamsql:111
+    explain: '[IN arrayDistinct(@c13)] | INJOIN q0 -> { COVERING(RESTAURANT_RECORD_NAME
+        [EQUALS q0] -> [NAME: KEY:[0], REST_NO: KEY:[1]]) } | FETCH | FLATMAP q1 ->
+        { EXPLODE arrayDistinct(@c30) | FLATMAP q2 -> { EXPLODE q1.TAGS | FILTER _.VALUE
+        EQUALS q2 AS q3 RETURN (@c18 AS _0) } | DEFAULT NULL | FILTER _ NOT_NULL |
+        MAP (1 AS _0) AS q4 RETURN (q1.REST_NO AS REST_NO) }'
+    task_count: 2217
+    task_total_time_ms: 69
+    transform_count: 690
+    transform_time_ms: 33
+    transform_yield_count: 136
+    insert_time_ms: 5
+    insert_new_count: 300
+    insert_reused_count: 20

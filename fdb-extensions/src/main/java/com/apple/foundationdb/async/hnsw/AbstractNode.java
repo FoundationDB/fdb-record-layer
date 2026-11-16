@@ -57,6 +57,7 @@ abstract class AbstractNode<N extends NodeReference> implements Node<N> {
 
     /**
      * Gets the primary key that uniquely identifies this object.
+     *
      * @return the primary key {@link Tuple}, which will never be {@code null}.
      */
     @Nonnull
@@ -70,6 +71,7 @@ abstract class AbstractNode<N extends NodeReference> implements Node<N> {
      *
      * <p>This method returns a direct reference to the internal list which is
      * immutable.
+     *
      * @return a non-null, possibly empty, list of neighbors.
      */
     @Nonnull
@@ -80,6 +82,7 @@ abstract class AbstractNode<N extends NodeReference> implements Node<N> {
 
     /**
      * Indicates whether this node is a {@link CompactNode}.
+     *
      * @return {@code true} if this node is a compact node
      */
     public abstract boolean isCompactNode();
@@ -97,12 +100,14 @@ abstract class AbstractNode<N extends NodeReference> implements Node<N> {
 
     /**
      * Indicates whether this node is an {@link InliningNode}.
+     *
      * @return {@code true} if this node is an inlining node
      */
     public abstract boolean isInliningNode();
 
     /**
      * Converts this node into its {@link InliningNode} representation.
+     *
      * @return this object cast to an {@link InliningNode}; never {@code null}.
      * @throws ClassCastException if this object is not actually an instance of
      * {@link InliningNode}.

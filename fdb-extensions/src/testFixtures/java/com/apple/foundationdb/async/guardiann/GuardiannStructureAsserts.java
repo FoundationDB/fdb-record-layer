@@ -297,7 +297,6 @@ public class GuardiannStructureAsserts {
      *
      * @param db the database
      * @param guardiann the structure to describe
-     *
      * @return a one-line summary of the structure
      */
     @Nonnull
@@ -460,7 +459,6 @@ public class GuardiannStructureAsserts {
          * enough that border replicas are expected (so a near-zero replica count signals broken replication).
          *
          * @param newMinReplicatedFraction the minimum replica fraction to require
-         *
          * @return a copy of these invariants with the given replica floor
          */
         @Nonnull

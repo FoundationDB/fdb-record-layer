@@ -42,6 +42,7 @@ public interface StorageCluster {
      * <p>If the specified database does not exist in this cluster, {@code null} is returned.
      *
      * <p>//TODO(bfines) ensure implementations actually hold to that spec.
+     *
      * @param url the path to the database of interest.
      * @param connOptions options to use when connecting
      * @return the Database at the specified location, or {@code null} if no such database exist within this cluster.
@@ -52,9 +53,7 @@ public interface StorageCluster {
                                   @Nonnull Options connOptions) throws RelationalException;
 
     /**
-     * Get the transaction manager for this cluster.
-     *
-     * @return the transaction manager for this cluster;
+     * {@return the transaction manager for this cluster}
      */
     TransactionManager getTransactionManager();
 }

@@ -54,6 +54,7 @@ import java.util.function.Consumer;
  *
  * <p>This class functions as the entry point for any interactions with the HNSW data structure. It delegates to
  * the respective operations classes which implement the actual algorithms to maintain and to search the structure.
+ *
  * @see <a href="https://arxiv.org/abs/1603.09320">Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs</a>
  */
 @API(API.Status.EXPERIMENTAL)
@@ -64,6 +65,7 @@ public class HNSW {
 
     /**
      * Start building a {@link Config}.
+     *
      * @return a new {@code Config} that can be altered and then built for use with a {@link HNSW}
      * @see Config.ConfigBuilder#build
      */
@@ -72,9 +74,9 @@ public class HNSW {
     }
 
     /**
-     * Returns a default {@link Config}.
+     * {@return a new default {@code Config}}
+     *
      * @param numDimensions number of dimensions
-     * @return a new default {@code Config}.
      * @see Config.ConfigBuilder#build
      */
     @Nonnull
@@ -93,7 +95,6 @@ public class HNSW {
      * @param config the {@link Config} object containing HNSW algorithm parameters.
      * @param onWriteListener a listener to be notified of write events on the graph.
      * @param onReadListener a listener to be notified of read events on the graph.
-     *
      * @throws NullPointerException if any of the parameters are {@code null}.
      */
     public HNSW(@Nonnull final Subspace subspace,
@@ -121,6 +122,7 @@ public class HNSW {
 
     /**
      * Get the executor used by this hnsw.
+     *
      * @return executor used when running asynchronous tasks
      */
     @Nonnull
@@ -129,8 +131,7 @@ public class HNSW {
     }
 
     /**
-     * Get this hnsw's configuration.
-     * @return hnsw configuration
+     * {@return this hnsw's configuration}
      */
     @Nonnull
     public Config getConfig() {
@@ -138,8 +139,7 @@ public class HNSW {
     }
 
     /**
-     * Get the on-write listener.
-     * @return the on-write listener
+     * {@return the on-write listener}
      */
     @Nonnull
     public OnWriteListener getOnWriteListener() {
@@ -147,8 +147,7 @@ public class HNSW {
     }
 
     /**
-     * Get the on-read listener.
-     * @return the on-read listener
+     * {@return the on-read listener}
      */
     @Nonnull
     public OnReadListener getOnReadListener() {
@@ -177,6 +176,7 @@ public class HNSW {
 
     /**
      * Fetch a node and return its values as a {@link ResultEntry}.
+     *
      * @param readTransaction the transaction to use for reading from the database
      * @param primaryKey the primary key of the record
      * @return a new {@link ResultEntry} where {@link ResultEntry#distance()} returns {@code 0.0d} and
@@ -199,7 +199,6 @@ public class HNSW {
      * with a neighbor is even possible.
      *
      * @param readTransaction the transaction to use for reading from the database
-     *
      * @return a {@link CompletableFuture} that completes with the {@link Cardinality} of layer 0
      */
     @Nonnull
@@ -216,7 +215,6 @@ public class HNSW {
      *        at the cost of performance.
      * @param includeVectors indicator if the caller would like the search to also include vectors in the result set
      * @param queryVector the vector to find the nearest neighbors for
-     *
      * @return a {@link CompletableFuture} that will complete with a list of the {@code k} nearest neighbors,
      *         sorted by distance in ascending order.
      */
@@ -240,7 +238,6 @@ public class HNSW {
      *        at the cost of performance.
      * @param includeVectors indicator if the caller would like the search to also include vectors in the result set
      * @param queryVector the vector to find the nearest neighbors for
-     *
      * @return a {@link CompletableFuture} that will complete with a list of the {@code k} nearest neighbors,
      *         sorted by distance in ascending order.
      */
@@ -273,7 +270,6 @@ public class HNSW {
      * @param newPrimaryKey the unique {@link Tuple} primary key for the new node being inserted
      * @param newVector the {@link RealVector} data to be inserted into the graph
      * @param additionalValues additional values to be associated with the new vector/record
-     *
      * @return a {@link CompletableFuture} that completes when the insertion operation is finished
      */
     @Nonnull
@@ -319,7 +315,6 @@ public class HNSW {
      * @param transaction the {@link Transaction} context for all database operations, ensuring atomicity
      *        and consistency of the deletion and repair operations
      * @param primaryKey the unique {@link Tuple} primary key identifying the node to be deleted from the graph
-     *
      * @return a {@link CompletableFuture} that completes when the deletion operation is fully finished,
      *         including all graph repairs and entry point updates. The future completes with {@code null}
      *         on successful deletion.

@@ -68,6 +68,7 @@ public class ByteArrayContinuation implements RecordCursorContinuation {
      * Return a {@code RecordCursorContinuation} from a byte array. If the given byte array is non-null, return a
      * {@code ByteArrayContinuation} wrapping that array. If the given byte array is {@code null}, return a
      * {@link RecordCursorEndContinuation} instead.
+     *
      * @param bytes a nullable byte array representing a serialized continuation
      * @return a {@code RecordCursorContinuation} as described above
      */
@@ -82,6 +83,7 @@ public class ByteArrayContinuation implements RecordCursorContinuation {
 
     /**
      * Return a {@code RecordCursorContinuation} that wraps a byte array consisting of the given integer.
+     *
      * @param a an integer
      * @return a {@code ByteArrayContinuation} wrapping a byte array of the given integer
      */

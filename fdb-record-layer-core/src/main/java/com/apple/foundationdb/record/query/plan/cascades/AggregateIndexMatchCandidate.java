@@ -540,7 +540,6 @@ public class AggregateIndexMatchCandidate implements MatchCandidate, WithBaseQua
      * @param groupedCount how many aggregate columns the index holds
      * @param permuted whether the index is permuted, and so holds every column in the entry key
      * @param permutedCount how many trailing grouping columns a permuted index moves behind its aggregates, possibly zero
-     *
      * @return a value that computes the target record from an index entry
      */
     @Nonnull

@@ -59,6 +59,7 @@ public interface RecordQueryPlanWithIndexEntryToQueriedRecord extends RecordQuer
     /**
      * Converts one entry of this plan's index into a queried record, via {@link #intoStoredRecordShape} or one of the
      * {@code toQueriedRecord} overloads.
+     *
      * @param store the store the query runs against
      * @param context the evaluation context
      * @param indexEntry the entry to convert
@@ -72,6 +73,7 @@ public interface RecordQueryPlanWithIndexEntryToQueriedRecord extends RecordQuer
 
     /**
      * Converts an entry into a partial copy of {@code recordType}.
+     *
      * @param store the store the query runs against
      * @param index the index the entry came from
      * @param recordType the record type to decode into a partial copy of
@@ -94,6 +96,7 @@ public interface RecordQueryPlanWithIndexEntryToQueriedRecord extends RecordQuer
     /**
      * Converts an entry into {@code shape}, which need not be the shape of any stored record. The result is still
      * reported as {@code recordType}.
+     *
      * @param store the store the query runs against
      * @param index the index the entry came from
      * @param recordType the record type the converted record is reported as
@@ -121,6 +124,7 @@ public interface RecordQueryPlanWithIndexEntryToQueriedRecord extends RecordQuer
      * Converts an entry by evaluating {@code indexEntryToRecordValue} against it, the shape being that value's own result
      * type. The value reads the entry from the evaluation context, so the entry is bound here under
      * {@link Quantifier#current()} first.
+     *
      * @param store the store the query runs against
      * @param context the evaluation context, which must hold a type repository describing the value's result type
      * @param index the index the entry came from

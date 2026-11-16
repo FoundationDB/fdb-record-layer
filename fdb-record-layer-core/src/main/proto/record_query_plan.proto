@@ -287,6 +287,7 @@ message PValue {
     PCardinalityValue cardinality_value = 63;
     PArrayAggValue array_agg_value = 64;
     PCurrentTimestampValue current_timestamp_value = 65;
+    PExplodeValue explode_value = 66;
   }
   // Removed types that are no longer supported
   reserved 38;
@@ -1409,6 +1410,13 @@ message PRangeValue {
   optional PValue step_child = 3;
 }
 
+message PExplodeValue {
+  optional PValue collection_value = 1;
+  optional bool preserve_order = 2;
+  optional bool sorted = 3;
+  optional bool reverse = 4;
+}
+
 message PArrayDistinctValue {
   optional PValue child_value = 1;
 }
@@ -2057,6 +2065,7 @@ message PInSource {
     PSortedInParameterSource sorted_in_parameter_source = 4;
     PInValuesSource in_values_source = 5;
     PSortedInValuesSource sorted_in_values_source = 6;
+    PInExplodeSource in_explode_source = 7;
   }
 }
 
@@ -2088,6 +2097,12 @@ message PInValuesSource {
 message PSortedInValuesSource {
   optional PInValuesSource super = 1;
   optional bool reverse = 2;
+}
+
+message PInExplodeSource {
+  // the comparison of the source is derived from the explode, so it is not serialized
+  optional PInSource.Super super = 1;
+  optional PValue explode_value = 2;
 }
 
 //

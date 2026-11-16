@@ -219,6 +219,7 @@ public class ImplementInUnionRule extends AbstractCascadesRule<SelectExpression>
 
     /**
      * Method that adjusts bindings that refer to the explode-aliases (the in-sources).
+     *
      * @param bindings original bindings for a value
      * @param explodeAliases a set of explode-aliases
      * @param requestedSortOrder a requested sort order

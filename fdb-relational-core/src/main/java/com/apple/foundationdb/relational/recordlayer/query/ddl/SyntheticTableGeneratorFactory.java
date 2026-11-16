@@ -41,7 +41,6 @@ final class SyntheticTableGeneratorFactory {
      * @param spec what the index is made of
      * @param indexName the name the definition gives the index
      * @param quantifierValues what the plan's quantifiers stand for
-     *
      * @return the generator, empty when the index is maintained from a stored table
      */
     @Nonnull

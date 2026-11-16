@@ -34,6 +34,7 @@ import java.util.stream.Collectors;
 
 /**
  * Intermediate class that fixes the type of the {@link com.apple.foundationdb.record.query.plan.cascades.PlannerRuleCall}.
+ *
  * @param <A> the type of object that functions as the argument to this rule
  * @param <R> the type of object that this rule produces as result
  * @param <T> the type of object that this rule helps simplify
@@ -49,6 +50,7 @@ public abstract class ValueComputationRule<A, R, T extends Value> extends Abstra
      * simplification rules in more complicated computation use cases. In order to compensate for the lack of a result
      * of a computation which the implementation of a simplification rule does not have, the caller can pass in a
      * {@link OnMatchComputationFunction} that is invoked for each yielded result.
+     *
      * @param simplificationRule the original simplification rule
      * @param onMatchComputationFunction the function that computes the result
      * @param <A> the type parameter for the arguments
@@ -89,6 +91,7 @@ public abstract class ValueComputationRule<A, R, T extends Value> extends Abstra
 
     /**
      * Functional interface whose {@code apply} method is invoked <em>after</em> using the simplification's results.
+     *
      * @param <A> the argument type
      * @param <R> the result type
      */

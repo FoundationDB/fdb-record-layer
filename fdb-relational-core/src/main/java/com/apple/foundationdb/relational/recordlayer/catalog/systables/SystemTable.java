@@ -46,8 +46,7 @@ public interface SystemTable {
     String TEMPLATE_VERSION = "TEMPLATE_VERSION";
 
     /**
-     * Returns the name of the system table.
-     * @return The name of the system table.
+     * {@return the name of the system table}
      */
     @Nonnull
     String getName();
@@ -69,6 +68,7 @@ public interface SystemTable {
 
     /**
      * Returns the primary key definition of the system table. Each system table must have a primary key.
+     *
      * @return The primary key.
      */
     @Nonnull

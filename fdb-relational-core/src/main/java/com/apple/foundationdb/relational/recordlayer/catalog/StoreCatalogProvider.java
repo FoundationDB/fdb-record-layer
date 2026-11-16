@@ -38,6 +38,7 @@ import javax.annotation.Nonnull;
  * {@link com.apple.foundationdb.relational.api.catalog.SchemaTemplateCatalog}. The 'default' persists
  * {@link com.apple.foundationdb.relational.api.metadata.SchemaTemplate}s. The other implementation offers
  * a {@link StoreCatalog} that does no {@link com.apple.foundationdb.relational.api.metadata.SchemaTemplate}'ing.
+ *
  * @see StoreCatalog
  */
 @API(API.Status.EXPERIMENTAL)

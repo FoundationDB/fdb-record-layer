@@ -32,6 +32,7 @@ import java.util.Objects;
 
 /**
  * This represents a numeric literal.
+ *
  * @param <N> The Java type of the literal.
  * @param <D> The type of the expression.
  */

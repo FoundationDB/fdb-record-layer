@@ -584,6 +584,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
     /**
      * Private helper method to eliminate {@link PartialMatch}es whose coverage is entirely contained in other matches
      * (among the matches given).
+     *
      * @param matches candidate matches
      * @param requestedOrderings a set of interesting orderings
      * @return a collection of {@link PartialMatch}es that are the maximum coverage matches among the matches handed in
@@ -641,6 +642,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
      * Helper method to compensate the partial matches handed in and to resolve the scan direction of the realized
      * scan. Note that some partial matches can satisfy the requested ordering both in forward and reverse scan
      * directopm.
+     *
      * @param partialMatches a collection of partial matches
      * @param requestedOrderings a set of {@link RequestedOrdering}s
      * @return a list of {@link SingleMatchedAccess}s
@@ -714,6 +716,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
     /**
      * Private helper method to compute the subset of orderings passed in that would be satisfied by a scan
      * if the given {@link PartialMatch} were to be planned.
+     *
      * @param partialMatch a partial match
      * @param requestedOrderings a set of {@link Ordering}s
      * @return an optional boolean that is {@code Optional.empty()} if no orderings were satisfied,
@@ -771,6 +774,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
     /**
      * Method to indicate whether a {@link PartialMatch} satisfies a {@link RequestedOrdering}. Note that we do not
      * check the directional requirements of the requested order here.
+     *
      * @param partialMatch the partial match to check
      * @param requestedOrdering the requested ordering the caller wants to check the partial match for
      * @return indicator if the partial match satisfies the requested ordering
@@ -847,6 +851,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
 
     /**
      * Private helper method to compute a map of matches to scans (no compensation applied yet).
+     *
      * @param planContext plan context
      * @param memoizer the memoizer for {@link Reference}s
      * @param matches a collection of matches
@@ -872,6 +877,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
     /**
      * Private helper method to compute a new match to scan map by applying a {@link LogicalDistinctExpression} on each
      * scan.
+     *
      * @param memoizer the memoizer for {@link Reference}s
      * @param matchToExpressionMap a map of matches to {@link RelationalExpression}s
      * @return a map of the matches where a match is associated with a {@link RecordQueryUnorderedPrimaryKeyDistinctPlan}
@@ -905,6 +911,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
      * intersection. For single data scans that will not be used in an intersection we still follow the same
      * two-step approach of separately planning the scan and then computing the compensation and the compensating
      * expression.
+     *
      * @param memoizer the memoizer of this call
      * @param singleMatchedAccess the match the caller wants to apply compensation for
      * @param plan the plan the caller would like to create compensation for.
@@ -930,6 +937,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
      * the compensation for intersections by intersecting the {@link Compensation} for the single data accesses first
      * before using the resulting {@link Compensation} to compute the compensating expression for the entire
      * intersection.
+     *
      * @param memoizer the memoizer
      * @param intersectionInfoMap the intersection info map being maintained by the caller (that enumerates the possible
      *        intersections)
@@ -1051,6 +1059,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
      * a partial match and can therefore not contribute to the ordering of the realized scan (minus its compensation)
      * before it is intersected. This method serves a stop-gap purpose as laid out here:
      * <a href="https://github.com/FoundationDB/fdb-record-layer/issues/2764">relevant issue</a>
+     *
      * @param singleMatchedAccess a {@link SingleMatchedAccess}
      * @return a pair of matched ordering parts and the respective scan direction of the partial match it was
      *         computed from
@@ -1093,6 +1102,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
 
     /**
      * Private helper method that computes the ordering of the intersection using matches.
+     *
      * @param partitionOrderingPairs partition we would like to intersect
      * @return a {@link com.apple.foundationdb.record.query.plan.cascades.Ordering.Intersection} representing a
      *         common intersection ordering.
@@ -1136,6 +1146,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
     /**
      * Private helper method to verify that a list of {@link Value}s can be used as a comparison key.
      * ordering information coming from a match in form of a list of {@link Value}s.
+     *
      * @param comparisonKeyValues a list of {@link Value}s
      * @param commonRecordKeyValues common primary key
      * @param equalityBoundKeyValues  a set of equality-bound key parts
@@ -1174,6 +1185,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
     /**
      * Method to add a new intersection to the intersection info map if the intersection has a common ordering. This
      * method also evicts all expressions of sub partitions that have been planned already.
+     *
      * @param intersectionInfoMap intersection info map
      * @param partition the partition to add (potentially)
      * @param intersectionResult the result from the intersection attempt (mostly to capture the intersection ordering)
@@ -1201,6 +1213,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
     /**
      * Strip the resulting expressions from the intersection info map so they can be returned to the actual rule to be
      * yielded.
+     *
      * @param intersectionInfoMap intersection info map
      * @return a (linked identity) set of expressions that need to be yielded
      */

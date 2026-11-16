@@ -42,6 +42,7 @@ public class IterableHelpers {
      * Flat-maps given function to the given iterable and returns a new iterable. This is akin
      * to compositions based on {@link java.util.stream.Stream}, however, allows for restarting the iteration as per
      * general contract in {@link Iterable}.
+     *
      * @param source source iterable
      * @param mapper mapper function to map from {@code T} to {@code Iterable} of {@code R}
      * @param <T> type of source iterable
@@ -60,6 +61,7 @@ public class IterableHelpers {
      * Maps given function to the given iterable and returns a new iterable. This is akin
      * to compositions based on {@link java.util.stream.Stream}, however, allows for restarting the iteration as per
      * general contract in {@link Iterable}.
+     *
      * @param source source iterable
      * @param mapper mapper function to map from {@code T} to {@code Iterable} of {@code R}
      * @param <T> type of source iterable
@@ -75,6 +77,7 @@ public class IterableHelpers {
 
     /**
      * Returns an alternative singleton iterable if the given source iterable is empty.
+     *
      * @param source source
      * @param value value to use if source is empty
      * @param <T> type parameter of the given iterable
@@ -87,6 +90,7 @@ public class IterableHelpers {
 
     /**
      * Returns an alternative iterable if the given source iterable is empty.
+     *
      * @param source source
      * @param otherIterable iterable to return if source is empty
      * @param <T> type parameter of the given iterable

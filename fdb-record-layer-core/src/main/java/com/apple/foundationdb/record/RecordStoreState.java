@@ -66,6 +66,7 @@ public class RecordStoreState {
      * Creates a <code>RecordStoreState</code> with the given index states.
      * Only indexes that are not in the default state ({@link IndexState#READABLE IndexState.READABLE})
      * need to be included in the map.
+     *
      * @param storeHeader header information for the given store
      * @param indexStateMap mapping from index name to index state
      */
@@ -92,6 +93,7 @@ public class RecordStoreState {
 
     /**
      * End using this record store state.
+     *
      * @see #beginRead()
      */
     public void endRead() {
@@ -104,6 +106,7 @@ public class RecordStoreState {
      * underlying this <code>RecordStoreState</code>. This operation is
      * constant time as it does not return a copy, but the map that is
      * returned is immutable.
+     *
      * @return the underlying mapping of index names to their state
      */
     @Nonnull
@@ -114,6 +117,7 @@ public class RecordStoreState {
     /**
      * Determines whether the index provided is a write-only index.
      * This is determined by looking it up in the set.
+     *
      * @param index the index to check
      * @return <code>true</code> if the given index is write-only and <code>false</code> otherwise
      */
@@ -124,6 +128,7 @@ public class RecordStoreState {
     /**
      * Determines whether the index of the given name is a write-only
      * index. This is determined by looking it up the set.
+     *
      * @param indexName the name of the index to check
      * @return <code>true</code> if the given name is the name of a write-only index and <code>false</code> otherwise
      */
@@ -134,6 +139,7 @@ public class RecordStoreState {
     /**
      * Determines whether the index is disabled. This is determined
      * by looking it up in the set.
+     *
      * @param index the index to check
      * @return <code>true</code> if the given index is disabled and <code>false</code> otherwise
      */
@@ -144,6 +150,7 @@ public class RecordStoreState {
     /**
      * Determines whether the index of the given is disabled. This is determined
      * by looking it up in the set.
+     *
      * @param indexName the name of the index to check
      * @return <code>true</code> if the given index is disabled and <code>false</code> otherwise
      */
@@ -154,6 +161,7 @@ public class RecordStoreState {
     /**
      * Determines whether the index is readable. This is done just by process of
      * elimination, i.e., making sure it is not write-only and not disabled.
+     *
      * @param index the index to check
      * @return <code>true</code> if the given index is readable and <code>false</code> otherwise
      */
@@ -164,6 +172,7 @@ public class RecordStoreState {
     /**
      * Determines whether the index of the given name is readable. This is done just by process of
      * elimination, i.e., making sure it is not write-only and not disabled.
+     *
      * @param indexName the name of the index to check
      * @return <code>true</code> if the given index is readable and <code>false</code> otherwise
      */
@@ -176,6 +185,7 @@ public class RecordStoreState {
      * Determines whether the index of the given name is in readable-unique-pending. This state means that
      * the index is fully indexed, but cannot be readable because of duplicated entries that contradict its
      * UNIQUE flag.
+     *
      * @param indexName the name of the index to check
      * @return <code>true</code> if the given index is readable-unique-pending and <code>false</code> otherwise
      */
@@ -187,6 +197,7 @@ public class RecordStoreState {
     /**
      * Determines whether the index of the given name is in scannable. This state means that the index is
      * either readable or readable-unique-pending.
+     *
      * @param indexName the name of the index to check
      * @return <code>true</code> if the given index is scannable and <code>false</code> otherwise
      */
@@ -198,6 +209,7 @@ public class RecordStoreState {
      * Determine the state of an index. Note that all indexes are assumed to be
      * readable unless marked otherwise, i.e., this will return {@link IndexState#READABLE IndexState.READABLE}
      * if it is given an index that is not explicitly in its write-only or disabled lists.
+     *
      * @param index the index to check
      * @return the state of the given index
      */
@@ -210,6 +222,7 @@ public class RecordStoreState {
      * Determine the state of the index with the given name. Note that all indexes are assumed to be
      * readable unless marked otherwise, i.e., this will return {@link IndexState#READABLE IndexState.READABLE}
      * if it is given an index name that is not explicitly in its write-only or disabled lists.
+     *
      * @param indexName the name of the index to check
      * @return the state of the given index
      */
@@ -221,6 +234,7 @@ public class RecordStoreState {
     /**
      * Determines whether all of the indexes in the store are currently readable. That is
      * to say, it makes sure there are no disabled indexes and no write-only indexes.
+     *
      * @return <code>true</code> if all of the indexes are readable and <code>false</code> otherwise
      */
     public boolean allIndexesReadable() {
@@ -233,6 +247,7 @@ public class RecordStoreState {
      * that has the current state. It is possible that these operations will
      * be less efficient with the older state information, but they should
      * not cause correctness problems.
+     *
      * @param other the <code>RecordStoreState</code> to check compatibility with
      * @return whether operations planned with <code>other</code> will be correct
      * if the state is actually described by this <code>RecordStoreState</code>
@@ -246,6 +261,7 @@ public class RecordStoreState {
 
     /**
      * Get the names of any write-only indexes.
+     *
      * @return a set of indexes that are write-only for this store
      */
     public Set<String> getWriteOnlyIndexNames() {
@@ -257,6 +273,7 @@ public class RecordStoreState {
 
     /**
      * Get the names of any disabled indexes.
+     *
      * @return a set of indexes that are disabled for this store
      */
     public Set<String> getDisabledIndexNames() {
@@ -269,6 +286,7 @@ public class RecordStoreState {
     /**
      * Create a new version of this RecordStoreState, but with the specified indexes in the specified state,
      * ignoring their present state.
+     *
      * @param indexNames the names of the indexes to modify
      * @param state the new state for the given indexes
      * @return a new store state with the given indexes in the given state
@@ -325,6 +343,7 @@ public class RecordStoreState {
 
     /**
      * Check if records may be updated.
+     *
      * @return true if record update is allowed.
      */
     public boolean isRecordUpdateAllowed() {
@@ -335,6 +354,7 @@ public class RecordStoreState {
     /**
      * Checks if this <code>RecordStoreState</code> specifies identical state
      * as the given object.
+     *
      * @param o the object to check for equality
      * @return <code>true</code> if the passed object is a <code>RecordStoreState</code>
      * instance and if the other state matches this <code>RecordStoreState</code>
@@ -356,6 +376,7 @@ public class RecordStoreState {
 
     /**
      * Creates a valid hash code of this state based on the hashes of its members.
+     *
      * @return a hash code based off of the state's members hashes
      */
     @Override
@@ -366,6 +387,7 @@ public class RecordStoreState {
     /**
      * A human-readable representation of the state. This is essentially just
      * a print out of the member variables of the state.
+     *
      * @return the human-readable state representation
      */
     @Override

@@ -43,6 +43,7 @@ import java.util.Objects;
  *         Query decoration: The user wants to decorate the query with expressions not (yet) supported by the {@link ExpressionFactory}.
  *     </li>
  * </ul>
+ *
  * @param <T> The type of the fragment.
  */
 @API(API.Status.EXPERIMENTAL)

@@ -27,6 +27,7 @@ public interface JDBCRelationalArray extends RelationalArray {
 
     /**
      * Obtain a new {@link com.apple.foundationdb.relational.api.RelationalArray} builder.
+     *
      * @return Builder for {@link com.apple.foundationdb.relational.api.RelationalArray}.
      */
     static RelationalArrayBuilder newBuilder() {

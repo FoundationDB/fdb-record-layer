@@ -84,6 +84,7 @@ public final class QueryEvaluationConstants {
     /**
      * Retrieve a map with the values of the constants contained in this instance, keyed by the unique
      * constant ID string.
+     *
      * @return a map from the unique evaluation constant ID string to the value of this constant.
      */
     @Nonnull
@@ -205,9 +206,7 @@ public final class QueryEvaluationConstants {
         }
 
         /**
-         * Get the {@link ConstantKind} of this constant instance.
-         *
-         * @return the {@link ConstantKind} of this constant instance.
+         * {@return the {@link ConstantKind} of this constant instance}
          */
         @Nonnull
         public ConstantKind getKind() {

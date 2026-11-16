@@ -69,6 +69,7 @@ public class TimeWindowLeaderboardWindowUpdate extends IndexOperation {
 
     /**
      * Create a time window update operation.
+     *
      * @param updateTimestamp a timestamp to be recorded if any changes are made
      * @param highScoreFirst if <code>true</code>, numerically higher scores come first in the index
      * @param deleteBefore delete any time windows ending at this time or before
@@ -94,6 +95,7 @@ public class TimeWindowLeaderboardWindowUpdate extends IndexOperation {
 
     /**
      * Create a time window update operation.
+     *
      * @param updateTimestamp a timestamp to be recorded if any changes are made
      * @param highScoreFirst if <code>true</code>, numerically higher scores come first in the index
      * @param deleteBefore delete any time windows ending at this time or before;

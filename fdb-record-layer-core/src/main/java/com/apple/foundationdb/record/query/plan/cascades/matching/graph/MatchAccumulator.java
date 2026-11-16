@@ -36,6 +36,7 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.graph;
 public interface MatchAccumulator<M, R> {
     /**
      * Accumulates the {@link Iterable} handed in into the internal state of the instance.
+     *
      * @param m and iterable of type {@code M}
      */
     void accumulate(Iterable<M> m);
@@ -44,6 +45,7 @@ public interface MatchAccumulator<M, R> {
      * Compute and return a result based on the internal state of the instance. After calling this method, clients
      * should not call {@link #accumulate} again. Clients should discard this object after this method has been called.
      * Multiple calls to this method, however, must return the same stable result.
+     *
      * @return the result
      */
     R finish();

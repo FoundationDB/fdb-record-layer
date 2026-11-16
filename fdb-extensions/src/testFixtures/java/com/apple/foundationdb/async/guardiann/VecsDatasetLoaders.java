@@ -53,7 +53,6 @@ public class VecsDatasetLoaders {
      *
      * @param baseFile path to the {@code .fvecs} base file
      * @param numVectors the maximum number of vectors to read
-     *
      * @return the loaded {@code (primaryKey, vector)} pairs, in file order
      */
     @Nonnull
@@ -79,7 +78,6 @@ public class VecsDatasetLoaders {
      * half-precision).
      *
      * @param queriesFile path to the {@code .fvecs} query file
-     *
      * @return the loaded query vectors, in file order
      */
     @Nonnull
@@ -100,7 +98,6 @@ public class VecsDatasetLoaders {
      *
      * @param groundTruthFile path to the {@code .ivecs} ground-truth file
      * @param maxIndex the largest index to keep, or {@code -1} to keep every index
-     *
      * @return one ground-truth index set per query, in file order
      */
     @Nonnull

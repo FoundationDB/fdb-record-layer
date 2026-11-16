@@ -33,6 +33,7 @@ import java.util.function.Function;
 
 /**
  * Wrapper around {@link Transaction} that performs checks on keys passed to various operations.
+ *
  * @see KeyChecker
  */
 @API(API.Status.EXPERIMENTAL)

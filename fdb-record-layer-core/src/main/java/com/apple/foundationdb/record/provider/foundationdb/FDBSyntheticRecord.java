@@ -114,6 +114,7 @@ public class FDBSyntheticRecord implements FDBIndexableRecord<Message> {
      * Get the primary key for this synthetic record.
      * The primary key is the record type key for the synthetic record type, followed by the primary keys of each
      * of the constituent records as nested tuples.
+     *
      * @return primary key for this record
      */
     @Nonnull
@@ -137,6 +138,7 @@ public class FDBSyntheticRecord implements FDBIndexableRecord<Message> {
     /**
      * Get the number of keys used to store this record.
      * For a synthetic record, this is the sum of the number of keys used to store each of the constituent records.
+     *
      * @return number of keys
      */
     @Override
@@ -147,6 +149,7 @@ public class FDBSyntheticRecord implements FDBIndexableRecord<Message> {
     /**
      * Get the size in bytes of all keys used to store this record.
      * For a synthetic record, this is the sum of the sizes used to store each of the constituent records.
+     *
      * @return size in bytes
      */
     @Override
@@ -157,6 +160,7 @@ public class FDBSyntheticRecord implements FDBIndexableRecord<Message> {
     /**
      * Get the size in bytes of all values used to store this record.
      * For a synthetic record, this is the sum of the sizes used to store each of the constituent records.
+     *
      * @return size in bytes
      */
     @Override

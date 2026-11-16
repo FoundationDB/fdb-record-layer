@@ -324,6 +324,7 @@ public class RecordValidatorTest extends FDBRecordStoreTestBase {
 
     /**
      * A test that corrupts one of the splits of the records and ensures it is not deserializable.
+     *
      * @param formatVersion the version format
      */
     @ParameterizedTest(name = "testValidateRecordCorruptSplit [formatVersion = {0}]")

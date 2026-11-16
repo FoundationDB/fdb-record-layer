@@ -37,6 +37,7 @@ import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaT
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
 import com.apple.foundationdb.relational.recordlayer.query.PlanContext;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
+import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.query.QueryPlan;
 import com.apple.foundationdb.relational.recordlayer.query.cache.NoOpMetricCollector;
 import com.apple.foundationdb.relational.recordlayer.query.cache.RelationalPlanCache;
@@ -107,9 +108,11 @@ class OfflinePlanGenerationTest {
         final var plan = PlanGenerator.create(
                 Optional.empty(),
                 schemaTemplate,
+                schemaTemplate.toRecordMetadata(),
                 storeState,
                 NoOpMetricCollector.INSTANCE,
-                connection.getOptions())
+                connection.getOptions(),
+                PreparedParams.empty())
                 .getPlan(query);
 
         assertThat(plan).isInstanceOf(QueryPlan.PhysicalQueryPlan.class);
@@ -124,9 +127,11 @@ class OfflinePlanGenerationTest {
         final var plan = PlanGenerator.create(
                 Optional.empty(),
                 schemaTemplate,
+                schemaTemplate.toRecordMetadata(),
                 storeState,
                 NoOpMetricCollector.INSTANCE,
-                connection.getOptions())
+                connection.getOptions(),
+                PreparedParams.empty())
                 .getPlan(query);
 
         assertThat(plan).isInstanceOf(QueryPlan.PhysicalQueryPlan.class);
@@ -145,9 +150,11 @@ class OfflinePlanGenerationTest {
         final var plan = PlanGenerator.create(
                 Optional.empty(),
                 schemaTemplate,
+                schemaTemplate.toRecordMetadata(),
                 disabledStoreState,
                 NoOpMetricCollector.INSTANCE,
-                connection.getOptions())
+                connection.getOptions(),
+                PreparedParams.empty())
                 .getPlan(query);
 
         assertThat(plan).isInstanceOf(QueryPlan.PhysicalQueryPlan.class);
@@ -161,9 +168,9 @@ class OfflinePlanGenerationTest {
         final var options = connection.getOptions();
 
         // Plan offline first — uses only template + state, no transaction.
-        final var offlinePlan = (QueryPlan.PhysicalQueryPlan) PlanGenerator
-                .create(Optional.empty(), schemaTemplate, storeState,
-                        NoOpMetricCollector.INSTANCE, options)
+        final var offlinePlan = (QueryPlan.PhysicalQueryPlan) PlanGenerator.create(Optional.empty(), schemaTemplate,
+                        schemaTemplate.toRecordMetadata(), storeState, NoOpMetricCollector.INSTANCE, options,
+                        PreparedParams.empty())
                 .getPlan(query);
 
         // Then open a transaction and plan against the real store via the standard workflow.
@@ -199,8 +206,8 @@ class OfflinePlanGenerationTest {
         final var cache = RelationalPlanCache.buildWithDefaults();
 
         // Plan offline first using the shared cache — writes the plan to it.
-        PlanGenerator.create(Optional.of(cache), schemaTemplate, storeState,
-                        NoOpMetricCollector.INSTANCE, options)
+        PlanGenerator.create(Optional.of(cache), schemaTemplate, schemaTemplate.toRecordMetadata(), storeState,
+                        NoOpMetricCollector.INSTANCE, options, PreparedParams.empty())
                 .getPlan(query);
 
         // Open a transaction and plan via the standard workflow with the SAME cache instance.
@@ -242,7 +249,8 @@ class OfflinePlanGenerationTest {
         final var cache = RelationalPlanCache.buildWithDefaults();
         final var metricCollector = new CountingMetricCollector();
 
-        PlanGenerator.create(Optional.of(cache), schemaTemplate, storeState, metricCollector, writeOnlyOptions)
+        PlanGenerator.create(Optional.of(cache), schemaTemplate, schemaTemplate.toRecordMetadata(), storeState,
+                        metricCollector, writeOnlyOptions, PreparedParams.empty())
                 .getPlan(query);
 
         assertThat(metricCollector.countOf(RelationalMetric.RelationalCount.PLAN_CACHE_WRITE_ONLY_STORE)).isEqualTo(1);
@@ -250,7 +258,8 @@ class OfflinePlanGenerationTest {
         assertThat(metricCollector.countOf(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS)).isZero();
         assertThat(tertiaryEntries(cache)).isEqualTo(1L);
 
-        PlanGenerator.create(Optional.of(cache), schemaTemplate, storeState, metricCollector, writeOnlyOptions)
+        PlanGenerator.create(Optional.of(cache), schemaTemplate, schemaTemplate.toRecordMetadata(), storeState,
+                        metricCollector, writeOnlyOptions, PreparedParams.empty())
                 .getPlan(query);
 
         assertThat(metricCollector.countOf(RelationalMetric.RelationalCount.PLAN_CACHE_WRITE_ONLY_STORE)).isEqualTo(2);
@@ -258,7 +267,8 @@ class OfflinePlanGenerationTest {
         assertThat(tertiaryEntries(cache)).isEqualTo(1L);
 
         // A plain query, without the option, finds the stored entry.
-        PlanGenerator.create(Optional.of(cache), schemaTemplate, storeState, metricCollector, connection.getOptions())
+        PlanGenerator.create(Optional.of(cache), schemaTemplate, schemaTemplate.toRecordMetadata(), storeState,
+                        metricCollector, connection.getOptions(), PreparedParams.empty())
                 .getPlan(query);
 
         assertThat(metricCollector.countOf(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT)).isEqualTo(1);
@@ -303,20 +313,26 @@ class OfflinePlanGenerationTest {
         final var query = "select * from BOOKS where YEAR > 1980";
         final var emptyState = new RecordStoreState(null, Map.of());
 
+        final var templateV1 = booksTemplate(false, 1);
         final var planV1 = (QueryPlan.PhysicalQueryPlan) PlanGenerator.create(
                 Optional.empty(),
-                booksTemplate(false, 1),
+                templateV1,
+                templateV1.toRecordMetadata(),
                 emptyState,
                 NoOpMetricCollector.INSTANCE,
-                connection.getOptions())
+                connection.getOptions(),
+                PreparedParams.empty())
                 .getPlan(query);
 
+        final var templateV2 = booksTemplate(true, 2);
         final var planV2 = (QueryPlan.PhysicalQueryPlan) PlanGenerator.create(
                 Optional.empty(),
-                booksTemplate(true, 2),
+                templateV2,
+                templateV2.toRecordMetadata(),
                 emptyState,
                 NoOpMetricCollector.INSTANCE,
-                connection.getOptions())
+                connection.getOptions(),
+                PreparedParams.empty())
                 .getPlan(query);
 
         assertThat(planV2.getRecordQueryPlan().toString()).startsWith("ISCAN(YEAR_IDX");

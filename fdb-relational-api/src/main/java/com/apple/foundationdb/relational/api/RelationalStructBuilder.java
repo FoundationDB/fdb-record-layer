@@ -35,6 +35,7 @@ import java.util.UUID;
 public interface RelationalStructBuilder {
     /**
      * Build a {@link RelationalStruct}.
+     *
      * @return A 'built' RelationalStruct instance.
      */
     RelationalStruct build();

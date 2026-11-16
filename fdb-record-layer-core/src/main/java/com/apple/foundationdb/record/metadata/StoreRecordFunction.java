@@ -31,6 +31,7 @@ import javax.annotation.Nonnull;
 /**
  * Record function that should be evaluated for some record against
  * an {@link FDBRecordStoreBase} instance.
+ *
  * @param <T> the type of the result value
  */
 @API(API.Status.UNSTABLE)

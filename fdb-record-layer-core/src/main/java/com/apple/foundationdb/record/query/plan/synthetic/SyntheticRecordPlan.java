@@ -44,6 +44,7 @@ import javax.annotation.Nullable;
 public interface SyntheticRecordPlan extends PlanHashable  {
     /**
      * Execute this plan.
+     *
      * @param store record store against which to execute
      * @param continuation continuation from a previous execution of this same plan
      * @param executeProperties limits on execution
@@ -56,6 +57,7 @@ public interface SyntheticRecordPlan extends PlanHashable  {
 
     /**
      * Execute this plan.
+     *
      * @param store record store against which to execute
      * @return a cursor of synthetic records
      */

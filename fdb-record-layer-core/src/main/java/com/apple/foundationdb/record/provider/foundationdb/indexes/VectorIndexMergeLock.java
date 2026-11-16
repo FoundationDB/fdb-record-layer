@@ -58,8 +58,10 @@ import java.util.function.LongSupplier;
  * a claim racing a delete aborts while acquires still never conflict with each other. See those two methods.
  */
 final class VectorIndexMergeLock {
-    /** Default lease window: comfortably longer than the gap between a holder's merge invocations (incl. driver
-     * back-off), short enough to reclaim a crashed holder's prefix promptly. */
+    /**
+     * Default lease window: comfortably longer than the gap between a holder's merge invocations (incl. driver
+     * back-off), short enough to reclaim a crashed holder's prefix promptly.
+     */
     static final long DEFAULT_LEASE_WINDOW_MILLIS = 60_000L;
 
     @Nonnull
@@ -86,6 +88,7 @@ final class VectorIndexMergeLock {
      * claimable — either no lease exists, or the lease has aged out of the {@code [now - window, now + window]} band
      * (too old, or implausibly far in the future) and is treated as stale. The read is at snapshot isolation so the
      * skip decision adds no read conflicts.
+     *
      * @param context the merge context
      * @param prefix the partition prefix
      * @return a future of the live owner id, or {@code null} if the prefix is free/stale (claimable)
@@ -123,6 +126,7 @@ final class VectorIndexMergeLock {
      * claim never conflicts with a normal insert/delete (which touch the
      * {@link VectorIndexSecondarySubspaceKeys#TASK_COUNTS} counters / the partition, not the
      * guard) — so merges still spread across prefixes via blind, last-writer-wins lease writes.
+     *
      * @param context the merge context
      * @param prefix the partition prefix
      */
@@ -136,6 +140,7 @@ final class VectorIndexMergeLock {
     /**
      * Releases {@code prefix}'s lease if (and only if) it is still held by this owner. Called once the prefix's queue
      * is fully drained so another merge may pick it up immediately rather than waiting for expiry.
+     *
      * @param context the merge context
      * @param prefix the partition prefix
      * @return a future that completes when the release (if any) has been staged in the transaction
@@ -174,6 +179,7 @@ final class VectorIndexMergeLock {
      *       {@code acquire} that would otherwise commit <em>after</em> this delete and re-write a lease into the emptied
      *       group.</li>
      * </ol>
+     *
      * @param transaction the {@code deleteWhere} transaction
      * @param indexSecondarySubspace the index's secondary subspace (where the lease and guard live)
      * @param prefix the grouping prefix being deleted

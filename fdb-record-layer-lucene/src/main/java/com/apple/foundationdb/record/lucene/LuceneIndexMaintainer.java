@@ -369,6 +369,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     /**
      * Internal utility to update a single record.
+     *
      * @param newRecord the new record to save
      * @param destinationPartitionIdHint partition ID
      * @param entry entry from the grouping key to the document fields
@@ -392,6 +393,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     /**
      * Index a record scanned by the online indexer. A record that had already been indexed (e.g. by an explicit
      * update while the index was write-only) is skipped.
+     *
      * @param newRecordUnfiltered the scanned record, before applying the index maintenance filter
      * @param <M> type of message
      * @return a future that is complete when the record is indexed or found to be already indexed

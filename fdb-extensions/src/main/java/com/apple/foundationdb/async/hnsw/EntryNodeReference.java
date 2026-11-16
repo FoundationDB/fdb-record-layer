@@ -57,6 +57,7 @@ class EntryNodeReference extends NodeReferenceWithVector {
 
     /**
      * Gets the layer value for this object.
+     *
      * @return the integer representing the layer
      */
     public int getLayer() {
@@ -74,6 +75,7 @@ class EntryNodeReference extends NodeReferenceWithVector {
      * <p>The result is {@code true} if and only if the argument is an instance of {@code EntryNodeReference}, the
      * superclass's {@link #equals(Object)} method returns {@code true}, and the {@code layer} fields of both objects
      * are equal.
+     *
      * @param o the object to compare this {@code EntryNodeReference} against.
      * @return {@code true} if the given object is equal to this one; {@code false} otherwise.
      */
@@ -90,6 +92,7 @@ class EntryNodeReference extends NodeReferenceWithVector {
      *
      * <p>The hash code is computed by combining the hash code of the superclass with the hash code of the {@code layer}
      * field. This implementation is consistent with the contract of {@link Object#hashCode()}.
+     *
      * @return a hash code value for this object.
      */
     @Override

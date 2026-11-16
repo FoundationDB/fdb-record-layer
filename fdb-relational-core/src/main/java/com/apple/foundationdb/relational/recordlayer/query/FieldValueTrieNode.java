@@ -161,7 +161,6 @@ public class FieldValueTrieNode extends TrieNode.AbstractTrieNode<FieldValue.Res
      * This method compresses an <i>ordered</i> set of prefixes into a trie data structure.
      *
      * @param orderedFieldPaths a list of ordered field paths.
-     *
      * @return a trie representation of the ordered field paths.
      */
     @Nonnull

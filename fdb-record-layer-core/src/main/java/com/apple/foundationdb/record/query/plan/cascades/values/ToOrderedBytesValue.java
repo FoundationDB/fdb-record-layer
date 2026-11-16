@@ -76,6 +76,7 @@ public class ToOrderedBytesValue extends AbstractValue implements ValueWithChild
 
     /**
      * Constructs a new {@link ToOrderedBytesValue} instance.
+     *
      * @param child The child expression.
      */
     public ToOrderedBytesValue(@Nonnull final Value child, @Nonnull final Direction direction) {

@@ -45,6 +45,7 @@ class RandomTextGenerator {
 
     /**
      * Create a new version with the same words, but a different seed to pick the words.
+     *
      * @param random A new random used for picking words
      * @return a new {@code RandomTextGenerator}
      */

@@ -29,9 +29,7 @@ import javax.annotation.Nonnull;
  */
 public interface PlannerEventWithRule {
     /**
-     * Return the rule.
-     *
-     * @return the rule
+     * {@return the rule}
      */
     @Nonnull
     CascadesRule<?> getRule();

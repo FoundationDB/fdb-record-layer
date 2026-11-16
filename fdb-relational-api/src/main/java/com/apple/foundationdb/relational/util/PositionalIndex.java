@@ -30,6 +30,7 @@ import com.apple.foundationdb.annotation.API;
 public class PositionalIndex {
     /**
      * Adjust 'oneBasedIndex' so can be used as a zero-based protobuf index.
+     *
      * @param oneBasedIndex JDBC indices are oneBased; i.e. first item is at postion 1.
      * @return Protobuf index derived from <code>oneBasedIndex</code>.
      */
@@ -39,6 +40,7 @@ public class PositionalIndex {
 
     /**
      * Adjust 'zeroBasedIndex' so can be used as a one-based JDBC index.
+     *
      * @param zeroBasedProtobufIndex Protobuf zero-based index.
      * @return An index that can be used on JDBC types.
      */

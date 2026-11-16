@@ -68,6 +68,7 @@ public class FDBDirectorySharedCache {
     /**
      * Get the key for this directory cache.
      * The key is relative to the record store root, so including the index subspace prefix and any grouping keys.
+     *
      * @return the key for this directory cache
      */
     @Nonnull
@@ -78,6 +79,7 @@ public class FDBDirectorySharedCache {
     /**
      * Get the sequence number of this directory cache.
      * The sequence number advances whenever new data is written to the directory.
+     *
      * @return the sequence number of this directory cache
      */
     public long getSequenceNumber() {
@@ -86,6 +88,7 @@ public class FDBDirectorySharedCache {
 
     /**
      * Get the set of file references for this directory, if present in the cache.
+     *
      * @return cached file references or {@code null} if not cached
      */
     @Nullable
@@ -95,6 +98,7 @@ public class FDBDirectorySharedCache {
 
     /**
      * Add set of file references to the cache.
+     *
      * @param fileReferences the file references for the associated directory as of the sequence number
      */
     public void setFileReferencesIfAbsent(@Nonnull Map<String, FDBLuceneFileReference> fileReferences) {
@@ -103,6 +107,7 @@ public class FDBDirectorySharedCache {
 
     /**
      * Get a block from a file if present in the cache.
+     *
      * @param id file id
      * @param blockNumber block number in the file
      * @return the cached block or {@code null} if not cached
@@ -114,6 +119,7 @@ public class FDBDirectorySharedCache {
 
     /**
      * Add a block from a file to the cache.
+     *
      * @param id file id
      * @param blockNumber block number in the file
      * @param block the block to be cached

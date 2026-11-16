@@ -130,6 +130,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
 
     /**
      * Scan the vector index.
+     *
      * @param scanBounds the {@link VectorIndexScanBounds bounds} of the scan to perform
      * @param continuation any continuation from a previous scan invocation
      * @param scanProperties skip, limit and other properties of the scan
@@ -191,6 +192,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
     /**
      * Scan one partition of the vector index, i.e. the one vector structure that holds the data for the partition
      * identified by {@code prefixTuple}.
+     *
      * @param prefixTuple the tuple identifying the partition
      * @param continuation the continuation for this scan or {@code null} if this is the first execution
      * @param partitionSubspace the subspace where the partition's vector structure resides
@@ -702,6 +704,7 @@ public class VectorIndexMaintainer extends StandardIndexMaintainer {
     /**
      * Whether this index has any outstanding deferred-maintenance work, via an O(1) snapshot read of the index-wide
      * total. Always {@code false} for engines that do not defer work (HNSW).
+     *
      * @return a future that is {@code true} iff some partition has outstanding tasks
      */
     @Nonnull

@@ -808,6 +808,7 @@ public class LuceneIndexTestUtils {
     /**
      * Try to force a segment merge on the provided store using the given index. The merge will be triggered if there are
      * sufficient conditions for one.
+     *
      * @param recordStore the store where the index is stored
      * @param index the Lucene indes to merge
      */

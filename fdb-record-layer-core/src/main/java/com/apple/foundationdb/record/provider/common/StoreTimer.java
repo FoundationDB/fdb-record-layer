@@ -94,7 +94,6 @@ public class StoreTimer {
      *
      * @param timer timer to subtract the snapshot from
      * @param timerSnapshot snapshot of the provided timer
-     *
      * @return a snapshot of the provided timer
      */
     @Nonnull
@@ -267,6 +266,7 @@ public class StoreTimer {
          * in a manner such that some events contributed to the aggregate in different fashions (for example,
          * {@code eventA + eventB - eventC}), in which case this method would return the fact that the three events
          * comprise the aggregate but with no indication of in which manner they contribute to its value.
+         *
          * @return the events that comprise the aggregate
          */
         Set<? extends Event> getComponentEvents();
@@ -437,9 +437,7 @@ public class StoreTimer {
         }
 
         /**
-         * Get the number of occurrences of the associated event.
-         *
-         * @return the number of occurrences of the associated event
+         * {@return the number of occurrences of the associated event}
          */
         public int getCount() {
             return count.get();
@@ -457,9 +455,7 @@ public class StoreTimer {
         }
 
         /**
-         * Get the cumulative value of the associated event.
-         *
-         * @return the cumulative value of the associated event
+         * {@return the cumulative value of the associated event}
          */
         public long getCumulativeValue() {
             return cumulativeValue.get();
@@ -524,9 +520,7 @@ public class StoreTimer {
     }
 
     /**
-     * Get the UUID of this timer.
-     *
-     * @return the UUID of this timer
+     * {@return the UUID of this timer}
      */
     @Nonnull
     public UUID geUUID() {
@@ -640,7 +634,6 @@ public class StoreTimer {
      * Get the total time spent for a given event.
      *
      * @param event the event to get time information for
-     *
      * @return the total number of nanoseconds recorded for the event
      */
     public long getTimeNanos(Event event) {
@@ -652,7 +645,6 @@ public class StoreTimer {
      * Get the total count for a given event.
      *
      * @param event the event to get count information for
-     *
      * @return the total number times that event was recorded
      */
     public int getCount(Event event) {
@@ -664,7 +656,6 @@ public class StoreTimer {
      * Get the total size for a given event.
      *
      * @param event the event to get size information for
-     *
      * @return the total size of the recorded event
      */
     public long getSize(SizeEvent event) {
@@ -676,7 +667,6 @@ public class StoreTimer {
      * Get the total time spent for a given event that timed out.
      *
      * @param event the event to get time information for
-     *
      * @return the total number of nanoseconds recorded for when the event timed out
      */
     public long getTimeoutTimeNanos(Event event) {
@@ -688,7 +678,6 @@ public class StoreTimer {
      * Get the total count of timeouts for a given event.
      *
      * @param event the event to get timeout information for
-     *
      * @return the total number times that event was recorded as timed out
      */
     public int getTimeoutCount(Event event) {
@@ -794,7 +783,6 @@ public class StoreTimer {
      * @param event the event type to use to record timing
      * @param future a future that will complete when the operation is finished
      * @param <T> the type of the future
-     *
      * @return a new future that will be complete after also recording timing information
      */
     public <T> CompletableFuture<T> instrument(Event event, CompletableFuture<T> future) {
@@ -809,7 +797,6 @@ public class StoreTimer {
      * @param future a future that will complete when the operation is finished
      * @param executor an asynchronous executor to use to run the recording
      * @param <T> the type of the future
-     *
      * @return a new future that will be complete after also recording timing information
      */
     public <T> CompletableFuture<T> instrument(Event event, CompletableFuture<T> future, Executor executor) {
@@ -827,7 +814,6 @@ public class StoreTimer {
      * @param future a future that will complete when the operation is finished
      * @param executor an asynchronous executor to use to run the recording
      * @param <T> the type of the future
-     *
      * @return a new future that will be complete after also recording timing information
      */
     public <T> CompletableFuture<T> instrument(Set<Event> events, CompletableFuture<T> future, Executor executor) {
@@ -848,7 +834,6 @@ public class StoreTimer {
      * @param executor an asynchronous executor to use to run the recording
      * @param startTime the nanosecond time at which the operation started
      * @param <T> the type of the future
-     *
      * @return a new future that will be complete after also recording timing information
      */
     public <T> CompletableFuture<T> instrument(Event event, CompletableFuture<T> future, Executor executor, long startTime) {
@@ -867,7 +852,6 @@ public class StoreTimer {
      * @param executor an asynchronous executor to use to run the recording
      * @param startTime the nanosecond time at which the operation started
      * @param <T> the type of the future
-     *
      * @return a new future that will be complete after also recording timing information
      */
     public <T> CompletableFuture<T> instrument(Set<Event> events, CompletableFuture<T> future, Executor executor, long startTime) {
@@ -888,7 +872,6 @@ public class StoreTimer {
      * @param event the event type to use to record timing
      * @param inner the cursor to record timing information for
      * @param <T> the type of the cursor elements
-     *
      * @return a new cursor that returns the same elements and also records timing information
      */
     public <T> RecordCursor<T> instrument(Event event, RecordCursor<T> inner) {

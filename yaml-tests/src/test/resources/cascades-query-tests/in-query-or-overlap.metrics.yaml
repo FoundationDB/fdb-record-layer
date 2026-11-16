@@ -1,0 +1,17 @@
+in-query-or-overlap:
+-   query: EXPLAIN select * from my_simple_record where num_value_unique in (903,
+        905, 901) or num_value_unique in (906, 905, 904)
+    ref: in-query-or-overlap.yamsql:83
+    explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE
+        [EQUALS q0] -> [NUM_VALUE_UNIQUE: KEY:[0], REC_NO: KEY:[1]]) } ∪ [IN arrayDistinct(@c17)
+        SORTED] | INJOIN q1 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE [EQUALS
+        q1] -> [NUM_VALUE_UNIQUE: KEY:[0], REC_NO: KEY:[1]]) } COMPARE BY (_.NUM_VALUE_UNIQUE,
+        _.REC_NO) | FETCH'
+    task_count: 7876
+    task_total_time_ms: 715
+    transform_count: 1319
+    transform_time_ms: 362
+    transform_yield_count: 407
+    insert_time_ms: 58
+    insert_new_count: 1306
+    insert_reused_count: 162

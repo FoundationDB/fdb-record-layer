@@ -80,6 +80,7 @@ public final class BuildVersion {
      * Get a piece of the driver version string.
      * Index == 0 if we want the 'major' part of version string and index == 1
      * if we want the minor part of the version string.
+     *
      * @return sub-version.
      * @throws ArrayIndexOutOfBoundsException Thrown when passed a nonsense index.
      */
@@ -104,6 +105,7 @@ public final class BuildVersion {
     /**
      * Utility for returning major part of {@link #getVersion()}:
      * e.g. if version is 1.2.3, this method will return '1'.
+     *
      * @return major version.
      */
     public int getMajorVersion() throws RelationalException {
@@ -112,6 +114,7 @@ public final class BuildVersion {
 
     /**
      * Utility for finding major part of passed version.
+     *
      * @param version full version
      * @return major sub-version.
      */
@@ -122,6 +125,7 @@ public final class BuildVersion {
     /**
      * Utility for returning minor part of {@link #getVersion()}:
      * e.g. if version is 1.2.3, this method will return '2'.
+     *
      * @return minor version.
      */
     public int getMinorVersion() throws RelationalException {
@@ -130,6 +134,7 @@ public final class BuildVersion {
 
     /**
      * Utility for finding minor part of passed version.
+     *
      * @param version full version
      * @return minor sub-version.
      */

@@ -44,7 +44,6 @@ public enum Cardinality {
      * {@link #MULTIPLE}, so it is safe to pass the size of a list that was capped at two.
      *
      * @param count the number of nodes observed, which may be capped at two
-     *
      * @return the matching {@link Cardinality}
      */
     @Nonnull

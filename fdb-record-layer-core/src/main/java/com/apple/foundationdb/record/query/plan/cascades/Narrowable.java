@@ -25,6 +25,7 @@ import java.util.Optional;
 
 /**
  * Narrow-able trait that can safely downcast to a particular implementation. Should be mixed in if supported.
+ *
  * @param <T> type parameter
  */
 public interface Narrowable<T> {

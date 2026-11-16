@@ -427,6 +427,7 @@ public abstract class QueryConfig {
      * Return a NoOp config - a config that does nothing.
      * This config can be executed but will perform no action. Use in cases where we need to continue running (e.g.
      * the command and config are legal and supprted) but some conditions make execution unneeded.
+     *
      * @param reference the {@link YamlReference} in the test file
      * @return an instance of a NoOp config
      */

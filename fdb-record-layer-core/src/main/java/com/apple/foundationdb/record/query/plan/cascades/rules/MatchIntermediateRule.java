@@ -197,6 +197,7 @@ public class MatchIntermediateRule extends AbstractCascadesRule<RelationalExpres
 
     /**
      * Method to match an expression with a candidate expression.
+     *
      * @param expression an expression
      * @param matchCandidate a match candidate to match against
      * @param candidateExpression a candidate expression which must be part of {@code matchCandidate}
@@ -301,6 +302,7 @@ public class MatchIntermediateRule extends AbstractCascadesRule<RelationalExpres
     /**
      * Internal helper to create a map based on an {@link Iterable} of {@link PartialMatchWithQuantifier}s that is indexed
      * by quantifiers (by identity).
+     *
      * @param partialMatchWithQuantifiers the iterable to be converted
      * @return a map mapping from identity(quantifier) to {@link PartialMatch}
      */

@@ -126,6 +126,7 @@ public enum SchemaExistsBehavior {
 
     /**
      * Return if the two provided schemas are identical.
+     *
      * @return {@code true} if and only if the two schemas are identical
      */
     private static boolean areSchemasIdentical(@Nonnull Schema a, @Nonnull Schema b) {

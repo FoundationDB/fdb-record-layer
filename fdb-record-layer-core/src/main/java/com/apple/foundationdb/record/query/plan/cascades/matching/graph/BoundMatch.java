@@ -52,6 +52,7 @@ public class BoundMatch<R> {
 
     /**
      * Private constructor. Use static factory methods.
+     *
      * @param aliasMap the alias map for this match containing <em>all</em> mappings necessary to describe this match (even bindings
      *        coming from external (deep) correlations
      * @param matchResultOptional an optional match result
@@ -79,6 +80,7 @@ public class BoundMatch<R> {
 
     /**
      * Factory method to create a bound match with a proper match result.
+     *
      * @param aliasMap the alias map for this match containing <em>all</em> mappings necessary to describe this match (even bindings
      *        coming from external (deep) correlations
      * @param matchResult a match result
@@ -92,6 +94,7 @@ public class BoundMatch<R> {
 
     /**
      * Factory method to create a bound match with no match result.
+     *
      * @param aliasMap the alias map for this match containing <em>all</em> mappings necessary to describe this match (even bindings
      *        coming from external (deep) correlations
      * @param <R> result type

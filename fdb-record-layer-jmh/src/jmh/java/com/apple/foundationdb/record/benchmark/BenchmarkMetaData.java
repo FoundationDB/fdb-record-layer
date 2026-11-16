@@ -39,6 +39,7 @@ public class BenchmarkMetaData {
 
     /**
      * No additional indexes.
+     *
      * @return records #1 base meta-data
      */
     public static RecordMetaDataBuilder records1Base() {
@@ -47,6 +48,7 @@ public class BenchmarkMetaData {
 
     /**
      * Add a {@code RANK} index.
+     *
      * @return records #1 meta-data with added rank index
      */
     public static RecordMetaDataBuilder records1Rank() {

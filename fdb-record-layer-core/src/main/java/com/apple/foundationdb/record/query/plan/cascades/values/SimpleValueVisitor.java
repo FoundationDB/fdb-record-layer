@@ -62,7 +62,6 @@ public interface SimpleValueVisitor<T> extends ValueVisitorWithDefaults<T> {
      * pruned, so a visitor that relies on operand position should not prune.
      *
      * @param value the value that is about to be visited
-     *
      * @return {@code true} if the value should be visited
      */
     @SuppressWarnings("unused")
@@ -76,7 +75,6 @@ public interface SimpleValueVisitor<T> extends ValueVisitorWithDefaults<T> {
      * @param value the value being visited
      * @param childResults the results computed for the children of {@code value}, in order, excluding any child that
      *        {@link #shouldVisit(Value)} rejected
-     *
      * @return the result for {@code value}
      */
     @Nonnull
@@ -94,7 +92,6 @@ public interface SimpleValueVisitor<T> extends ValueVisitorWithDefaults<T> {
      * place; a child it prunes yields {@code null} there and is left out of the returned list.
      *
      * @param value the value whose children to visit
-     *
      * @return the results computed for the children that were visited
      */
     @Nonnull

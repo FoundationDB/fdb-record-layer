@@ -43,6 +43,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 /**
  * A rule that matches a {@link NotPredicate} over an {@link AndPredicate} or {@link OrPredicate} and applies a
  * transformation utilizing deMorgan's law.
+ *
  * @param <P> the type representing the major of the law, i.e. {@code and} or {@code or}
  */
 @API(API.Status.EXPERIMENTAL)

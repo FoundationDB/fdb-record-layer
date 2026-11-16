@@ -37,6 +37,7 @@ import java.util.Objects;
 public interface MatchPredicate<T> {
     /**
      * Test for a match.
+     *
      * @param element element on this side
      * @param otherElement element on the other side
      * @param aliasMap bindings that already have been established
@@ -49,6 +50,7 @@ public interface MatchPredicate<T> {
     /**
      * Method that combines this {@link MatchPredicate} and the {@code other} one passed in to produce a new
      * {@link MatchPredicate} that first tests this predicate and if successful then tests the other.
+     *
      * @param other other {@link MatchPredicate}
      * @return a new {@link MatchPredicate}
      */
@@ -60,6 +62,7 @@ public interface MatchPredicate<T> {
     /**
      * Method that combines this {@link MatchPredicate} and the {@link MatchFunction} {@code after} passed in to
      * produce a new {@link MatchFunction} that first tests this predicate and if successful then applies {@code after}.
+     *
      * @param after {@link MatchFunction}
      * @param <R> type that {@code after} produces
      * @return a new {@link MatchFunction}

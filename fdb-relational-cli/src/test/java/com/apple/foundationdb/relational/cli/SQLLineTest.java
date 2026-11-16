@@ -40,6 +40,7 @@ public class SQLLineTest {
     /**
      * Simple test that launches sqlline, connects to our jdbc:embed driver and then run simple
      * 'select * from databases'.
+     *
      * @throws IOException If failure capturing stdout when sqlline runs.
      */
     @Test

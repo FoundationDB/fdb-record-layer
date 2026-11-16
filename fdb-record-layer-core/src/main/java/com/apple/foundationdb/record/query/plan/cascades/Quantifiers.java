@@ -92,6 +92,7 @@ public class Quantifiers {
 
     /**
      * Create a list of for-each quantifiers from a list of references to range over.
+     *
      * @param rangesOverExpressions iterable {@link Reference}s of {@link RelationalExpression}s
      * @return a list of for-each quantifiers where each quantifier ranges over one of the given references
      */
@@ -102,6 +103,7 @@ public class Quantifiers {
 
     /**
      * Create a list of existential quantifiers from a list of expression references these quantifiers should range over.
+     *
      * @param rangesOverPlans iterable {@link Reference}s of of {@link RelationalExpression}s.
      * @return a list of physical quantifiers where each quantifier ranges over one of the given references
      */
@@ -112,6 +114,7 @@ public class Quantifiers {
 
     /**
      * Create a list of physical quantifiers given a list of references these quantifiers should range over.
+     *
      * @param rangesOverPlans iterable {@link Reference}s of {@link RecordQueryPlan}
      * @return a list of physical quantifiers where each quantifier ranges over a reference contained in the given iterable
      */
@@ -122,6 +125,7 @@ public class Quantifiers {
 
     /**
      * Create a list of quantifiers given a list of references these quantifiers should range over.
+     *
      * @param rangesOverExpressions iterable of {@link Reference}s the quantifiers will be created to range over
      * @param creator lambda to to be called for each expression reference contained in {@code rangesOverExpression}s
      *        to create the actual quantifier. This allows for callers to create different kinds of quantifier based
@@ -141,6 +145,7 @@ public class Quantifiers {
     /**
      * Convenience helper to create a single ID translation map from the alias of one quantifier to the alias
      * of another quantifier.
+     *
      * @param from quantifier
      * @param to quantifier
      * @return a new translation map mapping from {@code from.getAlias()} to {@code to.getAlias()}
@@ -153,6 +158,7 @@ public class Quantifiers {
     /**
      * Convenience helper to create an alias translation map based on a translation map using quantifiers.
      * of another quantifier.
+     *
      * @param map quantifier to quantifier bi-map
      * @return a new {@link AliasMap} mapping from {@code from.getAlias()} to {@code to.getAlias()}
      */
@@ -166,6 +172,7 @@ public class Quantifiers {
 
     /**
      * Convenience helper to create an alias to quantifier map using a collection of quantifiers.
+     *
      * @param quantifiers collection of quantifiers
      * @return a new {@link BiMap} mapping from {@code q.getAlias()} to {@code q} for every {@code q} in {@code quantifiers}
      */

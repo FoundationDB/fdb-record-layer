@@ -34,6 +34,7 @@ public interface ByteScanLimiter {
     /**
      * Create a new {@code ByteScanLimiter} with this limiter's original limit, ignoring any calls to
      * {@link #hasBytesRemaining()} and {@link #registerScannedBytes(long)}.
+     *
      * @return a new {@code ByteScanLimiter} with this limiter's original limit
      */
     @Nonnull
@@ -48,12 +49,14 @@ public interface ByteScanLimiter {
 
     /**
      * Atomically check whether the number of remaining bytes is at least 0.
+     *
      * @return {@code true} if the remaining count is at least 0 and {@code false} if it is less than 0
      */
     boolean hasBytesRemaining();
 
     /**
      * Atomically decrement the number of remaining bytes by the given number of bytes.
+     *
      * @param bytes the number of bytes to register
      */
     void registerScannedBytes(long bytes);
@@ -67,9 +70,7 @@ public interface ByteScanLimiter {
     long getLimit();
 
     /**
-     * Returns the number of bytes that have been scanned thus far.
-     *
-     * @return the number of bytes that have been scanned
+     * {@return the number of bytes that have been scanned thus far}
      */
     long getBytesScanned();
 }

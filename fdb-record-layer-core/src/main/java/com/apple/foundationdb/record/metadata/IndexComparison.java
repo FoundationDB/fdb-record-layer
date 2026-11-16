@@ -95,6 +95,7 @@ public abstract class IndexComparison {
 
     /**
      * Converts this {@link IndexComparison} into a corresponding protobuf message.
+     *
      * @return an equivalent protobuf message.
      */
     @Nonnull
@@ -102,6 +103,7 @@ public abstract class IndexComparison {
 
     /**
      * Converts this {@link IndexComparison} into an equivalent {@link Comparisons.Comparison}.
+     *
      * @return An equivalent {@link Comparisons.Comparison}.
      */
     @Nonnull

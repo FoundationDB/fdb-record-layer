@@ -70,9 +70,7 @@ public final class CommonTestHelpers {
      *
      * @param future the future to wait for
      * @param <T> the type {@code future} completes with
-     *
      * @return the result of {@code future}
-     *
      * @throws ExecutionException if {@code future} completes exceptionally
      * @throws InterruptedException if the current thread is interrupted while waiting
      * @throws TimeoutException if {@code future} does not complete within the time budget
@@ -92,9 +90,7 @@ public final class CommonTestHelpers {
      * @param db the database to run against
      * @param retryable the transactional operation to run
      * @param <T> the type the operation completes with
-     *
      * @return the result of {@code retryable}
-     *
      * @throws ExecutionException if the operation completes exceptionally
      * @throws InterruptedException if the current thread is interrupted while waiting
      * @throws TimeoutException if the operation does not complete within the time budget
@@ -122,7 +118,6 @@ public final class CommonTestHelpers {
      *
      * @param random the source of the components (one {@code nextFloat()} per component)
      * @param numDimensions the number of dimensions
-     *
      * @return a fresh random vector
      */
     @Nonnull
@@ -140,7 +135,6 @@ public final class CommonTestHelpers {
      * @param random the source of the components (one {@code nextDouble()} and one {@code nextBoolean()} per
      *        component)
      * @param numDimensions the number of dimensions
-     *
      * @return a fresh random vector
      */
     @Nonnull
@@ -157,7 +151,6 @@ public final class CommonTestHelpers {
      *
      * @param value the value of every component
      * @param numDimensions the number of dimensions
-     *
      * @return a fresh constant vector
      */
     @Nonnull
@@ -222,7 +215,6 @@ public final class CommonTestHelpers {
      * @param base the vector to perturb (not mutated)
      * @param sampler the Gaussian source; drives the per-component noise
      * @param sigma the standard deviation of the per-component noise
-     *
      * @return a fresh perturbed vector
      */
     @Nonnull

@@ -865,6 +865,7 @@ public final class KMeans {
     public interface SizePenalty {
         /**
          * Implementation of penalty function.
+         *
          * @param projectedSize the projected size of the candidate cluster <i>after</i>
          *                      hypothetically assigning the current vector to it
          * @param targetSize the target cluster size, {@code n / k}

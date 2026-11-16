@@ -34,6 +34,7 @@ import java.io.IOException;
 public class LuceneExceptions {
     /**
      * Convert the exception thrown by Lucene to a {@link RecordCoreException} that can be later interpreted by the higher levels.
+     *
      * @param message the exception's message to use; the cause's message will be appended to this one
      * @param ex the exception thrown by Lucene
      * @param additionalLogInfo (optional) additional log infos to add to the created exception
@@ -83,6 +84,7 @@ public class LuceneExceptions {
 
     /**
      * Convert an exception thrown by the lower levels to one that can be thrown by Lucene ({@link IOException}).
+     *
      * @param ex the exception thrown by FDB
      * @return the {@link IOException} that can be thrown through Lucene APIs
      */

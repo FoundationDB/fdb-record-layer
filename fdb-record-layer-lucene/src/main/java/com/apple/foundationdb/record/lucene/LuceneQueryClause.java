@@ -84,6 +84,7 @@ public abstract class LuceneQueryClause implements PlanHashable {
 
     /**
      * Parse the Lucene query to get all the mapping from field to terms.
+     *
      * @param query lucene query to extract all terms from
      * @return a new highlighting terms map
      */

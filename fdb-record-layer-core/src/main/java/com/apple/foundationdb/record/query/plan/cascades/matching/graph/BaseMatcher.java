@@ -132,6 +132,7 @@ public class BaseMatcher<T> {
 
     /**
      * Dumb constructor.
+     *
      * @param boundAliasesMap a map with previously-bound aliases. Any match that is computed and passed back to the
      *        client is an amendment of this map, i.e., every resulting match's {@link AliasMap} always contains at
      *        least the bindings in this map
@@ -295,6 +296,7 @@ public class BaseMatcher<T> {
     /**
      * Helper to determine whether this {@code set} is equals to {@code otherSet} after translation using the given
      * {@link AliasMap}.
+     *
      * @param aliasMap alias map defining a translation from this to other
      * @param dependsOn this set
      * @param otherDependsOn other set
@@ -380,6 +382,7 @@ public class BaseMatcher<T> {
      * Helper to map the dependencies of the given alias to the dependencies of the given other alias if such a mapping
      * is sound, i.e. the dependsOn functions for the given aliases sets are isomorphic under translation using the
      * given {@link AliasMap}.
+     *
      * @param aliasMap alias map to define the translation
      * @param alias alias on this side
      * @param otherAlias alias on the other side

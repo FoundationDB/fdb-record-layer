@@ -69,6 +69,7 @@ public final class GrpcSQLExceptionUtil {
     /**
      * Convert a {@link SQLException} to a 'standard' {@link com.google.rpc.ErrorInfo}
      * protobuf message.
+     *
      * @param sqlException Exception to flatten.
      * @return A {@link com.google.rpc.ErrorInfo} instance
      * filled out w/ message, error code, etc., gotten from `sqlException`.
@@ -103,6 +104,7 @@ public final class GrpcSQLExceptionUtil {
      * Serialize the passed sqlException into a created {@link Status} to pass
      * the exception across rpc. The client may not be java with a different means of handling
      * error so use 'standard' ErrorInfo protobuf conveying the sqlexception content.
+     *
      * @param sqlException The exception to serialize.
      * @return A {@link Status} instance populated by the content of sqlException.
      */
@@ -119,6 +121,7 @@ public final class GrpcSQLExceptionUtil {
 
     /**
      * Convert the grpc RuntimeException to SQLException *IF* it was carrying one else returns null.
+     *
      * @param statusRuntimeException RuntimeException up from GRPC
      * @return A SQLException if the `statusRuntimeException` was carrying one else null.
      */
@@ -162,6 +165,7 @@ public final class GrpcSQLExceptionUtil {
     /**
      * Fine exception cause and cause message in errorInfo metadata if present and return an instance or null if no
      * cause info found.
+     *
      * @param errorInfo metadata to mine for a cause.
      * @return A throwable recreated from metadata found in errorInfo or null if none present.
      */
@@ -191,6 +195,7 @@ public final class GrpcSQLExceptionUtil {
 
     /**
      * Create a SQLException from the passed errorInfo and message.
+     *
      * @param message Message to use.
      * @param errorInfo protobuf instance to convert.
      * @return A client-side facsimile of the SQLException thrown server-side.

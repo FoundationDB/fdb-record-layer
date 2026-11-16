@@ -33,6 +33,7 @@ import java.util.concurrent.Executor;
  * While it supports continuation, resuming an iterator cursor with a continuation is very inefficient since it needs to
  * advance the underlying iterator up to the point that stopped. For that reason, the {@link ListCursor} should be used
  * instead where possible.
+ *
  * @param <T> the type of elements of the cursor
  */
 @API(API.Status.UNSTABLE)

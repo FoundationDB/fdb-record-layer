@@ -457,7 +457,6 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
      * @param leftOperators the left-side operators to resolve column names against
      * @param rightTableSource the right-side table source
      * @param uidList the parsed {@code <uidList>} list of identifiers (must be non-empty per the grammar)
-     *
      * @return a pair of the (possibly updated) right table source and the combined equality expression
      */
     @Nonnull

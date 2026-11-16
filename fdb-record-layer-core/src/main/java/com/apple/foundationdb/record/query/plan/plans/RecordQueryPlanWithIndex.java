@@ -55,9 +55,7 @@ import java.util.function.Function;
 public interface RecordQueryPlanWithIndex extends RecordQueryPlan, RecordQueryPlanWithMatchCandidate {
 
     /**
-     * Gets the name of the index used by this plan.
-     *
-     * @return the name of the index used by this plan
+     * {@return the name of the index used by this plan}
      */
     @Nonnull
     String getIndexName();
@@ -109,6 +107,7 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan, RecordQueryPl
 
     /**
      * Rewrite the planner graph for better visualization of a query index plan.
+     *
      * @param childGraphs planner graphs of children expression that already have been computed
      * @return the rewritten planner graph that models the index as a separate node that is connected to the
      *         actual index scan plan node.
@@ -143,6 +142,7 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan, RecordQueryPl
     /**
      * Whether this plan is appropriate for being applied with optimization by {@link RecordQueryCoveringIndexPlan},
      * if the planner believes the required fields can be covered by this index.
+     *
      * @return {@code true} if plan is allowed for covering index
      */
     default boolean allowedForCoveringIndexPlan() {

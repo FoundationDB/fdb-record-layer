@@ -29,6 +29,7 @@ package com.apple.foundationdb.record.query.plan.cascades.matching.graph;
 public interface GenericMatcher<R> {
     /**
      * Perform matching.
+     *
      * @return an {@link Iterable} of type {@code R}
      */
     Iterable<R> match();

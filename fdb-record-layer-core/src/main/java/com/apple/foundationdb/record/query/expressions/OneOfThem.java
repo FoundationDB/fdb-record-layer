@@ -50,6 +50,7 @@ public class OneOfThem {
     /**
      * If the associated field is a submessage, this allows you to match against the fields within that submessage.
      * The child is evaluated and validated in the context of this field and not the record containing this field.
+     *
      * @param child a component asserting about the content of the submessage in this field
      * @return a new component ready for evaluation
      */
@@ -61,6 +62,7 @@ public class OneOfThem {
     /**
      * Checks if one of the values in this repeated field is equal to the given comparand.
      * Evaluates to null if there are no values for the field
+     *
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
@@ -73,6 +75,7 @@ public class OneOfThem {
     /**
      * Checks if one of the values in this repeated field is not equal to the given comparand.
      * Evaluates to null if there are no values for the field
+     *
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
@@ -85,6 +88,7 @@ public class OneOfThem {
     /**
      * Checks if one of the values in this repeated field is greater than the given comparand.
      * Evaluates to null if there are no values for the field
+     *
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
@@ -97,6 +101,7 @@ public class OneOfThem {
     /**
      * Checks if one of the values in this repeated field is greater than or equal to the given comparand.
      * Evaluates to null if there are no values for the field
+     *
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
@@ -109,6 +114,7 @@ public class OneOfThem {
     /**
      * Checks if one of the values in this repeated field is less than the given comparand.
      * Evaluates to null if there are no values for the field
+     *
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
@@ -121,6 +127,7 @@ public class OneOfThem {
     /**
      * Checks if one of the values in this repeated field is less than or equal to the given comparand.
      * Evaluates to null if there are no values for the field
+     *
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
@@ -132,6 +139,7 @@ public class OneOfThem {
 
     /**
      * Checks if one of the values in this repeated field starts with the given string.
+     *
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
@@ -143,6 +151,7 @@ public class OneOfThem {
 
     /**
      * Checks if one of the values in this repeated field is in the given list.
+     *
      * @param comparand a list of elements
      * @return a new component for doing the actual evaluation
      */
@@ -154,6 +163,7 @@ public class OneOfThem {
 
     /**
      * Checks if one of the values in this repeated field is in the list that is bound to the given param.
+     *
      * @param param a param that will be bound to a list in the execution context
      * @return a new component for doing the actual evaluation
      */

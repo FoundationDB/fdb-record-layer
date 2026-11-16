@@ -40,6 +40,7 @@ public class StoreBuilderWithRepair extends FDBRecordStore.Builder {
 
     /**
      * Constructor.
+     *
      * @param other the source store builder to delegate to
      * @param userVersion the userVersion to use for repairing the header if necessary
      * @param minimumPossibleFormatVersion the minimumPossibleFormatVersion to use if necessary

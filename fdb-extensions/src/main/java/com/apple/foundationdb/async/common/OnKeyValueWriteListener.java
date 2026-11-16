@@ -33,6 +33,7 @@ public interface OnKeyValueWriteListener {
      *
      * <p>This is a default method and its base implementation is a no-op. Implementors of the interface can override this
      * method to react to key/value writes, for example to gather metrics on the number of bytes written.
+     *
      * @param key the key
      * @param value the value.
      */
@@ -46,6 +47,7 @@ public interface OnKeyValueWriteListener {
      *
      * <p>This is a default method and its base implementation is a no-op. Implementors of the interface can override this
      * method to react to key deletions, for example to gather metrics or update internal state.
+     *
      * @param key the key that was deleted
      */
     @SuppressWarnings("unused")
@@ -58,6 +60,7 @@ public interface OnKeyValueWriteListener {
      *
      * <p>This is a default method and its base implementation is a no-op. Implementors of the interface can override this
      * method to react to range deletions, for example to gather metrics or update internal state.
+     *
      * @param range the {@link Range} that was deleted
      */
     @SuppressWarnings("unused")

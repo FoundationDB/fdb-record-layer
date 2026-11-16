@@ -47,7 +47,6 @@ interface SyntheticTableGenerator {
      * re-expressed in the synthetic table's coordinates, so that they translate as ordinary field paths.
      *
      * @param spec what the index is made of, resolved against the stored records
-     *
      * @return the {@link IndexSpec}, in the synthetic table's coordinates
      */
     @Nonnull

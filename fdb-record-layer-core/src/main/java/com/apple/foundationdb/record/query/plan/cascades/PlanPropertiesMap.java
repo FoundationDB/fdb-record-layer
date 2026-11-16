@@ -37,6 +37,7 @@ import java.util.Set;
 
 /**
  * An {@link ExpressionPropertiesMap} for properties that only apply to {@link RecordQueryPlan}s.
+ *
  * @see ExpressionPropertiesMap
  */
 public class PlanPropertiesMap extends ExpressionPropertiesMap<RecordQueryPlan> {

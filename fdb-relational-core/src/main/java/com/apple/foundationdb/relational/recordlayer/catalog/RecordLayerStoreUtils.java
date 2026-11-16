@@ -40,6 +40,7 @@ import javax.annotation.Nonnull;
 class RecordLayerStoreUtils {
     /**
      * Open RecordStore over provided context.
+     *
      * @param txn Transaction to use opening.
      * @param schemaPath Path to schema to set keyspace context/domain.
      * @param metaDataProvider Metadata provider for this context.

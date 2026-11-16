@@ -75,6 +75,7 @@ abstract class UnionCursorBase<T, S extends MergeCursorState<T>> extends MergeCu
      * Merges all of the cursors and whether they have stopped and returns the "strongest" reason for the result to stop.
      * It will return an out-of-band reason if any of the children stopped for an out-of-band reason, and it will
      * only return {@link NoNextReason#SOURCE_EXHAUSTED SOURCE_EXHAUSTED} if all of the cursors are exhausted.
+     *
      * @return the strongest reason for stopping
      */
     @Override

@@ -40,6 +40,7 @@ public interface StructMetaData extends Wrapper {
      * {@code struct <name> (...)} clause.<br>
      * For example: {@code SELECT struct Foo (a, b) from T} will give the struct
      * {@code (a, b)} the name {@code foo}.
+     *
      * @return The name of the struct type.
      */
     String getTypeName() throws SQLException;

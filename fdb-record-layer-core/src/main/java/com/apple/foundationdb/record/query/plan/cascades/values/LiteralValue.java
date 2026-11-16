@@ -51,6 +51,7 @@ import java.util.function.Supplier;
 
 /**
  * A wrapper around a literal of the given type.
+ *
  * @param <T> the type of the literal
  */
 @API(API.Status.EXPERIMENTAL)
@@ -256,6 +257,7 @@ public class LiteralValue<T> extends AbstractValue implements LeafValue, Value.R
 
     /**
      * Deserializer.
+     *
      * @param <T> the type of literal
      */
     @AutoService(PlanDeserializer.class)

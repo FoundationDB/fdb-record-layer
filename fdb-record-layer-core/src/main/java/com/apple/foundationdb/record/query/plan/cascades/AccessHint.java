@@ -28,8 +28,7 @@ import javax.annotation.Nonnull;
 public interface AccessHint {
 
     /**
-     * Gets the type of the access hint.
-     * @return the type of the access hint
+     * {@return the type of the access hint}
      */
     @Nonnull
     String getAccessHintType();

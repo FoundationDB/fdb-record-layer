@@ -151,6 +151,7 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
      * Builds the {@link RecordMetaData} the vector-index tests use — the {@code VectorRecord} descriptor with the
      * {@code (group_id, rec_no)} primary key and whatever indexes {@code hook} adds. Shared by {@link #openRecordStore}
      * and the merge helpers so a test's inserts and its merges operate on identical index subspaces.
+     *
      * @param hook adds the index(es) under test
      * @return the built metadata
      */
@@ -167,6 +168,7 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
      * Whether vector-index maintenance should run inside the writing transaction (Guardiann drains its deferred tasks
      * inline) rather than being deferred to a background merge. Defaults to {@code false}; subclasses that exercise
      * end-to-end behavior with no background merger override this to {@code true}.
+     *
      * @return whether to enable in-transaction index maintenance for stores opened by this test
      */
     protected boolean maintainIndexesInTransaction() {
@@ -176,6 +178,7 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
     /**
      * Opens the record store for {@code metaData} at the test's key-space path, bypassing the {@code recordStore}
      * field/hook machinery — used by the merge helpers, which drive their own {@link OnlineIndexer} transactions.
+     *
      * @param context the context to open under
      * @param metaData the metadata to open with
      * @return the opened store
@@ -189,6 +192,7 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
      * Runs one pass of the real record-layer index merger over {@code indexName} via {@link OnlineIndexer#mergeIndex()}
      * — the same entry a background merger uses. The merger sets the merge session id and drives the
      * per-partition claim/drain loop internally, so tests need not hand-roll that bookkeeping.
+     *
      * @param metaData the metadata whose index to merge
      * @param indexName the vector index to merge
      */
@@ -200,6 +204,7 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
     /**
      * Drives {@link #mergeVectorIndexOnce} until {@code indexName} has no outstanding deferred-maintenance work
      * (executing a task can enqueue follow-ups, so a few passes may be needed), failing if it does not converge.
+     *
      * @param metaData the metadata whose index to merge
      * @param indexName the vector index to drain
      */
@@ -212,6 +217,7 @@ public abstract class VectorIndexTestBase extends FDBRecordStoreQueryTestBase {
     /**
      * Whether {@code indexName} still has outstanding deferred-maintenance work, read via its
      * {@link VectorIndexMaintainer}.
+     *
      * @param metaData the metadata whose index to check
      * @param indexName the vector index to check
      * @return whether any partition has outstanding tasks

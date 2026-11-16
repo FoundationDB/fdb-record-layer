@@ -52,6 +52,7 @@ public interface Table extends DirectScannable, AutoCloseable {
 
     /**
      * Insert message content.
+     *
      * @param message What to insert.
      * @param replaceOnDuplicate Where to replace if duplicate insert.
      * @return Whether insert was successful or not.
@@ -63,6 +64,7 @@ public interface Table extends DirectScannable, AutoCloseable {
 
     /**
      * Replaces {@link #insertRecord(Message, boolean)} encapsulating protobuf usage.
+     *
      * @param insert What to insert.
      * @param replaceOnDuplicate Where to replace if duplicate insert.
      * @return Whether insert was successful or not.

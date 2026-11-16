@@ -786,6 +786,7 @@ public class IndexKeyValueToPartialRecord implements PlanHashable, PlanSerializa
         /**
          * To be valid for covering index use, must set all required fields and not attempt to set repeated fields,
          * for which the index only has a partial view.
+         *
          * @return whether this is a valid use
          */
         public boolean isValid() {

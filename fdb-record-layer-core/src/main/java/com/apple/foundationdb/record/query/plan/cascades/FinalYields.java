@@ -34,6 +34,7 @@ public interface FinalYields {
      * Yield a set of plans which by definition are final expressions and only allowed to be yielded during
      * {@link PlannerPhase#PLANNING}. The yielded plans will be inserted (if necessary) into the set of
      * final expressions of the current reference.
+     *
      * @param plans a set of {@link RecordQueryPlan}s
      */
     default void yieldPlans(@Nonnull Set<? extends RecordQueryPlan> plans) {
@@ -46,6 +47,7 @@ public interface FinalYields {
      * Yield a plan which by definition is a final expressions and which is only allowed to be yielded during
      * {@link PlannerPhase#PLANNING}. The yielded plan will be inserted (if necessary) into the set of
      * final expressions of the current reference.
+     *
      * @param plan a {@link RecordQueryPlan}s
      */
     void yieldPlan(@Nonnull RecordQueryPlan plan);
@@ -53,6 +55,7 @@ public interface FinalYields {
     /**
      * Yield a set of final expressions. The yielded expressions will be inserted (if necessary) into the set of
      * final expressions of the current reference.
+     *
      * @param expressions a set of {@link RelationalExpression}s
      */
     default void yieldFinalExpressions(@Nonnull Set<? extends RelationalExpression> expressions) {
@@ -64,6 +67,7 @@ public interface FinalYields {
     /**
      * Yield a final expression. The yielded expression will be inserted (if necessary) into the set of
      * final expressions of the current reference.
+     *
      * @param expression a set of {@link RelationalExpression}s
      */
     void yieldFinalExpression(@Nonnull RelationalExpression expression);
@@ -75,6 +79,7 @@ public interface FinalYields {
      * is of type {@link RecordQueryPlan}, the expression is considered a final expression, otherwise it is considered
      * an exploratory expression. The yielded expressions will be inserted (if necessary) either into the set of
      * exploratory expressions or into the set of final expressions of the current reference.
+     *
      * @param expressions a set of {@link RelationalExpression}s
      */
     default void yieldMixedUnknownExpressions(@Nonnull Set<? extends RelationalExpression> expressions) {
@@ -90,6 +95,7 @@ public interface FinalYields {
      * expression is considered a final expression, otherwise it is considered an exploratory expression. The yielded
      * expressions will be inserted (if necessary) either into the set of exploratory expressions or into the set of
      * final expressions of the current reference.
+     *
      * @param expression a set of {@link RelationalExpression}s
      */
     void yieldUnknownExpression(@Nonnull RelationalExpression expression);

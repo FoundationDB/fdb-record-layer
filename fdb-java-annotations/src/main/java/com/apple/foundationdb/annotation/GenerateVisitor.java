@@ -87,18 +87,21 @@ import java.lang.annotation.Target;
 public @interface GenerateVisitor {
     /**
      * .
+     *
      * @return suffix of the generated visitor interface
      */
     String classSuffix() default "Visitor";
 
     /**
      * .
+     *
      * @return prefix of all visitation methods
      */
     String methodPrefix() default "visit";
 
     /**
      * .
+     *
      * @return prefix we should attempt to remove from every discovered subclass when creating the name for the
      *         specific visitation method
      */

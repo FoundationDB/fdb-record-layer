@@ -27,6 +27,7 @@ import javax.annotation.Nonnull;
 
 /**
  * Exception thrown when a transaction tries to scan more than the allowed number of key-value pairs.
+ *
  * @see RecordCursor.NoNextReason#SCAN_LIMIT_REACHED
  * @see ExecuteProperties.Builder#setFailOnScanLimitReached(boolean)
  * @see CursorLimitManager#tryRecordScan()

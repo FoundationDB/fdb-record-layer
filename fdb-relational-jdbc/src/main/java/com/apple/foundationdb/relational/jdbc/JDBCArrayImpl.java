@@ -100,6 +100,7 @@ public class JDBCArrayImpl implements Array {
 
     /**
      * Package protected getter.
+     *
      * @return the underlying protobuf struct
      */
     @Nonnull

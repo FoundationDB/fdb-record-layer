@@ -244,6 +244,7 @@ public class IndexingCommon {
     /**
      * Return a cached list of indexes that are in {@link IndexState#WRITE_ONLY_WITH_QUEUE} state. These
      * indexes may require special handling (queue drain) during the indexing process.
+     *
      * @return list of indexes
      */
     @Nonnull

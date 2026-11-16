@@ -26,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * An {@link AsyncIterator} that just wraps an ordinary {@link Iterator}.
+ *
  * @param <T> type of iterator elements
  */
 public class NonAsyncIterator<T> implements AsyncIterator<T> {

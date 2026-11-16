@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerRegist
 import com.apple.foundationdb.record.provider.foundationdb.MetaDataProtoEditor;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.protobuf.DescriptorProtos;
@@ -242,7 +243,21 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
             final List<String> tempFunctions = proto.getTempFunctionsCount() > 0
                     ? new ArrayList<>(proto.getTempFunctionsList())
                     : Collections.emptyList();
-            storedQueries.put(proto.getName(), new RecordMetaData.StoredQuery(proto.getQuery(), tempFunctions));
+            final ImmutableMap.Builder<String, String> parameters = ImmutableMap.builder();
+            for (final RecordMetaDataProto.PStoredQuery.PStoredQueryParameter parameterProto : proto.getParametersList()) {
+                parameters.put(parameterProto.getName(), parameterProto.getDeclaredType());
+            }
+            final ImmutableList.Builder<Map<String, String>> preparedCases = ImmutableList.builder();
+            for (final RecordMetaDataProto.PStoredQuery.PPreparedCase caseProto : proto.getPreparedCasesList()) {
+                final ImmutableMap.Builder<String, String> parameterStates = ImmutableMap.builder();
+                for (final RecordMetaDataProto.PStoredQuery.PPreparedCase.PParameterState stateProto
+                        : caseProto.getParameterStatesList()) {
+                    parameterStates.put(stateProto.getName(), stateProto.getState());
+                }
+                preparedCases.add(parameterStates.buildKeepingLast());
+            }
+            storedQueries.put(proto.getName(), new RecordMetaData.StoredQuery(proto.getQuery(), tempFunctions,
+                    parameters.buildKeepingLast(), preparedCases.build()));
         }
         if (metaDataProto.hasSplitLongRecords()) {
             splitLongRecords = metaDataProto.getSplitLongRecords();
@@ -370,6 +385,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     /**
      * Deserializes the meta-data proto into the builder. The extension options are not processed.
+     *
      * @param metaDataProto the proto of the {@link RecordMetaData}
      * @return this builder
      */
@@ -380,6 +396,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     /**
      * Deserializes the meta-data proto into the builder.
+     *
      * @param metaDataProto the proto of the {@link RecordMetaData}
      * @param processExtensionOptions whether to add primary keys and indexes based on extensions in the protobuf
      * @return this builder
@@ -409,6 +426,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     /**
      * Adds the root file descriptor of the {@link RecordMetaData} and processes the extension options.
+     *
      * @param fileDescriptor the file descriptor of the record meta-data
      * @return this builder
      */
@@ -419,6 +437,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     /**
      * Adds the root file descriptor of the {@link RecordMetaData}.
+     *
      * @param fileDescriptor the file descriptor of the record meta-data
      * @param processExtensionOptions whether to add primary keys and indexes based on extensions in the protobuf
      * @return this builder
@@ -556,6 +575,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     /**
      * Adds a dependency to the list of dependencies. It will be used for loading the {@link RecordMetaData} from a meta-data proto.
+     *
      * @param fileDescriptor the file descriptor of the dependency
      * @return this builder
      */
@@ -570,6 +590,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     /**
      * Adds dependencies to be used for loading the {@link RecordMetaData} from a meta-data proto.
+     *
      * @param fileDescriptors a list of dependencies
      * @return this builder
      */
@@ -994,6 +1015,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      *
      * <p>These keys are negative, unlike stored record types which are initially positive.
      * This isn't strictly speaking necessary, but simplifies debugging.
+     *
      * @return a new unique record type key
      */
     @Nonnull
@@ -1012,6 +1034,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     /**
      * Add a new joined record type.
+     *
      * @param name the name of the new record type
      * @return a new uninitialized joined record type
      */
@@ -1031,6 +1054,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     /**
      * Add a new {@link UnnestedRecordTypeBuilder}.
+     *
      * @param name the name of the new record type
      * @return a new uninitialized unnested record type
      */
@@ -1050,6 +1074,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     /**
      * Get a record type or synthetic record type by name for use with {@link #addIndex}.
+     *
      * @param name the name of the record type
      * @return the possibly synthetic record type
      */
@@ -1099,6 +1124,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     /**
      * Adds a new index. This index can either be a universal index or an index for
      * a single record type.
+     *
      * @param recordType if null this index will exist for all record types
      * @param index the index to be added
      */
@@ -1113,6 +1139,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     /**
      * Adds a new index.
+     *
      * @param recordType name of the record type
      * @param index the index to be added
      */
@@ -1122,6 +1149,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     /**
      * Adds a new index.
+     *
      * @param recordType name of the record type
      * @param indexName the name of the new index
      * @param indexExpression the root expression of the new index
@@ -1132,6 +1160,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     /**
      * Adds a new index.
+     *
      * @param recordType name of the record type
      * @param indexName the name of the new index
      * @param fieldName the record field to be indexed
@@ -1142,6 +1171,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     /**
      * Adds a new index on a single field.
+     *
      * @param recordType name of the record type
      * @param fieldName the record field to be indexed
      */
@@ -1153,6 +1183,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      * Adds a new index that contains multiple record types.
      * If the list is null or empty, the resulting index will include all record types.
      * If the list has one element it will just be a normal single record type index.
+     *
      * @param recordTypes a list of record types that the index will include
      * @param index the index to be added
      */
@@ -1171,6 +1202,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     /**
      * Adds a new index on all record types.
+     *
      * @param index the index to be added
      */
     public void addUniversalIndex(@Nonnull Index index) {
@@ -1212,8 +1244,10 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         return storedQueries;
     }
 
-    public void addStoredQuery(@Nonnull String name, @Nonnull String storedQuery, @Nonnull List<String> tempFunctions) {
-        storedQueries.put(name, new RecordMetaData.StoredQuery(storedQuery, tempFunctions));
+    public void addStoredQuery(@Nonnull String name, @Nonnull String storedQuery, @Nonnull List<String> tempFunctions,
+                               @Nonnull Map<String, String> parameters,
+                               @Nonnull List<Map<String, String>> preparedCases) {
+        storedQueries.put(name, new RecordMetaData.StoredQuery(storedQuery, tempFunctions, parameters, preparedCases));
     }
 
     public boolean isSplitLongRecords() {
@@ -1246,6 +1280,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     /**
      * Get the record count key, if any.
+     *
      * @return the record count key of {@code null}
      * @deprecated use {@code COUNT} type indexes instead
      */
@@ -1259,6 +1294,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     /**
      * Set the key used for maintaining record counts.
+     *
      * @param recordCountKey grouping key for counting
      * @deprecated use {@code COUNT} type indexes instead
      */
@@ -1311,6 +1347,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     /**
      * Checks if counter-based subspace key assignment is used.
+     *
      * @return {@code true} if the subspace key counter is used
      */
     public boolean usesSubspaceKeyCounter() {
@@ -1319,6 +1356,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     /**
      * Get the current value of the index subspace key counter. If it is not enabled, the value will be 0.
+     *
      * @return the current value of the index subspace key counter
      * @see #enableCounterBasedSubspaceKeys()
      */
@@ -1354,6 +1392,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     /**
      * If there is only one record type, get it.
+     *
      * @return the only type defined for this store.
      */
     @Nonnull
@@ -1366,6 +1405,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     /**
      * Get the index registry used for validation.
+     *
      * @return the index maintainer registry
      */
     @Nonnull
@@ -1378,6 +1418,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      *
      * <p>If a record store has a custom index maintainer registry, that same registry may need to be used to properly
      * validate the meta-data.
+     *
      * @param indexMaintainerRegistry the index maintainer registry
      * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase.BaseBuilder#setIndexMaintainerRegistry
      */
@@ -1432,6 +1473,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     /**
      * Build and validate meta-data.
+     *
      * @return new validated meta-data
      */
     @Nonnull
@@ -1441,6 +1483,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
 
     /**
      * Build and validate meta-data with specific index registry.
+     *
      * @param validate {@code true} to validate the new meta-data
      * @return new meta-data
      */

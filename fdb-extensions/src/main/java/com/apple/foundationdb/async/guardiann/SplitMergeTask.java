@@ -402,7 +402,6 @@ class SplitMergeTask extends AbstractDeferredTask {
      * @param estimator the distance estimator
      * @param innerClusters the core clusters, the target first
      * @param initialCandidates the split's candidates, fitted with the first strength of the ladder
-     *
      * @return the candidates of the first strength that produced an admissible one (or, failing that, of the last
      *         strength), with their verdicts
      */
@@ -450,7 +449,6 @@ class SplitMergeTask extends AbstractDeferredTask {
      * @param estimator the distance estimator
      * @param innerClusters the core clusters of the larger classification, the target first
      * @param candidates the candidates to score
-     *
      * @return the candidates with their verdicts
      */
     @Nonnull
@@ -475,7 +473,6 @@ class SplitMergeTask extends AbstractDeferredTask {
      * that genuinely cannot be partitioned within it.
      *
      * @param candidateToEvaluationResultMap the candidates that were considered, with their verdicts
-     *
      * @return the message for the thrown exception
      */
     @Nonnull
@@ -1041,7 +1038,6 @@ class SplitMergeTask extends AbstractDeferredTask {
      *
      * @param random source of randomness for the high-priority task id
      * @param nearestClusters the precomputed nearest clusters to attach to the re-enqueued task
-     *
      * @return a high-priority copy of this task carrying the given nearest clusters
      */
     @Nonnull
@@ -1090,7 +1086,6 @@ class SplitMergeTask extends AbstractDeferredTask {
      * @param taskId the id to assign to the new task
      * @param clusterId the id of the cluster to split or merge
      * @param centroid the transformed centroid of the target cluster
-     *
      * @return a new task without precomputed nearest clusters
      */
     @Nonnull
@@ -1110,7 +1105,6 @@ class SplitMergeTask extends AbstractDeferredTask {
      * @param clusterId the id of the cluster to split or merge
      * @param centroid the transformed centroid of the target cluster
      * @param nearestClusters the precomputed nearest clusters of the target cluster
-     *
      * @return a new task carrying the given precomputed nearest clusters
      */
     @Nonnull
@@ -1128,7 +1122,6 @@ class SplitMergeTask extends AbstractDeferredTask {
      *
      * @param classification1 the first ({@code 1 → 2}) cluster classification, or {@code null} if not applicable
      * @param classification2 the second ({@code 2 → 3}) cluster classification, or {@code null} if not applicable
-     *
      * @return the larger of the two core-cluster lists
      */
     @Nonnull
@@ -1256,7 +1249,6 @@ class SplitMergeTask extends AbstractDeferredTask {
      * the lowest-objective run overall only when none does, which the evaluator then rejects.
      *
      * @param config the configuration supplying the floor
-     *
      * @return a predicate over a k-means run's cluster sizes
      */
     @Nonnull
@@ -1349,7 +1341,6 @@ class SplitMergeTask extends AbstractDeferredTask {
      * @param estimator the distance estimator the evaluator uses to score partitions
      * @param currentK the current number of clusters in the nearest clusters
      * @param candidateK the proposed number of clusters after the transition
-     *
      * @return the evaluator parameters tuned for the {@code currentK → candidateK} transition
      */
     @Nonnull

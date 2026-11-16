@@ -63,6 +63,7 @@ public interface IndexQueryabilityFilter {
     /**
      * Return whether the given index should be considered by the query planner. Note that the planner is not required
      * to use an index for which {@code isQueryable()} is {@code true}.
+     *
      * @param index an index
      * @return whether the given index should be considered by the planner
      */

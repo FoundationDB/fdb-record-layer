@@ -35,6 +35,7 @@ public class QueryParserUtils {
     /**
      * Relax the modifier for the query, if possible.
      * When there is a "MUST" for a prefix query on a stop word, turn that into a "SHOULD"
+     *
      * @param q the query
      * @param occur the query modifier
      * @param stopWords the list of stop words

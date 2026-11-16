@@ -398,7 +398,7 @@ test_block:
     -
       # Join with IN on non-existent values (should return empty)
       - query: select emp.id from emp, dept where emp.dept_id = dept.id and dept.id = 1 and emp.id in (10, 20, 30)
-      - explain: "SCAN([IS DEPT, EQUALS promote(@c21 AS LONG)]) | FLATMAP q0 -> { [IN arrayDistinct(promote(@c27 AS ARRAY(LONG)))] | INJOIN q1 -> { SCAN([IS EMP, EQUALS q1]) | FILTER _.DEPT_ID EQUALS q0.ID } AS q2 RETURN (q2.ID AS ID) }"
+      - explain: "[IN arrayDistinct(promote(@c27 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS EMP, EQUALS q0]) } | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS promote(@c21 AS LONG)]) | FILTER q1.DEPT_ID EQUALS _.ID AS q2 RETURN (q1.ID AS ID) }"
       - result: []
     -
       # inner join with using: select one field

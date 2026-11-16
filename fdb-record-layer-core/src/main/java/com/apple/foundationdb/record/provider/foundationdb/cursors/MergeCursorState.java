@@ -83,6 +83,7 @@ public class MergeCursorState<T> implements AutoCloseable {
     /**
      * Return whether this cursor may return a result in the future. In particular, this will return {@code true}
      * if this cursor has either not returned its first result or if the most recent result had a next element.
+     *
      * @return whether the cursor might have more results
      */
     public boolean mightHaveNext() {

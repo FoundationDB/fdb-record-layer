@@ -40,8 +40,8 @@ import java.util.Set;
  *
  * <p>Distinguishing the correlation identifier from the identity of the quantifier object simplifies modifications of the
  * graph, for example while applying transformations during query planning.
-
- * A correlated object can be <em>rebased</em> using {@link #rebase} and a map of translations from one
+ *
+ * <p>A correlated object can be <em>rebased</em> using {@link #rebase} and a map of translations from one
  * correlation identifier to another, resulting in a new object of type {@code S} that is
  * identical to {@code this} except that all correlated references in the subtree rooted at this entity
  * (i.e., this object's relational children, predicates, etc.) are replaced with their corresponding identifiers
@@ -101,6 +101,7 @@ public interface Correlated<S extends Correlated<S>> {
      * entities that implement this interface use composition and effectively describe trees or DAGs, this method should
      * be the set union of the {@link CorrelationIdentifier}s this object is correlated to as well as all children,
      * constituent parts, etc.
+     *
      * @return the set of {@link CorrelationIdentifier}s this entity is correlated to
      */
     @Nonnull
@@ -108,6 +109,7 @@ public interface Correlated<S extends Correlated<S>> {
 
     /**
      * Test if the current correlated object is correlated to a {@link CorrelationIdentifier} passed in.
+     *
      * @param alias a {@link CorrelationIdentifier}
      * @return {@code true} if this object is correlated to {@code alias}, {@code false} otherwise
      */
@@ -117,6 +119,7 @@ public interface Correlated<S extends Correlated<S>> {
 
     /**
      * Test if the current correlated object is correlated to any of the passed {@link CorrelationIdentifier} objects.
+     *
      * @param aliases a set of {@link CorrelationIdentifier} objects
      * @return {@code true} if this object is correlated to at least one of {@code aliases}, {@code false} otherwise
      */
@@ -126,6 +129,7 @@ public interface Correlated<S extends Correlated<S>> {
 
     /**
      * Rebases this and all other objects this objects is composed of using a given translation map.
+     *
      * @param translationMap a map defining a translation from {@link CorrelationIdentifier}s {@code ids} to
      *        {@link CorrelationIdentifier}s {@code ids'}. After the rebase, every correlation to an {@code id}
      *        contained {@code ids} that is contained or referred to directly or indirectly by {@code this} must have
@@ -174,6 +178,7 @@ public interface Correlated<S extends Correlated<S>> {
 
     /**
      * Static helper to shorten boilerplate for callers that have to deal with nullable objects.
+     *
      * @param one one instance
      * @param other another instance
      * @param aliasMap an {@link AliasMap}
@@ -223,6 +228,7 @@ public interface Correlated<S extends Correlated<S>> {
     /**
      * Helper class to wrap extenders of {@link Correlated} to provide standard equivalence and hash code
      * functionality under a given {@link AliasMap}.
+     *
      * @param <S> type parameter
      */
     class BoundEquivalence<S extends Correlated<S>> extends Equivalence<S> {

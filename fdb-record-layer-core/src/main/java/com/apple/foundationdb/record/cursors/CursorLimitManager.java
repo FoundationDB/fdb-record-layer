@@ -99,6 +99,7 @@ public class CursorLimitManager {
 
     /**
      * Report whether any limit handled by this manager has been exceeded.
+     *
      * @return <code>true</code> if any limit has been exceeded and <code>false</code> otherwise
      */
     public boolean isStopped() {
@@ -108,6 +109,7 @@ public class CursorLimitManager {
     /**
      * Report a single reason associated with a limit that has been exceeded. If more than one limit has been exceeded,
      * return the more important one. If no limit has been exceeded, return <code>Optional.emtpy()</code>.
+     *
      * @return a reason for a limit that has been exceeded or <code>Optional.empty()</code> if no limit has been exceeded
      */
     public Optional<RecordCursor.NoNextReason> getStoppedReason() {
@@ -128,7 +130,6 @@ public class CursorLimitManager {
      * accordingly.
      *
      * @return <code>true</code> if another record scan would not exceed any limit and <code>false</code> if it would
-     *
      * @throws ScanLimitReachedException if the scan limit was reached and {@link ExecuteProperties#isFailOnScanLimitReached()}
      */
     public boolean tryRecordScan() {
@@ -150,6 +151,7 @@ public class CursorLimitManager {
 
     /**
      * Record that the specified number of bytes have been scanned and update the relevant limiters with this information.
+     *
      * @param byteSize the number of bytes scanned
      */
     public void reportScannedBytes(long byteSize) {

@@ -733,6 +733,7 @@ public class Matchers {
 
     /**
      * Performs integer matching against integer, or against long (with promotion).
+     *
      * @param expected expected value.
      * @param actual actual value.
      * @return {@code true} if {@code expected} matches {@code actual}, otherwise {@code false}.
@@ -754,6 +755,7 @@ public class Matchers {
 
     /**
      * Performs float matching against float, or against double (with promotion).
+     *
      * @param expected expected value.
      * @param actual actual value.
      * @return success if {@code expected} matches {@code actual}, otherwise fail.

@@ -189,7 +189,6 @@ abstract class AbstractDeferredTask {
      * Executes this deferred task against the given transaction.
      *
      * @param transaction the transaction to perform the task's work within
-     *
      * @return a future that completes when the task has finished
      */
     @Nonnull
@@ -313,7 +312,6 @@ abstract class AbstractDeferredTask {
      *
      * @param random the random source used to derive the id
      * @param isDeterministic whether to derive the id deterministically from {@code random} rather than randomly
-     *
      * @return a high-priority task id
      */
     @Nonnull
@@ -340,7 +338,6 @@ abstract class AbstractDeferredTask {
      *
      * @param random the random source used to derive the id
      * @param isDeterministic whether to derive the id deterministically from {@code random} rather than randomly
-     *
      * @return a normal-priority task id
      */
     @Nonnull
@@ -573,7 +570,6 @@ abstract class AbstractDeferredTask {
      *        synthesized at position 0
      * @param numCoreClusters the number of closest clusters to place in the core clusters (must be {@code >= 1})
      * @param numNeighboringClusters the number of subsequent clusters to place in the neighboring clusters
-     *
      * @return the core/neighboring {@link ClusterClassification} partition, or {@code null} if fewer than
      *         {@code numCoreClusters} core clusters could be assembled — not enough clusters survived to form this
      *         repartition order (the target always survives, but its neighbors may have been split/merged/deleted

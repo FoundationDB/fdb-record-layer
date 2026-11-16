@@ -27,6 +27,7 @@ public interface JDBCRelationalStruct extends RelationalStruct {
 
     /**
      * Obtain a new {@link com.apple.foundationdb.relational.api.RelationalStruct} builder.
+     *
      * @return Builder for {@link com.apple.foundationdb.relational.api.RelationalStruct}.
      */
     static RelationalStructBuilder newBuilder() {

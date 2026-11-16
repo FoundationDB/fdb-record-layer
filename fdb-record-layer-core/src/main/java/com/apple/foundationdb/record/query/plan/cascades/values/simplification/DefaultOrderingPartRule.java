@@ -37,6 +37,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
  * A rule that computes the default order of a {@link Value} tree. This rule is always applied last, that is when
  * no rule can make any more progress. It also refuses to make progress is some other order-simplifying rules has
  * already computed an order.
+ *
  * @param <O> type variable for sort order
  * @param <P> type variable for ordering part
  *

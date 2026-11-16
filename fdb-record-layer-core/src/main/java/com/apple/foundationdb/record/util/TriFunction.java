@@ -42,7 +42,6 @@ public interface TriFunction<T, U, V, R> {
      * @param t the first function argument
      * @param u the second function argument
      * @param v the third function argument
-     *
      * @return the function result
      */
     R apply(T t, U u, V v);
@@ -54,9 +53,7 @@ public interface TriFunction<T, U, V, R> {
      *
      * @param after the function to apply after this function is applied
      * @param <W> the type of output of the after function, and of the composed function
-     *
      * @return a composed function that first applies this function and then applies the {@code after} function
-     *
      * @throws NullPointerException if {@code after} is null
      */
     default <W> TriFunction<T, U, V, W> andThen(Function<? super R, ? extends W> after) {

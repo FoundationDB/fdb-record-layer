@@ -37,6 +37,7 @@ public final class ParameterizedTestUtils {
 
     /**
      * Provides a stream of boolean, named arguments.
+     *
      * @param trueName the name to provide for {@code true}
      * @param falseName the name to provide for {@code false}
      * @return a stream to be used as a return value for a {@link org.junit.jupiter.params.provider.MethodSource}
@@ -47,6 +48,7 @@ public final class ParameterizedTestUtils {
 
     /**
      * Provides a stream of boolean, named arguments.
+     *
      * @param name the name to provide for {@code true}, {@code false} will prefix with {@code "!"}. If blank,
      * {@code "true"} and {@code "false"} will be used respectively.
      * @return a stream to be used as a return value for a {@link org.junit.jupiter.params.provider.MethodSource}
@@ -61,6 +63,7 @@ public final class ParameterizedTestUtils {
 
     /**
      * Produce the cartesian product of the given streams as {@link Arguments}.
+     *
      * @param sources a list of sources to combine.
      * @return a stream of {@link Arguments} where the 0th element is from the first source, the 1st is from the first,
      * and so-on. Producing all combinations of an element from each source.

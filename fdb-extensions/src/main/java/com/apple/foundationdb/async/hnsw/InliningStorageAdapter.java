@@ -101,7 +101,6 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
      *        storage space that is currently being used
      * @param layer the layer of the node to fetch
      * @param primaryKey the primary key of the node to fetch
-     *
      * @return a {@link CompletableFuture} that will complete with the fetched {@link AbstractNode} containing
      *         {@link NodeReferenceWithVector}s
      */
@@ -135,7 +134,6 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
      * @param layer the layer in the graph where this node exists
      * @param primaryKey the primary key that uniquely identifies the node
      * @param keyValues a list of {@code KeyValue} pairs representing the raw data of the node's neighbors
-     *
      * @return a non-null, fully constructed {@link AbstractNode} object with its neighbors
      */
     @Nonnull
@@ -259,7 +257,6 @@ class InliningStorageAdapter extends AbstractStorageAdapter<NodeReferenceWithVec
      * @param layer the layer index where the node resides
      * @param primaryKey the primary key that uniquely identifies the node within its layer,
      * encapsulated in a {@link Tuple}
-     *
      * @return a byte array representing the packed key for the specified node
      */
     @Nonnull

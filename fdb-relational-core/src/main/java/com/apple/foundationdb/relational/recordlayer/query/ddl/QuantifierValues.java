@@ -112,7 +112,6 @@ final class QuantifierValues {
      * Collects the mapping for a plan.
      *
      * @param expression the root of the index-defining plan
-     *
      * @return what each of its quantifiers stands for
      */
     @Nonnull
@@ -126,7 +125,6 @@ final class QuantifierValues {
      * Resolves a value down to the base record and simplifies it.
      *
      * @param value a value written in terms of the plan's quantifiers
-     *
      * @return the same value with every quantifier replaced by what it stands for
      */
     @Nonnull

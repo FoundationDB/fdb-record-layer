@@ -42,7 +42,6 @@ public interface PredicateWithValue extends LeafQueryPredicate, WithValue<Predic
      *
      * @param valueTranslator the value translator.
      * @param comparisonTranslator the comparison translator.
-     *
      * @return potentially a new instance of {@code PredicateWithValue} with translated {@code Value}(s).
      */
     @Nonnull

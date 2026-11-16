@@ -47,6 +47,7 @@ import java.util.function.Function;
 
 /**
  * A set of rules for simplifying {@link Value} trees used to expression ordering constraints.
+ *
  * @param <O> type variable for sort order
  * @param <P> type variable for ordering part
  */

@@ -65,7 +65,6 @@ public interface IndexGenerator {
      * synthetic table is not registered names a type that does not exist.
      *
      * @return the index the definition asks for, with the synthetic table to define it on when there is one
-     *
      * @throws com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException with
      * {@link com.apple.foundationdb.relational.api.exceptions.ErrorCode#UNSUPPORTED_OPERATION} if the definition
      * describes an index that cannot be stored, such as one over a join, or one whose projection holds a value that no

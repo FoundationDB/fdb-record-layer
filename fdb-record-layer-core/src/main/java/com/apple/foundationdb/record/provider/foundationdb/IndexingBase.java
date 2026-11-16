@@ -732,6 +732,7 @@ public abstract class IndexingBase {
      * records space (as determined by {@link IndexingCommon#computeRecordsRange()}). In that case, preemptively mark
      * the key ranges outside that records range as already-indexed for every target index, so that they are skipped
      * during the build. If the whole records space is relevant, there is nothing to preset.
+     *
      * @return a future that completes once the out-of-range key ranges (if any) have been marked as indexed
      */
     @Nonnull
@@ -787,7 +788,6 @@ public abstract class IndexingBase {
      * @param recordsScanned when return, number of scanned records.
      * @param snapshotIsolationLevel if true, records are scanned as snapshot, and each indexed record is protected by its own conflict ranges (see {@link #canUseSnapshotResolution})
      * @param <T> cursor result's type.
-     *
      * @return hasMore, nextResultCont, and recordsScanned.
      */
 
@@ -1119,6 +1119,7 @@ public abstract class IndexingBase {
 
     /**
      * Number of tracking table reads (WRITE_ONLY_WITH_TRACKING) that are issued ahead of the scan.
+     *
      * @param store the record store
      * @return the pipeline size
      */

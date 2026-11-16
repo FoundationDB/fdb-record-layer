@@ -48,6 +48,7 @@ public class TransactionalRunner implements AutoCloseable {
 
     /**
      * Creates a new runner for operating against a given database.
+     *
      * @param database the underlying databse to open contexts against
      * @param contextConfig configuration for how to open contexts
      */
@@ -102,6 +103,7 @@ public class TransactionalRunner implements AutoCloseable {
 
     /**
      * A flavor of the {@link #runAsync(boolean, Function)} method that supports read-only transactions.
+     *
      * @param clearWeakReadSemantics whether to clear the {@link FDBRecordContextConfig#getWeakReadSemantics()} before
      * creating the transaction. These should be cleared if retrying a transaction, particularly in response to a
      * conflict, because reusing the old read version would just cause it to re-conflict.

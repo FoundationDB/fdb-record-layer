@@ -57,6 +57,7 @@ public class DatabaseClientLogEventCounter implements DatabaseClientLogEvents.Ev
 
     /**
      * Update the count tree with keys &mdash; and optional storage server IP addresses &mdash; in an event.
+     *
      * @param tr an open record context
      * @param event a parsed client latency event
      * @return a future that completes when the event has been processed

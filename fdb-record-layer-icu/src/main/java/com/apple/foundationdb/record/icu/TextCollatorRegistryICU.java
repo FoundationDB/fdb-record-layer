@@ -49,6 +49,7 @@ public class TextCollatorRegistryICU implements TextCollatorRegistry {
 
     /**
      * Get the singleton instance of this registry.
+     *
      * @return the text collator registry that used ICU classes.
      */
     @SuppressWarnings("squid:S1845")    // The two are the same.

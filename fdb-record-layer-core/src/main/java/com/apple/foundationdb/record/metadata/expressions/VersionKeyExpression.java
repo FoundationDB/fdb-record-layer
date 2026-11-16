@@ -84,6 +84,7 @@ public class VersionKeyExpression extends BaseKeyExpression implements AtomKeyEx
 
     /**
      * A <code>Version</code> expression with no grouping keys (mostly for evaluating record functions).
+     *
      * @return a {@link GroupingKeyExpression} with no grouping keys
      */
     @Nonnull

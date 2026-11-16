@@ -213,6 +213,7 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
      * as a <em>treatment</em> of an object of a type as an object of another type without loss of information. On the
      * Java level, the promotion carried out usually implies the conversion of an object to another object (of another
      * java type).
+     *
      * @param inValue the child expression
      * @param promoteToType the type to promote to
      * @param promotionTrie the promotion trie defining the actual promotion of the object

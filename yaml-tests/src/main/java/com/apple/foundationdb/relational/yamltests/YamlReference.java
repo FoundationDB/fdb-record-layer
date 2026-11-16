@@ -57,6 +57,7 @@ public class YamlReference implements Comparable<YamlReference> {
 
     /**
      * Returns the call stack of this {@link YamlReference}.
+     *
      * @return a list of locations in the call stack of this {@link YamlReference}.
      */
     public ImmutableList<YamlReference> getCallStack() {

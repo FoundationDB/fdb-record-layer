@@ -119,7 +119,6 @@ interface Tiebreaker<T extends RelationalExpression> {
      * @param plannerConfiguration the planner configuration to use to adjust behavior while tiebreaking
      * @param expressions a set of expressions to tiebreak
      * @param specificClazz a specific class of expression that the tiebreaker is between
-     *
      * @return a {@link TiebreakerResult} which contains every expression of type {@code specificClazz}
      */
     @Nonnull

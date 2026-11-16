@@ -36,12 +36,14 @@ public interface YamlTestConfig {
 
     /**
      * Creates the connection to the database.
+     *
      * @return a new connection factory
      */
     YamlConnectionFactory createConnectionFactory();
 
     /**
      * A list of options to be provided to {@link YamlRunner}.
+     *
      * @return the options for this config
      */
     @Nonnull

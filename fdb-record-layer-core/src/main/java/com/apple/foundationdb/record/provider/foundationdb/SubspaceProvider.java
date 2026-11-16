@@ -35,7 +35,6 @@ public interface SubspaceProvider {
      * This might be blocking if the subspace is never fetched before.
      *
      * @param context record context used to resolve the subspace
-     *
      * @return Subspace
      */
     @Nonnull
@@ -45,7 +44,6 @@ public interface SubspaceProvider {
      * Asynchronously resolves the subspace against the database associated with {@link FDBRecordContext}.
      *
      * @param context record context used to resolve the subspace
-     *
      * @return CompletableFuture&lt;Subspace&gt;
      */
     @Nonnull
@@ -60,7 +58,6 @@ public interface SubspaceProvider {
      * resolved against the corresponding database.
      *
      * @param context record context used to resolve the subspace
-     *
      * @return CompletableFuture&lt;Subspace&gt;
      */
     String toString(@Nonnull FDBRecordContext context);

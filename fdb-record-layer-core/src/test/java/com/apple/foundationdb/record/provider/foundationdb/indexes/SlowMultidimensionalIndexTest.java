@@ -138,6 +138,7 @@ class SlowMultidimensionalIndexTest extends MultidimensionalIndexTestBase {
      * That is intentionally done in a way that the seed itself is handed over to the test case which causes that seed
      * to be reported. If a testcase fails, the particular seed reported can be used here to recreate the exact
      * conditions of the failure.
+     *
      * @return a stream of arguments
      */
     static Stream<Arguments> argumentsForIndexReadWithIn() {

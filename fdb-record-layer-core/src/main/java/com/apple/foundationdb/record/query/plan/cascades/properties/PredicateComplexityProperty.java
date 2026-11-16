@@ -37,8 +37,8 @@ import java.util.Objects;
 import java.util.function.Function;
 
 /**
- This property traverses a {@link RelationalExpression} to find the maximum diameter of any {@link QueryPredicate}
- associated with {@link RelationalExpressionWithPredicates} implementations.
+ * This property traverses a {@link RelationalExpression} to find the maximum diameter of any {@link QueryPredicate}
+ * associated with {@link RelationalExpressionWithPredicates} implementations.
  */
 public class PredicateComplexityProperty implements ExpressionProperty<Integer> {
     @Nonnull

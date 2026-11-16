@@ -47,6 +47,7 @@ public class MemoizedFunction<T, U> {
 
     /**
      * Creates a memoized version of the provided function.
+     *
      * @param function The function to memoize.
      * @param <T> The type of the function domain.
      * @param <U> The type of the function codomain.

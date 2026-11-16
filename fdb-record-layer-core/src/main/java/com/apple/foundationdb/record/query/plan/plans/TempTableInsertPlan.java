@@ -208,7 +208,6 @@ public class TempTableInsertPlan extends AbstractRelationalExpressionWithChildre
      * Rewrite the planner graph for better visualization.
      *
      * @param childGraphs planner graphs of children expression that already have been computed
-     *
      * @return the rewritten planner graph that models the filter as a node that uses the expression attribute
      * to depict the record types this operator filters.
      */
@@ -257,7 +256,6 @@ public class TempTableInsertPlan extends AbstractRelationalExpressionWithChildre
      * @param inner an input value to transform
      * {@link RecordQueryAbstractDataModificationPlan#currentModifiedRecordAlias()}
      * @param tempTableReferenceValue The table queue identifier to insert into.
-     *
      * @return a newly created {@link TempTableInsertPlan}
      */
     @Nonnull

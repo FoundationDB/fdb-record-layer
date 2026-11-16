@@ -106,6 +106,7 @@ public class ConstraintsMap {
 
     /**
      * Method to return if a particular attribute is contained in the map.
+     *
      * @param attribute the attribute key to check
      * @param <T> the type of the attribute
      * @return {@code true} is the attribute is contained in this map, {@code false} otherwise.
@@ -116,6 +117,7 @@ public class ConstraintsMap {
 
     /**
      * Method to return an optional constraint given the kind of constraint attribute key passed in.
+     *
      * @param attribute the attribute key
      * @param <T> the type of the attribute
      * @return {@code Optional.of(property)} if this map contains the property selected by the attribute key handed in,
@@ -132,6 +134,7 @@ public class ConstraintsMap {
 
     /**
      * Method to return a constraint given an attribute key passed in or to throw an exception.
+     *
      * @param attribute the attribute key
      * @param exceptionSupplier a supplier to be called if an attribute could not be found
      * @param <T> the type of the attribute
@@ -151,6 +154,7 @@ public class ConstraintsMap {
     /**
      * Method to return an optional constraint given an attribute key passed in or an alternative default
      * constraint.
+     *
      * @param attribute the attribute key
      * @param defaultConstraint a constraint to be returned if an attribute could not be found
      * @param <T> the type of the attribute
@@ -173,6 +177,7 @@ public class ConstraintsMap {
      * to properly combine the existing and the new constraint. If the new constraint is distinct from the old one
      * (or there is no prior constraint determined the given attribute key), we update the internal state in order to
      * cause (re-)exploration of the current reference.
+     *
      * @param attribute the attribute key
      * @param constraint the new constraint to be pushed
      * @param <T> the type of the attribute
@@ -198,6 +203,7 @@ public class ConstraintsMap {
 
     /**
      * Method to establish whether this map is explored.
+     *
      * @return {@code true} if further (re-)exploration is required, {@code false} otherwise.
      */
     public boolean isExplored() {
@@ -208,6 +214,7 @@ public class ConstraintsMap {
     /**
      * This method indicates whether the reference containing this map is currently being explored. That means that
      * the reference has started (re-)exploration but has not yet finished it.
+     *
      * @return {@code true} if the associated reference is currently being explored, {@code false} otherwise.
      */
     public boolean isExploring() {
@@ -216,6 +223,7 @@ public class ConstraintsMap {
 
     /**
      * This method indicates whether a reference containing this map has not been explored yet.
+     *
      * @return {@code true} if the associated reference has not been explored yet, {@code false} otherwise.
      */
     public boolean hasNeverBeenExplored() {
@@ -225,6 +233,7 @@ public class ConstraintsMap {
     /**
      * This method indicates whether the reference containing this map is currently being explored for the first time (a full
      * exploration). That means that the reference has started exploration but has not yet finished it.
+     *
      * @return {@code true} if the associated reference is currently being fully explored, {@code false} otherwise.
      */
     public boolean isFullyExploring() {
@@ -235,6 +244,7 @@ public class ConstraintsMap {
      * This method indicates whether the reference containing this map is currently being explored because of a change to
      * a property as defined by a set of attributes passed in. That means that the reference has started exploration
      * but has not yet finished it.
+     *
      * @param attributes a set of attribute keys
      * @return {@code true} if the associated reference is currently being fully explored, {@code false} otherwise.
      */
@@ -310,6 +320,7 @@ public class ConstraintsMap {
 
     /**
      * Method to inherit all state from another constraints map.
+     *
      * @param otherConstraintsMap the other constraints map
      */
     public void inheritFromOther(@Nonnull final ConstraintsMap otherConstraintsMap) {

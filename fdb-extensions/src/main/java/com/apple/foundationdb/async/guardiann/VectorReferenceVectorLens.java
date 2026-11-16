@@ -52,7 +52,6 @@ class VectorReferenceVectorLens implements Lens<VectorReference, Transformed<Rea
      *
      * @param vectorReference the reference to rewrite; must not be null
      * @param transformed the replacement vector; must not be null
-     *
      * @return the reference carrying {@code transformed}
      */
     @Nonnull

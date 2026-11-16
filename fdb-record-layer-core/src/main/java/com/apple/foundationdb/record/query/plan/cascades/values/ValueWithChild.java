@@ -33,6 +33,7 @@ public interface ValueWithChild extends Value {
 
     /**
      * Method to retrieve the only child value.
+     *
      * @return this child {@link Value}
      */
     @Nonnull

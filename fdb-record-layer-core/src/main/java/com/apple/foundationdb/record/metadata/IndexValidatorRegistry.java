@@ -26,6 +26,7 @@ import javax.annotation.Nonnull;
 
 /**
  * A registry of {@link IndexValidator}s.
+ *
  * @see com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory
  */
 @API(API.Status.UNSTABLE)

@@ -57,6 +57,7 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
 
     /**
      * Execute this query plan.
+     *
      * @param store record store from which to fetch items
      * @param context evaluation context containing parameter bindings
      * @param continuation continuation from a previous execution of this same plan
@@ -69,6 +70,7 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
 
     /**
      * Execute this query plan.
+     *
      * @param store record store from which to fetch items
      * @return a cursor of items that match the query criteria
      */
@@ -79,6 +81,7 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
 
     /**
      * Execute this query plan.
+     *
      * @param store record store to access
      * @param context evaluation context containing parameter bindings
      * @return a cursor of items that match the query criteria
@@ -93,6 +96,7 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
      * natural order of results of this plan. The return value is <code>true</code> if the plan
      * returns elements in descending order and <code>false</code> if the elements are
      * returned in ascending order.
+     *
      * @return <code>true</code> if this plan returns elements in reverse order
      */
     boolean isReverse();
@@ -104,6 +108,7 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
      * they might make use of the primary key index. For example, if they had a compound primary key, and they issued
      * a query for all records that had some value for the first element of their primary key, the planner will produce
      * a plan which scans over a subset of all records.
+     *
      * @return <code>true</code> if this plan (or one of its components) scans at least a subset of the records directly
      */
     boolean hasRecordScan();
@@ -112,6 +117,7 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
      * Indicates whether this plan (or one of its components) must perform a scan over all records in the store directly
      * rather than going through a secondary index.
      * See {@link #hasRecordScan hasRecordScan} for the comparison between two methods.
+     *
      * @return <code>true</code> if this plan (or one of its components) must perform a scan over all records in the
      * store directly
      */
@@ -119,6 +125,7 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
 
     /**
      * Indicates whether this plan scans the given index.
+     *
      * @param indexName the name of the index to check for
      * @return <code>true</code> if this plan (or one of its children) scans the given index
      */
@@ -126,6 +133,7 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
 
     /**
      * Returns a set of names of the indexes used by this plan (and its sub-plans).
+     *
      * @return a set of indexes used by this plan
      */
     @Nonnull
@@ -133,12 +141,14 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
 
     /**
      * Indicates whether this plan (or one of its components) loads records by their primary key.
+     *
      * @return <code>true</code> if this plan (or one of its components) loads records by their primary key
      */
     boolean hasLoadBykeys();
 
     /**
      * Indicates how many records this plan could possibly return.
+     *
      * @param metaData meta-data to use to determine things like index uniqueness
      * @return the maximum number of records or {@link #UNKNOWN_MAX_CARDINALITY} if not known
      */
@@ -149,6 +159,7 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
     /**
      * Indicates whether the ordering of records from this plan is fully accounted for by its requested sort.
      * That is, each new record will have a different value for that sort key.
+     *
      * @return {@code true} if this plan is fully sorted according to the query definition
      */
     default boolean isStrictlySorted() {
@@ -157,6 +168,7 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
 
     /**
      * Return a copy of this plan that has the {@link #isStrictlySorted} property.
+     *
      * @param memoizer a memoizer that is used to memoize/re-reference new expressions references
      * @return a copy of this plan
      */
@@ -167,6 +179,7 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
     /**
      * Adds one to an appropriate {@link StoreTimer} counter for each plan and subplan of this plan, allowing tracking
      * of which plans are being chosen (e.g. index scan vs. full scan).
+     *
      * @param timer the counters to increment
      */
     void logPlanStructure(StoreTimer timer);
@@ -175,6 +188,7 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
      * Returns an integer representing the "complexity" of the generated plan.
      * Currently, this should simply be the number of plans in the plan tree with this plan as the root (i.e. the
      * number of descendants of this plan, including itself).
+     *
      * @return the complexity of this plan
      */
     int getComplexity();

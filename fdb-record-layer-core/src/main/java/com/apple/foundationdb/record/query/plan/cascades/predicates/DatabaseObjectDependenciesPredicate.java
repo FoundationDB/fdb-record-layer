@@ -69,6 +69,7 @@ public class DatabaseObjectDependenciesPredicate extends AbstractQueryPredicate 
 
     /**
      * Constructs a new {@link DatabaseObjectDependenciesPredicate} instance.
+     *
      * @param usedIndexes a set of used indexes
      */
     private DatabaseObjectDependenciesPredicate(@Nonnull final Set<UsedIndex> usedIndexes) {

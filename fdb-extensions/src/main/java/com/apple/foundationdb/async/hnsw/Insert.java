@@ -106,6 +106,7 @@ public class Insert {
 
     /**
      * Get the executor used by this hnsw.
+     *
      * @return executor used when running asynchronous tasks
      */
     @Nonnull
@@ -114,8 +115,7 @@ public class Insert {
     }
 
     /**
-     * Get the configuration of this hnsw.
-     * @return hnsw configuration
+     * {@return the configuration of this hnsw}
      */
     @Nonnull
     public Config getConfig() {
@@ -123,8 +123,7 @@ public class Insert {
     }
 
     /**
-     * Get the on-write listener.
-     * @return the on-write listener
+     * {@return the on-write listener}
      */
     @Nonnull
     public OnWriteListener getOnWriteListener() {
@@ -132,8 +131,7 @@ public class Insert {
     }
 
     /**
-     * Get the on-read listener.
-     * @return the on-read listener
+     * {@return the on-read listener}
      */
     @Nonnull
     public OnReadListener getOnReadListener() {
@@ -167,7 +165,6 @@ public class Insert {
      * @param newPrimaryKey the unique {@link Tuple} primary key for the new node being inserted
      * @param newVector the {@link RealVector} data to be inserted into the graph
      * @param newAdditionalValues additional values that are associated with the new vector and stored with the node
-     *
      * @return a {@link CompletableFuture} that completes when the insertion operation is finished
      */
     @Nonnull
@@ -321,7 +318,6 @@ public class Insert {
      * @param random a random to use
      * @param currentAccessInfo this current access info that was fetched as part of an insert
      * @param transformedNewVector the new vector (in the transformed coordinate system) that may be added
-     *
      * @return a future that returns {@code null} when completed
      */
     @Nonnull
@@ -418,7 +414,6 @@ public class Insert {
      * @param lMax the maximum layer number in the HNSW graph
      * @param insertionLayer the randomly determined layer for the new node. The node will be inserted into all layers
      * from this layer down to 0.
-     *
      * @return a {@link CompletableFuture} that completes when the new node has been successfully inserted into all
      * its designated layers
      */
@@ -476,7 +471,6 @@ public class Insert {
      * @param newPrimaryKey the primary key of the new node to be inserted
      * @param newVector the vector associated with the new node
      * @param newAdditionalValues additional values associated with the vector to be inserted
-     *
      * @return a {@code CompletableFuture} that completes with a list of the nearest neighbors found during the
      *         initial search phase. This list serves as the entry point for insertion into the next lower layer
      *         (i.e., {@code layer - 1}).

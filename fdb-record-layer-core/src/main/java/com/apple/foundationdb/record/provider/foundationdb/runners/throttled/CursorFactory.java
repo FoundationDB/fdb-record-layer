@@ -30,6 +30,7 @@ import javax.annotation.Nullable;
 
 /**
  * Create a cursor with the given store and last result.
+ *
  * @param <T> the type of item the cursor iterates over.
  * This factory method is used by the {@link ThrottledRetryingIterator} to create inner cursors when needed.
  * The iterator creates transactions based off of the constraints given, and for each such transaction, a new inner
@@ -40,6 +41,7 @@ import javax.annotation.Nullable;
 public interface CursorFactory<T> {
     /**
      * Create a new inner cursor for the {@link ThrottledRetryingIterator}.
+     *
      * @param store the record store to use
      * @param lastResult the last result processed by the previous cursor (use for continuation). Null is none.
      * @param rowLimit the adjusted row limit to use

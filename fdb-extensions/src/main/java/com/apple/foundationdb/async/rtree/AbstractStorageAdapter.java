@@ -173,7 +173,6 @@ abstract class AbstractStorageAdapter implements StorageAdapter {
      * @param node the node to check
      * @param <N> the type param for the node in order for this method to not be lossy on the type of the node that
      * was passed in
-     *
      * @return the node that was passed in
      */
     @Nullable

@@ -70,6 +70,7 @@ import java.util.stream.Collectors;
  *         endpoint of an open range.
  *     </li>
  * </ul>
+ *
  * @see <a href="https://github.com/FoundationDB/fdb-record-layer/blob/main/docs/Versioning.md#semantic-versioning">Versioning</a>
  */
 public class SemanticVersion implements Comparable<SemanticVersion> {
@@ -204,6 +205,7 @@ public class SemanticVersion implements Comparable<SemanticVersion> {
 
     /**
      * Parse a version string (e.g. {@code 4.0.559.0} or {@code 4.0.560.0-SNAPSHOT}.
+     *
      * @param versionString a version in string form
      * @return a parsed version
      */

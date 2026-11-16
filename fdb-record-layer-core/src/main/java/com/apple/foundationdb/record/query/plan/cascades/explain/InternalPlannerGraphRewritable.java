@@ -32,6 +32,7 @@ import java.util.List;
  * <p>This particular class allows {@link RelationalExpression}s to specify
  * how a {@link PlannerGraph} is modified when we use the {@link PlannerGraphVisitor} for developers working
  * on the query planner.
+ *
  * @see PlannerGraphRewritable for a more comprehensive explanation of graph rewriting.
  */
 public interface InternalPlannerGraphRewritable {

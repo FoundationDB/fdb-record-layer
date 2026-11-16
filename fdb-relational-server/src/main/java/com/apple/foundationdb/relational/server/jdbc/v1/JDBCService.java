@@ -214,6 +214,7 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
 
     /**
      * Make up a StatusRuntimeException with an {@link Status#INVALID_ARGUMENT} Status.
+     *
      * @param invalidStr String to use in Status description.
      * @return {@link Status#INVALID_ARGUMENT} StatusRuntimeException.
      */

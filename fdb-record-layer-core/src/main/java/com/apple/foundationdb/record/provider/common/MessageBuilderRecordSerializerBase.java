@@ -36,6 +36,7 @@ import java.util.function.Supplier;
 
 /**
  * Base class for record serializers that use a supplied union message builder method reference to reconstruct records.
+ *
  * @param <M> generated Protobuf class for the record message type
  * @param <U> generated Protobuf class for the union message
  * @param <B> generated Protobuf class for the union message's builder

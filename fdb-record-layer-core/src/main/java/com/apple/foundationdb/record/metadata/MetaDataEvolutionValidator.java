@@ -1102,6 +1102,7 @@ public class MetaDataEvolutionValidator {
 
         /**
          * Set whether the validator will allow the evolved meta-data to have the same version as the old meta-data.
+         *
          * @param allowNoVersionChange whether the validator will allow the evolved meta-data to have the same version as the old meta-data
          * @return this builder
          * @see MetaDataEvolutionValidator#allowsNoVersionChange()
@@ -1115,6 +1116,7 @@ public class MetaDataEvolutionValidator {
 
         /**
          * Whether the validator will allow the evolved meta-data to have same version as the old meta-data.
+         *
          * @return whether the validator will allow the evolved meta-data to have the same version as the old meta-data
          * @see MetaDataEvolutionValidator#allowsNoVersionChange()
          */
@@ -1220,6 +1222,7 @@ public class MetaDataEvolutionValidator {
 
         /**
          * Set whether the validator will allow changes to indexes that require rebuilds.
+         *
          * @param allowIndexRebuilds whether the validator will allow changes to indexes that require rebuilds
          * @return this builder
          * @see MetaDataEvolutionValidator#allowsIndexRebuilds()
@@ -1233,6 +1236,7 @@ public class MetaDataEvolutionValidator {
 
         /**
          * Whether the validator will allow changes to indexes that require rebuilds.
+         *
          * @return whether the validator will allow changes to index that require rebuilds
          * @see MetaDataEvolutionValidator#allowsIndexRebuilds()
          */
@@ -1242,6 +1246,7 @@ public class MetaDataEvolutionValidator {
 
         /**
          * Set whether the validator will allow former indexes to drop the name of the index they replace.
+         *
          * @param allowMissingFormerIndexNames whether the validator will allow former indexes to drop the name of the index they replace
          * @return this builder
          * @see MetaDataEvolutionValidator#allowsMissingFormerIndexNames()
@@ -1255,6 +1260,7 @@ public class MetaDataEvolutionValidator {
 
         /**
          * Whether the validator will allow former indexes to drop the name of the index they replace.
+         *
          * @return whether the validator will allow former indexes to drop the name of the index they replace
          * @see MetaDataEvolutionValidator#allowsMissingFormerIndexNames()
          */

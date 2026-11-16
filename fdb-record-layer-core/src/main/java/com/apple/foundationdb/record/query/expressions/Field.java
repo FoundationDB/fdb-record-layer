@@ -58,6 +58,7 @@ public class Field {
     /**
      * If the associated field is a submessage, this allows you to match against the fields within that submessage.
      * The child is evaluated and validated in the context of this field, not the record containing this field.
+     *
      * @param child a component asserting about the content of the submessage in this field
      * @return a new component ready for evaluation
      */
@@ -70,6 +71,7 @@ public class Field {
      * If the associated field is a repeated one, this allows you to match against one of the repeated values.
      * The record will be returned if any one of the values returns {@code true}. The same record may be returned more than once.
      * If the repeated field is empty, the match result will be UNKNOWN.
+     *
      * @return an OneOfThem that can have further assertions called on it about the value of the given field
      */
     @Nonnull
@@ -80,6 +82,7 @@ public class Field {
     /**
      * If the associated field is a repeated one, this allows you to match against one of the repeated values.
      * The record will be returned if any one of the values returns {@code true}. The same record may be returned more than once.
+     *
      * @param emptyMode whether an empty repeated field should cause an UNKNOWN result instead of failing to match any (and so returning FALSE)
      * @return an OneOfThem that can have further assertions called on it about the value of the given field
      */
@@ -91,6 +94,7 @@ public class Field {
     /**
      * Checks if the field has a value equal to the given comparand.
      * Evaluates to null if the field does not have a value.
+     *
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
@@ -102,6 +106,7 @@ public class Field {
     /**
      * Checks if the field has a value not equal to the given comparand.
      * Evaluates to null if the field does not have a value.
+     *
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
@@ -113,6 +118,7 @@ public class Field {
     /**
      * Checks if the field has a value greater than the given comparand.
      * Evaluates to null if the field does not have a value.
+     *
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
@@ -125,6 +131,7 @@ public class Field {
     /**
      * Checks if the field has a value greater than or equal to the given comparand.
      * Evaluates to null if the field does not have a value.
+     *
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
@@ -137,6 +144,7 @@ public class Field {
     /**
      * Checks if the field has a value less than the given comparand.
      * Evaluates to null if the field does not have a value.
+     *
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
@@ -149,6 +157,7 @@ public class Field {
     /**
      * Checks if the field has a value less than or equal to the given comparand.
      * Evaluates to null if the field does not have a value.
+     *
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
@@ -162,6 +171,7 @@ public class Field {
      * Checks if the field starts with the given string.
      * Requires that the field contains a string.
      * Evaluates to null if the field does not have a value.
+     *
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
@@ -174,6 +184,7 @@ public class Field {
      * Checks if the field starts with the given byte string.
      * Requires that the field contains a byte string.
      * Evaluates to null if the field does not have a value.
+     *
      * @param comparand the object to compare with the value in the field
      * @return a new component for doing the actual evaluation
      */
@@ -184,6 +195,7 @@ public class Field {
 
     /**
      * Returns true if the field has not been set and uses the default value.
+     *
      * @return a new component for doing the actual evaluation
      */
     @Nonnull
@@ -193,6 +205,7 @@ public class Field {
 
     /**
      * Returns true if the field does not use the default value.
+     *
      * @return a new component for doing the actual evaluation
      */
     @Nonnull
@@ -202,6 +215,7 @@ public class Field {
 
     /**
      * Returns true if the repeated field does not have any occurrences.
+     *
      * @return a new component for doing the actual evaluation
      */
     @Nonnull
@@ -211,6 +225,7 @@ public class Field {
 
     /**
      * Returns true if the repeated field has occurrences.
+     *
      * @return a new component for doing the actual evaluation
      */
     @Nonnull
@@ -220,6 +235,7 @@ public class Field {
 
     /**
      * Query where the value of this field is in the given list.
+     *
      * @param comparand a list of elements
      * @return a new component for doing the actual evaluation
      */
@@ -230,6 +246,7 @@ public class Field {
 
     /**
      * Query where the value of this field is in the list that is bound to the given param.
+     *
      * @param param a param that will be bound to a list in the execution context
      * @return a new component for doing the actual evaluation
      */
@@ -309,6 +326,7 @@ public class Field {
     /**
      * Checks if the field has a value equal to the given parameter.
      * Evaluates to null if the field does not have a value.
+     *
      * @param param the name of the parameter
      * @return a new component for doing the actual evaluation
      */
@@ -323,6 +341,7 @@ public class Field {
      * <pre><code>
      * Query.field("map_field").mapMatches(k -&gt; k.equals("akey"), v -&gt; v.greaterThan(10))
      * </code></pre>
+     *
      * @param keyMatcher a function to apply to the key {@link Field} or {@code null} not to restrict the key
      * @param valueMatcher a function to apply to the value {@link Field} or {@code null} not to restrict the value
      * @return a new component that will return the record if the map field has an entry matching the key and value criteria

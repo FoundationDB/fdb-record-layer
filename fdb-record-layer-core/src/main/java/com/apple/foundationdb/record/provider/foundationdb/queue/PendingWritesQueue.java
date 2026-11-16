@@ -161,9 +161,7 @@ public class PendingWritesQueue<T extends Message> {
      * @param context the active record context
      * @param payload the typed payload to enqueue
      * @param incarnation incarnation prefix
-     *
      * @return a future that completes once the operation is complete
-     *
      * @throws PendingWritesQueueTooLargeException via the returned future if the queue is at
      * or beyond {@code maxQueueSize}
      */
@@ -188,7 +186,6 @@ public class PendingWritesQueue<T extends Message> {
      * @param scanProperties scan properties; the isolation level is always forced to {@link IsolationLevel#SNAPSHOT}
      * @param continuation continuation from a previous cursor invocation, or {@code null} to
      * start from the beginning
-     *
      * @return a cursor over {@link PendingWritesQueueEntry} values
      */
     @SuppressWarnings("PMD.CloseResource")
@@ -263,7 +260,6 @@ public class PendingWritesQueue<T extends Message> {
      * conflict exception.
      *
      * @param context the record context
-     *
      * @return a future resolving to {@code true} when the queue range is empty
      */
     @Nonnull
@@ -281,7 +277,6 @@ public class PendingWritesQueue<T extends Message> {
      * never had an entry enqueued). The counter is maintained via atomic mutations.
      *
      * @param context the record context
-     *
      * @return a future resolving to the counter value, or {@code null} if uninitialized
      */
     @Nonnull

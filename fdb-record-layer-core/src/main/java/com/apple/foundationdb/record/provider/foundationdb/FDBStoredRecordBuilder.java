@@ -31,6 +31,7 @@ import javax.annotation.Nullable;
 
 /**
  * A builder for {@link FDBStoredRecord}.
+ *
  * @param <M> type used to represent stored records
  */
 @API(API.Status.UNSTABLE)

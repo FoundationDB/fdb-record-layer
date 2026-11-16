@@ -237,6 +237,7 @@ class StorageAdapter {
                 .setM(16)
                 .setMMax(24)
                 .setMMax0(32)
+                .setWriteAppendableNodes(config.writeAppendableCentroidNodes())
                 .build(config.numDimensions());
     }
 
@@ -278,7 +279,6 @@ class StorageAdapter {
      * Serializes a set of cluster ids into a {@link Tuple} for storage.
      *
      * @param clusterIds the cluster ids to serialize
-     *
      * @return a tuple encoding the cluster ids
      */
     @Nonnull
@@ -290,7 +290,6 @@ class StorageAdapter {
      * Deserializes a set of cluster ids from their {@link Tuple} representation.
      *
      * @param clusterIdsAsTuple the tuple holding the encoded cluster ids
-     *
      * @return the decoded set of cluster ids
      */
     @Nonnull
@@ -302,7 +301,6 @@ class StorageAdapter {
      * Serializes a set of task ids into a {@link Tuple} for storage.
      *
      * @param taskIds the task ids to serialize
-     *
      * @return a tuple encoding the task ids
      */
     @Nonnull
@@ -314,7 +312,6 @@ class StorageAdapter {
      * Deserializes a set of task ids from their {@link Tuple} representation.
      *
      * @param taskIdsAsTuple the tuple holding the encoded task ids
-     *
      * @return the decoded set of task ids
      */
     @Nonnull

@@ -34,6 +34,7 @@ import java.util.function.Function;
 
 /**
  * A cursor that filters elements using a predicate.
+ *
  * @param <T> the type of elements of the cursor
  */
 @API(API.Status.UNSTABLE)

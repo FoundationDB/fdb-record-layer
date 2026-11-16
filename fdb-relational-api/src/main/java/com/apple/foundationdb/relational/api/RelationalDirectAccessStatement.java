@@ -213,6 +213,7 @@ public interface RelationalDirectAccessStatement extends AutoCloseable {
 
     /**
      * Close method to free up resources managed by this statement.
+     *
      * @throws SQLException for errors encountered while closing
      */
     @Override

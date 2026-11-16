@@ -29,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * A handler of an item during the iteration of a {@link ThrottledRetryingIterator}.
+ *
  * @param <T> the type of element in the iteration
  */
 @API(API.Status.EXPERIMENTAL)
@@ -41,6 +42,7 @@ public interface ItemHandler<T> {
      * change the state via {@link ThrottledRetryingIterator.QuotaManager#deleteCountAdd(int)},
      * {@link ThrottledRetryingIterator.QuotaManager#deleteCountInc()} and
      * {@link ThrottledRetryingIterator.QuotaManager#markExhausted()}.
+     *
      * @param store the record store to use
      * @param lastResult the result to process
      * @param quotaManager the current quota manager state

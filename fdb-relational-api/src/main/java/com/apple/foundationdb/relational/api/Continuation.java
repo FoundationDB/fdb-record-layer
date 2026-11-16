@@ -74,6 +74,7 @@ public interface Continuation {
 
     /**
      * Returns the reason why the continuation was generated in the first place.
+     *
      * @return the reason
      */
     Reason getReason();

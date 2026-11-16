@@ -131,6 +131,7 @@ public class RecordQuery {
 
     /**
      * Validates that this record query is valid with the provided metadata.
+     *
      * @param metaData the metadata that you want to use with this query
      */
     public void validate(@Nonnull RecordMetaData metaData) {
@@ -283,6 +284,7 @@ public class RecordQuery {
         /**
          * Define the indexes that the planner can consider when planning the query.
          * If set, the allowed indexes override the index queryability filter.
+         *
          * @param allowedIndexes a collection of index names
          * @return this builder
          */
@@ -299,6 +301,7 @@ public class RecordQuery {
          * Set a function that defines whether each index should be used by the query planner.
          * Note that if allowed indexes are used then the queryability filter is ignored.
          * The default index queryability filter is {@link IndexQueryabilityFilter#DEFAULT}.
+         *
          * @param queryabilityFilter a queryability filter to use
          * @return this builder
          */

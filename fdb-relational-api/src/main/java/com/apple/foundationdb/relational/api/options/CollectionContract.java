@@ -37,6 +37,7 @@ import java.util.List;
  * of collection type and (2) every element in the collection satisfies the "element
  * contract" over which the contract is defined. For example, the child contract
  * may be that each element is of a given type or within a particular range.
+ *
  * @param <T> the type parameter of the collection
  */
 public class CollectionContract<T> implements OptionContract, OptionContractWithConversion<Collection<T>> {

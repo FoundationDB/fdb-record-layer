@@ -30,6 +30,7 @@ import java.util.Set;
 
 /**
  * A set of rules for use by a planner that supports quickly finding rules that could match a given planner expression.
+ *
  * @param <R> the type that {@link AbstractValueRule}s in this set yield
  * @param <C> the type of the call rules in this set will receive
  *        when {@link com.apple.foundationdb.record.query.plan.cascades.PlannerRule#onMatch(PlannerRuleCall)} is invoked.

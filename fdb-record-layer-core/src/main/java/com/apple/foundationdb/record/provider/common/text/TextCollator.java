@@ -75,6 +75,7 @@ public interface TextCollator extends Comparator<String> {
      * Get a representation of a string suitable for storing in an index for this collation.
      *
      * <p>The unsigned byte comparison of the result byte array will match this collator's ordering.
+     *
      * @param str the string to index
      * @return a byte string for storing in an index
      */

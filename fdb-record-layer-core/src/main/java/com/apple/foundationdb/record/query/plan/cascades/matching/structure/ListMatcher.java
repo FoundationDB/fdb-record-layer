@@ -39,6 +39,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 /**
  * A collection matcher that binds a sub collection of the collection it is being matched by pairing up the items in the
  * collection (in iteration order) with a list of downstream matchers.
+ *
  * @param <T> the bindable type that this matcher binds to
  */
 @API(API.Status.EXPERIMENTAL)

@@ -77,7 +77,6 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
      * @param schemaTemplateBuilder the metadata the index is added to
      * @param indexName the name the definition gives the index
      * @param options what the definition asks of the index beyond its key
-     *
      * @return a generator for that definition
      */
     @Nonnull
@@ -135,7 +134,6 @@ public final class MaterializedViewIndexGenerator implements IndexGenerator {
      * @param spec what the index is made of, already rewritten onto the synthetic table if there is one
      * @param allowCollapsing whether a run of adjacent field paths may merge into a single navigation, which is what a
      * fan-out on a stored table wants and what an index over constituent aliases must not do
-     *
      * @return the index key and the index type it implies
      */
     @Nonnull

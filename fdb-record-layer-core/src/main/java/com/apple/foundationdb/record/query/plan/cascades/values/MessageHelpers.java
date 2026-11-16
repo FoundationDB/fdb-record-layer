@@ -110,6 +110,7 @@ public class MessageHelpers {
      * Get the value of the field with the given field name on the given message.
      * If the field is repeated, the repeated values are combined into a list. If the field has a message type,
      * the value is returned as a {@link Message} of that type. Otherwise, the field is returned as a primitive.
+     *
      * @param message a message or builder to extract the field from
      * @param fieldName the field to extract
      * @return the value of the field as described above
@@ -388,6 +389,7 @@ public class MessageHelpers {
 
     /**
      * Coerce an object to become an object of a different type.
+     *
      * @param coercionsTrie a trie describing actual primitive promotions/casts that need to be carried out
      * @param targetType the target type this method coerces the object into
      * @param targetDescriptor the protobuf descriptor to be used to create the result message if {@code current} is a

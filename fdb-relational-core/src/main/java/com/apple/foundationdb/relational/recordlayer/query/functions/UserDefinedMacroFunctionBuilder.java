@@ -65,6 +65,7 @@ final class UserDefinedMacroFunctionBuilder implements UserDefinedFunctionBuilde
 
     /**
      * Creates a builder for a macro function.
+     *
      * @param name the function name.
      * @param bodyValue the scalar body of the function, correlated to {@code parametersQuantifier}.
      * @param parameters the function parameters, providing their names and types.
@@ -90,6 +91,7 @@ final class UserDefinedMacroFunctionBuilder implements UserDefinedFunctionBuilde
 
     /**
      * Always throws: macro functions do not support processed literals.
+     *
      * @param literals ignored.
      * @throws UnsupportedOperationException always.
      */
@@ -129,6 +131,7 @@ final class UserDefinedMacroFunctionBuilder implements UserDefinedFunctionBuilde
     /**
      * Creates one {@link QuantifiedObjectValue} with a unique alias per parameter to serve as the function's
      * parameters; the unique aliases makes it possible to bind the parameters independently during encapsulation.
+     *
      * @return a quantified object value for each parameter, in declaration order.
      */
     @Nonnull

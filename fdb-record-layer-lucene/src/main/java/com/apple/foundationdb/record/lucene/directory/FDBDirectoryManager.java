@@ -130,6 +130,7 @@ public class FDBDirectoryManager implements AutoCloseable {
 
     /**
      * Close the directoryManager when the transaction wasn't committed.
+     *
      * @throws IOException in case some directories failed to close
      */
     @SuppressWarnings("PMD.CloseResource")
@@ -379,6 +380,7 @@ public class FDBDirectoryManager implements AutoCloseable {
 
     /**
      * Invalidate directories from the cache if their grouping key begins with a specified prefix.
+     *
      * @param prefix the prefix of grouping keys to remove from the cache
      */
     public void invalidatePrefix(@Nonnull Tuple prefix) {

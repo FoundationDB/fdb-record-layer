@@ -28,6 +28,7 @@ import javax.annotation.Nullable;
 
 /**
  * Exception thrown when {@link FDBRecordStoreBase#insertRecord} is called, but the record already exists.
+ *
  * @see FDBRecordStoreBase.RecordExistenceCheck#ERROR_IF_EXISTS
  */
 @SuppressWarnings("serial")

@@ -72,6 +72,7 @@ public class InOpValue extends AbstractValue implements BooleanValue {
 
     /**
      * Creates a new instance of {@link InOpValue}.
+     *
      * @param probeValue The left child in `IN` operator
      * @param inArrayValue The right child in `IN` operator
      */

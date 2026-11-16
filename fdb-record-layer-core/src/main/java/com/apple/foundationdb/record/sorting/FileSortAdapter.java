@@ -34,6 +34,7 @@ import java.security.SecureRandom;
 
 /**
  * Provide various options for {@link FileSorter} and {@link FileSortCursor}.
+ *
  * @param <K> type of key
  * @param <V> type of value
  */
@@ -41,6 +42,7 @@ import java.security.SecureRandom;
 public interface FileSortAdapter<K, V> extends MemorySortAdapter<K, V> {
     /**
      * Get the name of a file to use for saving sorted records.
+     *
      * @return a file into which to save sorted records
      * @throws IOException if something fails creating the file
      */
@@ -49,6 +51,7 @@ public interface FileSortAdapter<K, V> extends MemorySortAdapter<K, V> {
 
     /**
      * Get the version of the meta-data used to save the file.
+     *
      * @return the meta-data version
      * @see RecordMetaData#getVersion
      */
@@ -56,6 +59,7 @@ public interface FileSortAdapter<K, V> extends MemorySortAdapter<K, V> {
 
     /**
      * Write the value to a Protobuf stream.
+     *
      * @param value the sorted value
      * @param stream the destination stream
      * @throws IOException if something fails writing to a file
@@ -64,6 +68,7 @@ public interface FileSortAdapter<K, V> extends MemorySortAdapter<K, V> {
 
     /**
      * Read the value from a Protobuf stream.
+     *
      * @param stream the source stream
      * @return the next value in the stream
      * @throws IOException if something fails reading from the file
@@ -74,12 +79,14 @@ public interface FileSortAdapter<K, V> extends MemorySortAdapter<K, V> {
     /**
      * Get the mimimum number of records needed to write a file.
      * If loading finds fewer than this number of records, the results are kept in memory and returned from there.
+     *
      * @return minimum number of records
      */
     int getMinFileRecordCount();
 
     /**
      * Get the maximum number of files to keep before merging.
+     *
      * @return the maximum number of files kept by a single cursor
      */
     int getMaxFileCount();
@@ -87,6 +94,7 @@ public interface FileSortAdapter<K, V> extends MemorySortAdapter<K, V> {
     /**
      * Get the maximum number of files in a section.
      * Sections allow skipping through the file faster.
+     *
      * @return the number of records in each section
      * @see FileSorter
      */
@@ -96,12 +104,14 @@ public interface FileSortAdapter<K, V> extends MemorySortAdapter<K, V> {
 
     /**
      * Get whether files should be compressed.
+     *
      * @return {@code true} if files are compressed
      */
     boolean isCompressed();
 
     /**
      * Get name of cipher to use for encrypting.
+     *
      * @return cipher name to use or {@code null} for unencrypted files
      */
     @Nullable
@@ -109,6 +119,7 @@ public interface FileSortAdapter<K, V> extends MemorySortAdapter<K, V> {
 
     /**
      * Get whether files should be encrypted.
+     *
      * @return encryption key to use or {@code null} for unencrypted files
      */
     @Nullable
@@ -116,6 +127,7 @@ public interface FileSortAdapter<K, V> extends MemorySortAdapter<K, V> {
 
     /**
      * Get source of randomness for encryption.
+     *
      * @return secure random source
      */
     @Nullable

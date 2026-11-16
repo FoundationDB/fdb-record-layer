@@ -48,7 +48,6 @@ public final class LoggableTimeoutException extends TimeoutException implements 
      *
      * @param cause root cause of the timeout exception
      * @param keyValues loggable keys and values
-     *
      * @see #addLogInfo(Object...)
      */
     public LoggableTimeoutException(@Nonnull Throwable cause, @Nullable Object... keyValues) {

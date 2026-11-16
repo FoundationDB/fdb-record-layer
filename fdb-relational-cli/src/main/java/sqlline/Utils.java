@@ -33,8 +33,9 @@ final class Utils {
     /**
      * Remove command name from start of the string. Treat the remainder
      * as command argument.
+     *
      * @param line Full line given to command; includes command prefix to strip.
-     * @param List of command names.
+     * @param commandNames List of command names.
      * @return Command argument.
      */
     static String stripCommandName(String line, List<String> commandNames) {

@@ -31,6 +31,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 /**
  * A {@link TypedMatcher} that also extracts an object from the current object and attempts to match that object with
  * a {@code downstream} matcher.
+ *
  * @param <T> the type that this matcher binds to
  */
 @API(API.Status.EXPERIMENTAL)

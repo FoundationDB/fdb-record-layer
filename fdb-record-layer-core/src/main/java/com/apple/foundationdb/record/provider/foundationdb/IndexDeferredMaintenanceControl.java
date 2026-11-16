@@ -65,6 +65,7 @@ public class IndexDeferredMaintenanceControl {
     /**
      * Return a set of indexes that need a deferred index merge operation. This function may be used by the
      * caller, to check which index maintainer requested a deferred merge.
+     *
      * @return set of indexes to be merged, null if no merge was requested.
      */
     public synchronized Set<Index> getMergeRequiredIndexes() {
@@ -73,6 +74,7 @@ public class IndexDeferredMaintenanceControl {
 
     /**
      * Indicate to the caller if a deferred merge operation is required. This function is used by the index maintainer.
+     *
      * @param mergeRequiredIndex an index that should be merged
      */
     public synchronized void setMergeRequiredIndexes(final Index mergeRequiredIndex) {
@@ -84,6 +86,7 @@ public class IndexDeferredMaintenanceControl {
 
     /**
      * If thrue, indicates to the index maintenance to automatically merge indexes during commit.
+     *
      * @return true if should merge
      */
     public boolean shouldAutoMergeDuringCommit() {
@@ -95,6 +98,7 @@ public class IndexDeferredMaintenanceControl {
      * The default is false, so the user is responsible to call, possibly in the background, the {@link OnlineIndexer#mergeIndex()}
      * function with the set of indexes returned by {@link #getMergeRequiredIndexes()} as target indexes.
      * If set to true, the index maintenance operation will be done inline during the commit.
+     *
      * @param autoMergeDuringCommit if true (default) and applicable, automatically merge during commit
      */
     public void setAutoMergeDuringCommit(final boolean autoMergeDuringCommit) {
@@ -103,6 +107,7 @@ public class IndexDeferredMaintenanceControl {
 
     /**
      * If auto merge during commit is not allowed, indicate an explicit merge.
+     *
      * @return true if merge was explicitly called in this path
      */
     public boolean isExplicitMergePath() {
@@ -111,6 +116,7 @@ public class IndexDeferredMaintenanceControl {
 
     /**
      * Allow indicating that merge is called explicitly when auto-merge during commit is not allowed.
+     *
      * @param explicitMergePath set to true if merge is explicitly called in this path
      */
     public void setExplicitMergePath(final boolean explicitMergePath) {
@@ -119,6 +125,7 @@ public class IndexDeferredMaintenanceControl {
 
     /**
      * Limit the number of merges that may be attempted in a single transaction.
+     *
      * @return the max merges allowed
      */
     public long getMergesLimit() {
@@ -127,6 +134,7 @@ public class IndexDeferredMaintenanceControl {
 
     /**
      * Set by the caller - see {@link #getMergesLimit()}.
+     *
      * @param mergesLimit the max merges allowed
      */
     public void setMergesLimit(final long mergesLimit) {
@@ -135,6 +143,7 @@ public class IndexDeferredMaintenanceControl {
 
     /**
      * Report the number of merges found.
+     *
      * @return number of merges found
      */
     public long getMergesFound() {
@@ -143,6 +152,7 @@ public class IndexDeferredMaintenanceControl {
 
     /**
      * Set by the merger - see {@link #getMergesFound()}.
+     *
      * @param mergesFound number of merges found
      */
     public void setMergesFound(final long mergesFound) {
@@ -151,6 +161,7 @@ public class IndexDeferredMaintenanceControl {
 
     /**
      * Report the number of merges attempted in a single transaction.
+     *
      * @return number of merges tried
      */
     public long getMergesTried() {
@@ -159,6 +170,7 @@ public class IndexDeferredMaintenanceControl {
 
     /**
      * Set by the merger - see {@link #getMergesTried()}.
+     *
      * @param mergesTried number of merges tried
      */
     public void setMergesTried(final long mergesTried) {
@@ -177,6 +189,7 @@ public class IndexDeferredMaintenanceControl {
 
     /**
      * Return to the total number of merges attempted, yet hadn't failed.
+     *
      * @return total number of merges
      */
     public long getTotalMerges() {
@@ -185,6 +198,7 @@ public class IndexDeferredMaintenanceControl {
 
     /**
      * If bigger than 0, define a time quota for agility context (i.e. auto-commit).
+     *
      * @return time quota in milliseconds
      */
     public long getTimeQuotaMillis() {
@@ -193,6 +207,7 @@ public class IndexDeferredMaintenanceControl {
 
     /**
      * Set by the caller - if applicable, request to auto-commit after this time quota.
+     *
      * @param timeQuotaMillis time quota in milliseconds
      */
     public void setTimeQuotaMillis(final long timeQuotaMillis) {
@@ -201,6 +216,7 @@ public class IndexDeferredMaintenanceControl {
 
     /**
      * If bigger than 0, define a size quota for agility context (i.e. auto-commit).
+     *
      * @return size quota in bytes
      */
     public long getSizeQuotaBytes() {
@@ -209,6 +225,7 @@ public class IndexDeferredMaintenanceControl {
 
     /**
      * Set by the caller - if applicable, request to auto-commit after this size quota.
+     *
      * @param sizeQuotaBytes size quota in bytes
      */
     public void setSizeQuotaBytes(final long sizeQuotaBytes) {
@@ -217,6 +234,7 @@ public class IndexDeferredMaintenanceControl {
 
     /**
      * During the deferred operation, each step should record its action. If exception occurs, this will help identify the cause.
+     *
      * @return last recorded deferred action.
      */
     public LastStep getLastStep() {
@@ -225,6 +243,7 @@ public class IndexDeferredMaintenanceControl {
 
     /**
      * During the deferred operation, each step should record its action. If exception occurs, this will help identify the cause.
+     *
      * @param lastStep the last deferred action - set by the caller.
      */
     public void setLastStep(final LastStep lastStep) {
@@ -236,6 +255,7 @@ public class IndexDeferredMaintenanceControl {
      * unset. Set by the merge driver ({@code IndexingMerger}) from the indexing session so an index maintainer can
      * recognize and hold a per-partition lease across the driver's re-invocations — each of which is a fresh
      * transaction with a fresh maintainer instance, so there is otherwise no stable owner identity to key a lease on.
+     *
      * @return the merge session id, or {@code null} if unset
      */
     @Nullable
@@ -245,6 +265,7 @@ public class IndexDeferredMaintenanceControl {
 
     /**
      * Set by the merge driver - see {@link #getMergeSessionId()}.
+     *
      * @param mergeSessionId the stable merge session id
      */
     public void setMergeSessionId(@Nullable final UUID mergeSessionId) {
@@ -257,6 +278,7 @@ public class IndexDeferredMaintenanceControl {
      * Positive num: use this count
      * Zero: use default count, and set it in this controller
      * Negative num : skip repartitioning
+     *
      * @return number of documents to move
      */
     public int getRepartitionDocumentCount() {
@@ -265,6 +287,7 @@ public class IndexDeferredMaintenanceControl {
 
     /**
      * Max number of documents to move during repartitioning (per partition).
+     *
      * @param repartitionDocumentCount number of documents to move
      */
     public void setRepartitionDocumentCount(final int repartitionDocumentCount) {
@@ -282,6 +305,7 @@ public class IndexDeferredMaintenanceControl {
 
     /**
      * Set repartitioning capped due to hitting maximum limit.
+     *
      * @param repartitionCapped <code>true</code> if repartitioning capped
      */
     public void setRepartitionCapped(final boolean repartitionCapped) {
@@ -290,6 +314,7 @@ public class IndexDeferredMaintenanceControl {
 
     /**
      * Set by the caller - a preCommit callback to be called by a deferred maintenance operation.
+     *
      * @param preCommitCallback the callback, or null (default) for none
      */
     public void setPreCommitCallback(@Nullable final Function<FDBRecordStore, CompletableFuture<Void>> preCommitCallback) {
@@ -298,6 +323,7 @@ public class IndexDeferredMaintenanceControl {
 
     /**
      * Get the preCommit callback. See {@link #setPreCommitCallback(Function)}.
+     *
      * @return the callback or a null
      */
     @Nullable

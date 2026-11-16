@@ -30,6 +30,7 @@ import java.util.List;
 
 /**
  * Implemention of (geo-)spatial index key functions.
+ *
  * @see GeophileSpatialFunctionNames
  */
 @AutoService(FunctionKeyExpression.Factory.class)

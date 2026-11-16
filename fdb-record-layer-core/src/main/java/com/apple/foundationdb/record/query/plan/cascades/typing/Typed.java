@@ -31,14 +31,14 @@ import javax.annotation.Nonnull;
 public interface Typed {
 
     /**
-     * Returns the {@link Type} of the result set.
-     * @return the {@link Type} of the result set.
+     * {@return the {@link Type} of the result set}
      */
     @Nonnull
     Type getResultType();
 
     /**
      * Returns a human-friendly textual representation of both the type-producing instance and its result set {@link Type}.
+     *
      * @return a token list used to render a human-friendly textual representation of both the type-producing instance
      *         and its result set {@link Type}.
      */

@@ -47,6 +47,7 @@ public class RelativeProbabilityPlanSelector implements PlanSelector {
 
     /**
      * Create a new probability selector with the given probabilities list.
+     *
      * @param probabilities the list of probabilities. These should all add up to 100.
      */
     public RelativeProbabilityPlanSelector(@Nonnull final List<Integer> probabilities) {

@@ -31,13 +31,12 @@ import java.net.URI;
 
 /**
  * Relational Catalog.
+ *
  * @see com.apple.foundationdb.relational.recordlayer.catalog.StoreCatalogProvider
  */
 public interface StoreCatalog {
     /**
-     * Returns the underlying schema template catalog.
-     *
-     * @return the schema template catalog
+     * {@return the underlying schema template catalog}
      */
     SchemaTemplateCatalog getSchemaTemplateCatalog();
 

@@ -43,6 +43,7 @@ import java.util.stream.Collector;
 
 /**
  * BiMap based on identities of types {@code K} and {@code V}.
+ *
  * @param <K> key type
  * @param <V> value type
  */

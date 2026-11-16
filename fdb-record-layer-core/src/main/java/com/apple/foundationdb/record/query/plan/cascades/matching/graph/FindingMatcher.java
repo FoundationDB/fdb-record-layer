@@ -57,6 +57,7 @@ public class FindingMatcher<T> extends BaseMatcher<T> implements PredicatedMatch
 
     /**
      * Dumb private constructor. Use static factory methods instead!
+     *
      * @param boundAliasesMap a map with previously-bound aliases. Any match that is computed and passed back to the
      *        client is an amendment of this map, i.e., every resulting match's {@link AliasMap} always contains at
      *        least the bindings in this map
@@ -91,6 +92,7 @@ public class FindingMatcher<T> extends BaseMatcher<T> implements PredicatedMatch
 
     /**
      * Match using the method {@link #enumerate} as {@link EnumerationFunction}.
+     *
      * @return an iterable of {@link AliasMap}s.
      */
     @Nonnull
@@ -101,6 +103,7 @@ public class FindingMatcher<T> extends BaseMatcher<T> implements PredicatedMatch
 
     /**
      * Match using the method {@link #enumerate} as {@link EnumerationFunction}.
+     *
      * @return an iterable of {@link AliasMap}s.
      */
     @Nonnull
@@ -119,6 +122,7 @@ public class FindingMatcher<T> extends BaseMatcher<T> implements PredicatedMatch
      * in {@link #getAliases} this method then includes that {@link AliasMap} in the computable of {@link AliasMap}s that
      * form the result and proceeds to consume further permutations from the iterator that is passed in in order to
      * establish other matches between this and other.
+     *
      * @param iterator an enumerating iterable for the permutations on this side
      * @param otherOrdered one permutation (that is not violating dependencies, constraints, etc.) of the other side
      * @return an {@link Iterator} of match results (of type {@link AliasMap})
@@ -185,6 +189,7 @@ public class FindingMatcher<T> extends BaseMatcher<T> implements PredicatedMatch
     /**
      * Static factory method to create a generic matcher using element type {@code T}. This method is optimized to the
      * case when the dependsOn sets are already given by sets of {@link CorrelationIdentifier}s.
+     *
      * @param boundAliasesMap a map with previously-bound aliases. Any match that is computed and passed back to the
      *        client is an amendment of this map, i.e., every resulting match's {@link AliasMap} always contains at
      *        least the bindings in this map
@@ -223,6 +228,7 @@ public class FindingMatcher<T> extends BaseMatcher<T> implements PredicatedMatch
     /**
      * Static factory method to create a generic matcher using element type {@code T}. This method is optimized to the
      * case when the dependsOn sets are already given by sets of {@link CorrelationIdentifier}s.
+     *
      * @param boundAliasesMap a map with previously-bound aliases. Any match that is computed and passed back to the
      *        client is an amendment of this map, i.e., every resulting match's {@link AliasMap} always contains at
      *        least the bindings in this map

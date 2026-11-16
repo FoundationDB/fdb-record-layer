@@ -31,6 +31,7 @@ import java.util.concurrent.Executor;
 
 /**
  * A {@link RecordCursor} that always returns zero items.
+ *
  * @param <T> the type of elements of the cursor
  */
 @API(API.Status.UNSTABLE)

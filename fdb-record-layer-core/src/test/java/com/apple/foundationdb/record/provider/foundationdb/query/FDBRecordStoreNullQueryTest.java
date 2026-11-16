@@ -587,7 +587,7 @@ public class FDBRecordStoreNullQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFint64(TupleFieldsHelper.toProto(1L))
                 .setFbool(TupleFieldsHelper.toProto(true))
                 .setFstring(TupleFieldsHelper.toProto(" "))
-                .setFbytes(TupleFieldsHelper.toProto(ByteString.copyFrom(" ", "UTF-8")))
+                .setFbytes(TupleFieldsHelper.toProto(ByteString.copyFromUtf8(" ")))
                 .build();
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, tupleFieldsMetaData());
@@ -627,7 +627,7 @@ public class FDBRecordStoreNullQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(Collections.singleton(otherId), fieldsRecordQuery(context, Query.field("fint64").equalsValue(1L)));
             assertEquals(Collections.singleton(otherId), fieldsRecordQuery(context, Query.field("fbool").equalsValue(true)));
             assertEquals(Collections.singleton(otherId), fieldsRecordQuery(context, Query.field("fstring").equalsValue(" ")));
-            assertEquals(Collections.singleton(otherId), fieldsRecordQuery(context, Query.field("fbytes").equalsValue(ByteString.copyFrom(" ", "UTF-8"))));
+            assertEquals(Collections.singleton(otherId), fieldsRecordQuery(context, Query.field("fbytes").equalsValue(ByteString.copyFromUtf8(" "))));
 
             {
                 final RecordQueryPlan coveringPlan = planQuery(RecordQuery.newBuilder()

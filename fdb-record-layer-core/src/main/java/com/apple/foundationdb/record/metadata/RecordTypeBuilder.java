@@ -55,6 +55,7 @@ public class RecordTypeBuilder extends RecordTypeIndexesBuilder implements Recor
 
     /**
      * Copy constructor for {@code RecordTypeBuilder} that copies all fields except the descriptor.
+     *
      * @param descriptor the descriptor of the new record type
      * @param other the record type builder to copy from
      */

@@ -126,6 +126,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    void mergeComparisonKeys(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("merge-comparison-keys.yamsql");
+    }
+
+    @TestTemplate
     public void caseSensitivityTest(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("case-sensitivity.yamsql");
     }
@@ -434,6 +439,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void sqlFunctionsWithStructParametersTest(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("sql-functions-with-struct-parameters.yamsql");
+    }
+
+    @TestTemplate
     public void datetimeValueFunctions(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("datetime-value-functions.yamsql");
     }
@@ -501,6 +511,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void userDefinedMacroFunctionTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("user-defined-macro-function-tests.yamsql");
+    }
+
+    @TestTemplate
+    public void userDefinedFunctionsAndTypesInMetadata(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("user-defined-functions-and-types-in-metadata-tests.yamsql");
     }
 
     @TestTemplate

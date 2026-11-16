@@ -53,6 +53,7 @@ interface NeighborsChangeSet<N extends NodeReference> {
 
     /**
      * Method to indicate iff changes have been made that need to be persisted.
+     *
      * @return {@code true} iff changes have been made in this or parent change sets.
      */
     boolean hasChanges();
@@ -91,6 +92,26 @@ interface NeighborsChangeSet<N extends NodeReference> {
      * @return {@code true} if a neighbor with that primary key is present
      */
     boolean containsNeighbor(@Nonnull Tuple primaryKey);
+
+    /**
+     * The collection of pure insertions in this change set. There are three possible classes for this method's
+     * return value:
+     *
+     * <ul>
+     *     <li>A non-empty iterable. This indicates that the change set is insert-only, and the returned
+     *     collection contains all the new neighbors being inserted.
+     *     <li>An empty iterable. This indicates that there are no changes at all needed.
+     *     <li>An {@code null} iterable. This indicates that the change set is not insert-only.
+     * </ul>
+     *
+     * <p>This is useful for nodes written in the {@link NodeKind#COMPACT_APPENDABLE} format, as those
+     * nodes can optimize insert-only writes.
+     *
+     * @return a nullable {@link Iterable} containing all insertions or {@code null} if the change set is not insert-only
+     * @see NodeKind#COMPACT_APPENDABLE
+     */
+    @Nullable
+    Iterable<N> getPureInsertions();
 
     /**
      * Writes the neighbor delta for a given {@link AbstractNode} to the specified storage layer.

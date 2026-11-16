@@ -58,6 +58,7 @@ public class MinimumTupleSizeKeyChecker implements KeyChecker {
 
         /**
          * Create a new checked subspace.
+         *
          * @param prefix key prefix to which these checks apply
          * @param dryRun whether to throw or just log problems
          * @param checkReads whether to also check read operations
@@ -77,6 +78,7 @@ public class MinimumTupleSizeKeyChecker implements KeyChecker {
 
     /**
      * Create a new checker.
+     *
      * @param checks ordered list of checks to match and apply
      */
     public MinimumTupleSizeKeyChecker(@Nonnull List<CheckedSubspace> checks) {

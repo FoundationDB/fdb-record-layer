@@ -156,7 +156,6 @@ public class SizeStatisticsGroupingCursor implements RecordCursor<SizeStatistics
      * @param context the transaction context under which stats collection occurs
      * @param scanProperties scan direction, limits, etc. under which underlying record store scan is performed
      * @param continuation the starting cursor location to start stats collection
-     *
      * @return a cursor for collecting statistics of that store
      */
     @Nonnull
@@ -176,7 +175,6 @@ public class SizeStatisticsGroupingCursor implements RecordCursor<SizeStatistics
      * @param context the transaction context under which stats collection occurs
      * @param scanProperties scan direction, limits, etc. under which underlying record store scan is performed
      * @param continuation the starting cursor location to start stats collection
-     *
      * @return a statistics collector of the records of that store
      */
     @Nonnull
@@ -197,7 +195,6 @@ public class SizeStatisticsGroupingCursor implements RecordCursor<SizeStatistics
      * @param context the transaction context under which stats collection occurs
      * @param scanProperties scan direction, limits, etc. under which underlying record store scan is performed
      * @param continuation the starting cursor location to start stats collection
-     *
      * @return a statistics collector of the given index
      */
     @Nonnull
@@ -220,7 +217,6 @@ public class SizeStatisticsGroupingCursor implements RecordCursor<SizeStatistics
      * @param context the transaction context under which stats collection occurs
      * @param scanProperties scan direction, limits, etc. under which underlying record store scan is performed
      * @param continuation the starting cursor location to start stats collection
-     *
      * @return a statistics collector of the given index
      */
     @Nonnull
@@ -240,7 +236,6 @@ public class SizeStatisticsGroupingCursor implements RecordCursor<SizeStatistics
      * @param context the transaction context under which stats collection occurs
      * @param scanProperties scan direction, limits, etc. under which underlying record store scan is performed
      * @param continuation the starting cursor location to start stats collection
-     *
      * @return a statistics collector of the given subspace
      */
     @Nonnull

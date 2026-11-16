@@ -108,7 +108,6 @@ public final class RaBitQuantizer implements Quantizer {
      * {@link EncodedRealVector}.
      *
      * @param vector the {@link RealVector} to be encoded; must not be null.
-     *
      * @return the resulting {@link EncodedRealVector}, guaranteed to be non-null.
      */
     @Nonnull
@@ -133,7 +132,6 @@ public final class RaBitQuantizer implements Quantizer {
      * @param data the real-valued vector to be encoded. Must not be null.
      * @return a {@code Result} object containing the {@link EncodedRealVector} and
      * other intermediate values from the encoding process. The result is never null.
-     *
      * @throws IllegalArgumentException if the configured {@code metric} is not supported for encoding.
      */
     @Nonnull
@@ -202,6 +200,7 @@ public final class RaBitQuantizer implements Quantizer {
     /**
      * Builds per-dimension extra-bit code using the best {@code t} found by {@link #bestRescaleFactor(RealVector)} and
      * returns the code, {@code t}, and {@code ipNormInv}.
+     *
      * @param residual rotated residual vector r.
      */
     private QuantizeExResult exBitsCode(@Nonnull final RealVector residual) {
@@ -288,7 +287,6 @@ public final class RaBitQuantizer implements Quantizer {
      *
      * @param oAbs The vector of absolute values for which to find the best rescale factor.
      * Components must be non-negative.
-     *
      * @return The optimal scaling factor {@code t} that maximizes the objective function,
      * or 0.0 if the input vector is all zeros.
      */
@@ -380,7 +378,6 @@ public final class RaBitQuantizer implements Quantizer {
      * same dimension is returned.
      *
      * @param x the input vector to be normalized and processed. Must not be null.
-     *
      * @return a new {@code RealVector} containing the absolute values of the components of the
      * normalized input vector.
      */

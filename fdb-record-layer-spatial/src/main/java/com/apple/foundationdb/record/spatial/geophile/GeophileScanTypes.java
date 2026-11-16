@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.IndexScanType;
 public class GeophileScanTypes {
     /**
      * Advance Z-order scan to given position.
+     *
      * @see GeophileCursorImpl#goTo
      */
     public static final IndexScanType GO_TO_Z = new IndexScanType("go_to_z");

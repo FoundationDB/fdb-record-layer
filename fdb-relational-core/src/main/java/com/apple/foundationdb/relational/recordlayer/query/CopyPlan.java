@@ -130,7 +130,6 @@ public final class CopyPlan extends QueryPlan {
      * @param path the KeySpace path to export from (e.g., "/FRL/MY_DATABASE")
      * @param queryExecutionContext the query execution context
      * @param incrementIncarnation whether to increment the incarnation in store info during export
-     *
      * @return a CopyPlan for exporting data
      */
     @Nonnull
@@ -144,7 +143,6 @@ public final class CopyPlan extends QueryPlan {
      * Creates a COPY import plan.
      *
      * @param path the KeySpace path to import into (e.g., "/FRL/MY_DATABASE")
-     *
      * @return a CopyPlan for importing data
      */
     @Nonnull

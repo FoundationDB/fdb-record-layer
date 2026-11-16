@@ -47,15 +47,15 @@ import java.util.Locale;
 import java.util.Objects;
 
 /**
- + * QueryConfig associated with {@link QueryConfig#QUERY_CONFIG_EXPLAIN} and
- + * {@link QueryConfig#QUERY_CONFIG_EXPLAIN_CONTAINS}, that validates that the results of running {@code EXPLAIN} with
- + * the query under test matches the explain results. In addition, this gathers the planner metrics from the results of
- + * the explains and compares them to the ones committed. It doesn't compare raw timing, because that would, naturally
- + * change between runs, but those are stored to provide context. In the event that
- + * {@link MaintainYamlTestConfig} is used to correct the explain and/or
- + * metrics, this will record the actual values via the {@link YamlExecutionContext}, which will save them when the
- + * test completes.
- + */
+ * QueryConfig associated with {@link QueryConfig#QUERY_CONFIG_EXPLAIN} and
+ * {@link QueryConfig#QUERY_CONFIG_EXPLAIN_CONTAINS}, that validates that the results of running {@code EXPLAIN} with
+ * the query under test matches the explain results. In addition, this gathers the planner metrics from the results of
+ * the explains and compares them to the ones committed. It doesn't compare raw timing, because that would, naturally
+ * change between runs, but those are stored to provide context. In the event that
+ * {@link MaintainYamlTestConfig} is used to correct the explain and/or
+ * metrics, this will record the actual values via the {@link YamlExecutionContext}, which will save them when the
+ * test completes.
+ */
 @SuppressWarnings("PMD.AvoidCatchingThrowable")
 public class CheckExplainConfig extends QueryConfig {
 

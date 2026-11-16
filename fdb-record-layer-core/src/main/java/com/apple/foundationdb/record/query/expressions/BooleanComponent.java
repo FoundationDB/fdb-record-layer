@@ -44,6 +44,7 @@ import java.util.stream.Stream;
 public interface BooleanComponent extends QueryComponent {
     /**
      * Starting from this boolean component find all sub components that itself are not considered {@link BooleanComponent}s.
+     *
      * @return a stream of non-boolean sub components.
      */
     @Nonnull
@@ -76,6 +77,7 @@ public interface BooleanComponent extends QueryComponent {
      * Starting from an arbitrary query component collect all {@link ComponentWithComparison}s within the sub tree
      * spanned by the {@code queryComponent} handed in and group each of these components with all comparisons
      * referring to them.
+     *
      * @param queryComponent the {@link QueryComponent} as the root of the search
      * @return a stream of pairs of {@link ComponentWithComparison} and associated {@link Comparisons.Comparison}s
      */

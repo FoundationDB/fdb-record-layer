@@ -55,6 +55,7 @@ import java.util.Set;
  * In order to still allow that planner to create the same structures as the {@link CascadesPlanner} we need these
  * property computations to be lazy as {@link com.apple.foundationdb.record.query.plan.RecordQueryPlanner} never
  * accesses the properties.
+ *
  * @param <E> type parameter to capture the kind of expression property map
  */
 public class ExpressionPropertiesMap<E extends RelationalExpression> {
@@ -153,6 +154,7 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
     /**
      * Returns the properties currently stored in the properties map for the given expression. Note that
      * {@link #update()} is called prior to retrieving the properties.
+     *
      * @param expression the expression
      * @return a map of properties for the given expression, or {@code null} if the expression passed in is
      *         not stored in the properties map.
@@ -166,6 +168,7 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
     /**
      * Returns the properties currently stored in the properties map for the given expression. Note that
      * {@link #update()} is not called prior to retrieving the properties.
+     *
      * @param expression the expression
      * @return a map of properties for the given expression, or {@code null} if the expression passed in is
      *         either not stored in the properties map or not yet stored in the map (it may be in the queue but is
@@ -179,6 +182,7 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
     /**
      * Method to add a new {@link RelationalExpression} to this properties map. The plan is added to a queue that is
      * consumed upon read to lazily compute the properties of the plan passed in.
+     *
      * @param expression new expression to be added
      */
     public final void add(@Nonnull final RelationalExpression expression) {
@@ -188,6 +192,7 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
     /**
      * Method to add a new {@link RecordQueryPlan} to this property map using precomputed properties. That is
      * useful when the caller retrieved the plan from some other reference.
+     *
      * @param expression new record query plan to be added
      * @param propertyMap a map containing all properties for the expression passed in
      */
@@ -209,6 +214,7 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
     /**
      * Method to add a new {@link RecordQueryPlan} to this property map using precomputed properties. That is
      * useful when the caller retrieved the plan from some other reference.
+     *
      * @param expression new record query plan to be added
      * @param partitioningPropertyMap a map containing all partitioning properties for the expression passed in
      * @param nonPartitioningPropertyMap a map containing all non-partitioning properties for the expression passed in
@@ -243,6 +249,7 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
     /**
      * Returns a map from expression to a computed specific property value for a {@link ExpressionProperty}
      * passed in.
+     *
      * @param <P> the type parameter of the {@link  ExpressionProperty}
      * @param expressionProperty the property the caller is interested in
      * @return a new map that holds a key/value for each plan that is currently being managed by this property map
@@ -272,6 +279,7 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
     /**
      * Returns a map from expression to a computed specific property value for a {@link ExpressionProperty}
      * passed in.
+     *
      * @param <P> the type parameter of the {@link  ExpressionProperty}
      * @param expressionProperty the property the caller is interested in
      * @return a new map that holds a key/value for each plan that is currently being managed by this property map

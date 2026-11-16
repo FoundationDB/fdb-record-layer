@@ -97,6 +97,7 @@ public enum IndexState {
      * this state needs to be stored within a
      * record store, this can be used as the
      * code.
+     *
      * @return the code to serialize to serialize this state
      */
     @Nonnull

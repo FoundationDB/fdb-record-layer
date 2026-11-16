@@ -66,7 +66,6 @@ public interface FDBRecordStoreStateCache {
      *
      * @param recordStore the record store to load the store state of
      * @param existenceCheck whether to error if the store does or does not exist
-     *
      * @return a future that will complete with the cached store state
      */
     @API(API.Status.INTERNAL)

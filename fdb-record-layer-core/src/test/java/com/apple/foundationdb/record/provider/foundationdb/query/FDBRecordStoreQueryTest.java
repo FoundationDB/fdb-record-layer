@@ -1091,6 +1091,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Check that a query with a CNF filter predicate that would be very large in disjunctive normal form does not get
      * normalized. For now, the predicate should be left alone as a filter.
+     *
      * @see com.apple.foundationdb.record.query.plan.planning.BooleanNormalizer
      */
     @Test
@@ -1114,6 +1115,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Check that a query with a non-CNF filter predicate that would be very large in disjunctive normal form does not
      * get normalized. For now, the predicate should be left alone as a filter.
+     *
      * @see com.apple.foundationdb.record.query.plan.planning.BooleanNormalizer
      */
     @Test

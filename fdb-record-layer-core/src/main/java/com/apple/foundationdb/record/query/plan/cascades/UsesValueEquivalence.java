@@ -29,6 +29,7 @@ import javax.annotation.Nullable;
 /**
  * Tag interface to provide a common base for all classes implementing a semantic equals using a
  * {@link ValueEquivalence}.
+ *
  * @param <T> type parameter that {@link #semanticEquals} operates on.
  */
 public interface UsesValueEquivalence<T extends UsesValueEquivalence<T>> {
@@ -50,6 +51,7 @@ public interface UsesValueEquivalence<T extends UsesValueEquivalence<T>> {
      * Note that the client can use a symmetric value equivalence in which case the inverse of the value equivalence is
      * identical to the value equivalence itself and we arrive back at {code aRb iff bRa}.
      * </pre>
+     *
      * @param other the other object to compare this object to
      * @param valueEquivalence the value equivalence
      * @return a boolean monad {@link ConstrainedBoolean} that is either effectively {@code false} or {@code true}
@@ -86,6 +88,7 @@ public interface UsesValueEquivalence<T extends UsesValueEquivalence<T>> {
      * Method that is overridden by implementors. The difference to {@link #semanticEquals(Object, ValueEquivalence)}
      * is that this method is typed to {@code T}, {@code other} is not {@code null}, and {@code other} is of the same
      * class as {@code this}.
+     *
      * @param other other object of type {@code T}
      * @param valueEquivalence a value equivalence
      * @return a {@link ConstrainedBoolean}

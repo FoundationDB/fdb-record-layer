@@ -1169,6 +1169,7 @@ public class LucenePartitioner {
 
     /**
      * Remove an empty partition from the index.
+     *
      * @param repartitioningContext the context returned from the partitioning planner
      * @return 0 in case no operation was performed, 1 if the operation was successful
      */
@@ -1210,6 +1211,7 @@ public class LucenePartitioner {
 
     /**
      * Return TRUE if the partition is empty (no docs in the actual Lucene index).
+     *
      * @param partitionInfo the partition to check
      * @param groupingKey the grouping key for the index
      * @return TRUE if the index is empty, FALSE otherwise

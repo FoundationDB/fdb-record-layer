@@ -51,6 +51,7 @@ public interface RecordCursorContinuation {
      * Serialize this continuation to a byte array. This method must always return the same array contents (but not
      * necessarily the same array). If {@link #isEnd()} returns {@code true}, then {@code toBytes()} must return
      * {@code null}.
+     *
      * @return a (possibly null) byte array containing a binary serialization of this continuation
      */
     @Nullable
@@ -59,6 +60,7 @@ public interface RecordCursorContinuation {
     /**
      * Serialize this continuation to a ByteString object.
      * If {@link #toBytes()} returns null, then {@code toByteString()} is supposed to return EMPTY.
+     *
      * @return a (possibly EMPTY) ByteString containing a binary serialization of this continuation
      */
     @Nonnull
@@ -71,6 +73,7 @@ public interface RecordCursorContinuation {
      * Return whether this continuation is an "end continuation", i.e., represents that the iteration has reached
      * its end and would not produce more results even if restarted. If {@code isEnd()} returns {@code true}, then
      * {@link #toBytes()} must return {@code null}.
+     *
      * @return whether this continuation represents the end of a cursor's iteration
      */
     boolean isEnd();

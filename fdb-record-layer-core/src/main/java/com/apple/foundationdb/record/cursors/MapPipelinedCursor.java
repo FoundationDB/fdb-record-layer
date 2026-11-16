@@ -127,6 +127,7 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
 
     /**
      * Take items from inner cursor and put in pipeline until no more or a mapping result is available.
+     *
      * @return a future that will complete with {@code false} if an item is available or none will ever be, or with {@code true} if this method should be called to try again
      */
     protected CompletableFuture<Boolean> tryToFillPipeline() {

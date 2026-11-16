@@ -26,9 +26,7 @@ package com.apple.foundationdb.record;
 public class ProtoVersionSupplier {
 
     /**
-     * Get the major version of the Protocol buffer version.
-     *
-     * @return the major version of the Protocol buffer dependency
+     * {@return the major version of the Protocol buffer version}
      */
     public static int getProtoVersion() {
         return 3;

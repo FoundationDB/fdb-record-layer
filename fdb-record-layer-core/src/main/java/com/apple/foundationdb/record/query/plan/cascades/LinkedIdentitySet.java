@@ -38,6 +38,7 @@ import java.util.stream.Collector;
 /**
  * A set of items that uses reference equality to determine equivalence for the
  * purposes of set membership, rather than the {@link #equals(Object)} method used by the Java {@link Set} interface.
+ *
  * @param <T> the type contained in the set
  */
 public class LinkedIdentitySet<T> extends AbstractSet<T> {

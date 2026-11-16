@@ -29,6 +29,7 @@ import javax.annotation.Nonnull;
 
 /**
  * Tag class to bind the base {@code BASE} to {@link Value}.
+ *
  * @param <RESULT> the type of the result being yielded by rule implementations
  * @param <CALL> the type of rule call that is used in calls to {@link #onMatch(PlannerRuleCall)} )}
  * @param <TYPE> a value type of all possible subclasses of {@link Value} that this rule could match

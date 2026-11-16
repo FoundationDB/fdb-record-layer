@@ -71,6 +71,7 @@ public class FormerIndex {
      * Get the subspace key formerly occupied by the index.
      *
      * <p>This subspace will be cleared for record stores old enough to have seen the index.
+     *
      * @return the index subspace key
      */
     @Nonnull
@@ -93,6 +94,7 @@ public class FormerIndex {
 
     /**
      * Get the version at which the index was first added.
+     *
      * @return the added version
      */
     public int getAddedVersion() {
@@ -101,6 +103,7 @@ public class FormerIndex {
 
     /**
      * Get the version at which the index was removed.
+     *
      * @return the removed version
      */
     public int getRemovedVersion() {
@@ -109,6 +112,7 @@ public class FormerIndex {
 
     /**
      * Get the name under which the index existed, if known.
+     *
      * @return the former name
      */
     @Nullable
