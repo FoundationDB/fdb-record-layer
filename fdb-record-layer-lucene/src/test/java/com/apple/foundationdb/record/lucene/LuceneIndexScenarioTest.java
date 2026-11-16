@@ -35,7 +35,7 @@ import org.junit.jupiter.params.ParameterizedTest;
  * Runs the shared index scenario framework against a Lucene index.
  */
 @Tag(Tags.RequiresFDB)
-public class LuceneIndexScenarioTest extends FDBRecordStoreConcurrentTestBase {
+class LuceneIndexScenarioTest extends FDBRecordStoreConcurrentTestBase {
     private KeySpacePath path;
 
     @BeforeEach

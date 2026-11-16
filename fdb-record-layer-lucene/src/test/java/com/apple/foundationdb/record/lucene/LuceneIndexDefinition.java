@@ -37,10 +37,10 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.Sce
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -73,7 +73,7 @@ class LuceneIndexDefinition implements IndexDefinition {
                 ? text
                 : text.groupBy(groupingPrefix);
         return new Index(ScenarioRecords.INDEX_NAME, root, LuceneIndexTypes.LUCENE,
-                ImmutableMap.of(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "true"));
+                Map.of(LuceneIndexOptions.PRIMARY_KEY_SEGMENT_INDEX_V2_ENABLED, "true"));
     }
 
     @Override
@@ -95,14 +95,6 @@ class LuceneIndexDefinition implements IndexDefinition {
     }
 
     @Override
-    public boolean supportsSynthetic() {
-        // Joined synthetic types are well supported by the Lucene maintainer, but unnested types are not
-        // exercised anywhere in the Lucene module. Enabled so both synthetic scenarios run; see the
-        // scenario results if the unnested case needs to be revisited.
-        return true;
-    }
-
-    @Override
     public boolean supportsSnapshotIsolation() {
         // A Lucene search has to read the index's directory metadata, and FDBDirectory always reads
         // through the plain transaction (`agilityContext.apply(aContext -> aContext.ensureActive()...)`)
@@ -114,9 +106,7 @@ class LuceneIndexDefinition implements IndexDefinition {
 
     @Override
     public void configureStore(final FDBRecordStore store) {
-        // Lucene merges are deferred maintenance; running them inline at commit makes the commit write
-        // segment/directory data, which then conflicts with any concurrent writer. Every Lucene test
-        // disables this, so do the same here.
+        // Every Lucene test disables this, so do the same here.
         store.getIndexDeferredMaintenanceControl().setAutoMergeDuringCommit(false);
     }
 
