@@ -22,9 +22,11 @@ package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.tuple.Tuple;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Sort;
+import org.apache.lucene.search.SortField;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -76,6 +78,7 @@ public class LuceneScanQuery extends LuceneScanBounds {
                            @Nullable final Map<String, Set<String>> termMap,
                            final boolean includeScoreValue) {
         super(scanType, groupKey);
+        validateScoreValueSupported(sort, includeScoreValue);
         this.query = query;
         this.sort = sort;
         this.storedFields = storedFields;

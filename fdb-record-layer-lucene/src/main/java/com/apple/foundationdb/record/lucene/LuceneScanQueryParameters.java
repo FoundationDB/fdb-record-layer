@@ -119,6 +119,8 @@ public class LuceneScanQueryParameters extends LuceneScanParameters implements P
                                      @Nullable LuceneQueryHighlightParameters luceneQueryHighlightParameters,
                                      boolean includeScoreValue) {
         super(LuceneScanTypes.BY_LUCENE, groupComparisons);
+        LuceneScanQuery.validateScoreValueSupported(sort, includeScoreValue);
+        this.includeScoreValue = includeScoreValue;
         this.query = query;
         this.sort = sort;
         this.storedFields = storedFields;
