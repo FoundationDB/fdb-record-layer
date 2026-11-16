@@ -3089,6 +3089,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      * @see com.apple.foundationdb.record.metadata.IndexOptions#REPLACED_BY_OPTION_PREFIX
      */
     @Nonnull
+    @API(API.Status.INTERNAL)
     CompletableFuture<Boolean> removeReplacedIndexesIfChanged(boolean changed) {
         if (changed) {
             return removeReplacedIndexes().thenApply(vignore -> true);
@@ -4094,6 +4095,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Nonnull
+    @API(API.Status.INTERNAL)
     CompletableFuture<Boolean> updateIndexStateToReadable(@Nonnull Index index, boolean allowUniquePending) {
         if (recordStoreStateRef.get() == null) {
             return preloadRecordStoreStateAsync().thenCompose(vignore -> updateIndexStateToReadable(index, allowUniquePending));

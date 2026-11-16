@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexEntry;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.ValueIndexMaintainer;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.ValueIndexMaintainerWithQueue;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
@@ -54,6 +55,7 @@ import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
+import com.apple.test.ParameterizedTestUtils;
 import com.apple.test.Tags;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Any;
@@ -63,6 +65,8 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -81,6 +85,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -466,6 +471,53 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         assertReadableAndScrub(metaData, indexes);
     }
 
+    @Test
+    void markReadableOrUniquePendingWithViolationsUnchanged() throws Exception {
+        // markIndexReadableOrUniquePending should not change a unique pending index that still has violations
+
+        // records 0 and 1 share a num_value_2 value
+        final List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 2).mapToObj(val ->
+                TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2(0).build()
+        ).toList();
+        final Index index = new Index("indexA", field("num_value_2"), IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        final RecordMetaData metaData = buildUniquePending(records, List.of(index));
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            assertFalse(recordStore.markIndexReadableOrUniquePending(index).join());
+            assertTrue(recordStore.getIndexState(index).isReadableUniquePending());
+            assertEquals(2, (int)recordStore.scanUniquenessViolations(index).getCount().join());
+            commit(context);
+        }
+    }
+
+    @Test
+    void markReadableOrUniquePendingAfterLastViolationResolvedUnchanged() throws Exception {
+        // Once resolving the last violation has marked a unique pending index as readable, markIndexReadableOrUniquePending
+        // has nothing left to change
+
+        // records 0 and 1 share a num_value_2 value
+        final List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 2).mapToObj(val ->
+                TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2(0).build()
+        ).toList();
+        final Index index = new Index("indexA", field("num_value_2"), IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        final RecordMetaData metaData = buildUniquePending(records, List.of(index));
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            resolveDuplication(1, true, 1);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            assertTrue(recordStore.getIndexState(index).isReadable());
+            assertFalse(recordStore.markIndexReadableOrUniquePending(index).join());
+            assertTrue(recordStore.getIndexState(index).isReadable());
+            commit(context);
+        }
+    }
+
     @ParameterizedTest
     @BooleanSource({"resolveByUpdate", "addViolationFirst"})
     void newViolationWhenLastViolationResolvedFailsCommit(boolean resolveByUpdate, boolean addViolationFirst) throws Exception {
@@ -503,10 +555,20 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    static Stream<Arguments> writeOnlyStatesAndResolveByUpdate() {
+        return ParameterizedTestUtils.cartesianProduct(
+                Stream.of(IndexState.WRITE_ONLY, IndexState.WRITE_ONLY_WITH_QUEUE, IndexState.WRITE_ONLY_WITH_TRACKING),
+                ParameterizedTestUtils.booleans("resolveByUpdate"));
+    }
+
     @ParameterizedTest
-    @BooleanSource("resolveByUpdate")
-    void unbuiltWriteOnlyRemainsWriteOnlyWhenLastViolationResolved(boolean resolveByUpdate) {
-        final Index index = new Index("indexA", field("num_value_2"), IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+    @MethodSource("writeOnlyStatesAndResolveByUpdate")
+    void unbuiltWriteOnlyRemainsWriteOnlyWhenLastViolationResolved(IndexState writeOnlyState, boolean resolveByUpdate) {
+        // Only READABLE_UNIQUE_PENDING is marked readable when its last violation is resolved, so every write-only state
+        // stays as it is. With a queue, the resolving write is only queued, so the violations also stay.
+        final boolean withQueue = writeOnlyState.isWriteOnlyWithQueue();
+        final Index index = new Index("indexA", field("num_value_2"),
+                withQueue ? ValueIndexMaintainerWithQueue.Factory.INDEX_TYPE : IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
         final RecordMetaData metaData = simpleMetaData(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index));
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData);
@@ -516,16 +578,18 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
-        // a write-only unique index records duplications as violations
+        // a write-only unique index records duplications as violations (writes to a queued index are not checked
+        // until the queue is drained, so the violations are recorded before moving to the tested state)
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData);
             recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1L).setNumValue2(10).build());
             recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(2L).setNumValue2(10).build());
+            recordStore.markIndexWriteOnly(index, writeOnlyState).join();
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData);
-            assertEquals(IndexState.WRITE_ONLY, recordStore.getIndexState(index));
+            assertEquals(writeOnlyState, recordStore.getIndexState(index));
             assertEquals(2, (int)recordStore.scanUniquenessViolations(index).getCount().join());
             resolveDuplication(2L, resolveByUpdate, 11);
             commit(context);
@@ -533,8 +597,11 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData);
-            assertEquals(IndexState.WRITE_ONLY, recordStore.getIndexState(index));
-            assertEquals(0, (int)recordStore.scanUniquenessViolations(index).getCount().join());
+            assertEquals(writeOnlyState, recordStore.getIndexState(index));
+            assertEquals(withQueue ? 2 : 0, (int)recordStore.scanUniquenessViolations(index).getCount().join());
+            if (withQueue) {
+                assertTrue(IndexingPendingWriteQueue.hasPendingWrites(recordStore, index, context).join());
+            }
             commit(context);
         }
     }
