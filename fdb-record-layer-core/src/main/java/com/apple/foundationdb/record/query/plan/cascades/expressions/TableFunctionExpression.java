@@ -152,40 +152,41 @@ public class TableFunctionExpression extends AbstractRelationalExpressionWithout
                                           @Nonnull final AliasMap bindingAliasMap,
                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                           @Nonnull final EvaluationContext evaluationContext) {
-        if (!isCompatiblyAndCompletelyBound(bindingAliasMap, candidateExpression.getQuantifiers())) {
+        if (!(candidateExpression instanceof TableFunctionExpression candidateTableFunctionExpression) ||
+                !isSubsumedBy(value, candidateTableFunctionExpression.getValue(), bindingAliasMap)) {
             return ImmutableList.of();
         }
+        final var maxMatchMap =
+                MaxMatchMap.identityOf(getResultValue(), candidateExpression.getResultValue(),
+                        Quantifiers.aliases(candidateExpression.getQuantifiers()),
+                        ValueEquivalence.fromAliasMap(bindingAliasMap));
+        return RegularMatchInfo.tryFromMatchMap(bindingAliasMap, partialMatchMap, maxMatchMap)
+                .map(ImmutableList::of)
+                .orElse(ImmutableList.of());
+    }
 
-        //
-        // An explode that does not preserve its order is subsumed by an explode of the same collection that does,
-        // such as the one an index on an unnested record type is expanded with. Both flow the same
-        // (element, ordinal) struct, one per element of the collection, and the query does not observe its ordinals,
-        // so the candidate produces everything the query may produce. The explodes do not compare equal, so
-        // exactlySubsumedBy() would reject the match. A sorted query explode is left to exactlySubsumedBy(), as the
-        // candidate does not produce its elements in the order the query asks for.
-        //
-        if (value instanceof ExplodeValue queryExplodeValue
-                && !queryExplodeValue.preservesOrder()
-                && !queryExplodeValue.isSorted()
-                && candidateExpression instanceof TableFunctionExpression candidateTableFunctionExpression
-                && candidateTableFunctionExpression.getValue() instanceof ExplodeValue candidateExplodeValue
-                && candidateExplodeValue.preservesOrder()) {
-            if (!queryExplodeValue.getCollectionValue()
-                    .semanticEquals(candidateExplodeValue.getCollectionValue(), bindingAliasMap)
-                    || !queryExplodeValue.getElementType().equals(candidateExplodeValue.getElementType())) {
-                return ImmutableList.of();
-            }
-            // CollectionValue and ElementType match
-            final var maxMatchMap =
-                    MaxMatchMap.identityOf(getResultValue(), candidateExpression.getResultValue(),
-                            Quantifiers.aliases(candidateExpression.getQuantifiers()),
-                            ValueEquivalence.fromAliasMap(bindingAliasMap));
-            return RegularMatchInfo.tryFromMatchMap(bindingAliasMap, partialMatchMap, maxMatchMap)
-                    .map(ImmutableList::of)
-                    .orElse(ImmutableList.of());
+    /**
+     * Whether the candidate's streaming value produces everything the query's may produce.
+     */
+    private static boolean isSubsumedBy(@Nonnull final StreamingValue queryValue,
+                                        @Nonnull final StreamingValue candidateValue,
+                                        @Nonnull final AliasMap bindingAliasMap) {
+        if (queryValue.semanticEquals(candidateValue, bindingAliasMap)) {
+            return true;
         }
-
-        return exactlySubsumedBy(candidateExpression, bindingAliasMap, partialMatchMap, TranslationMap.empty());
+        // An ExplodeValue that does not preserve its order is subsumed by an explode of the same collection that
+        // does, such as the one an index on an unnested record type is expanded with. Both flow the same
+        // {@code (element, ordinal)} struct, one per element of the collection, and the query does not observe its
+        // ordinals. A sorted query explode is not, as the candidate does not produce its elements in the order the
+        // query asks for.
+        return queryValue instanceof ExplodeValue queryExplodeValue &&
+                !queryExplodeValue.preservesOrder() &&
+                !queryExplodeValue.isSorted() &&
+                candidateValue instanceof ExplodeValue candidateExplodeValue &&
+                candidateExplodeValue.preservesOrder() &&
+                queryExplodeValue.getCollectionValue().semanticEquals(candidateExplodeValue.getCollectionValue(),
+                        bindingAliasMap) &&
+                queryExplodeValue.getElementType().equals(candidateExplodeValue.getElementType());
     }
 
     @Nonnull
