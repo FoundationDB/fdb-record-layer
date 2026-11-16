@@ -417,7 +417,8 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
                         .setConstraint(constraint);
         Verify.verify(isSargable() == compensatedQueryPredicate.isSargable());
 
-        final QueryPredicate residualPredicate = extractComparisonRangeAndResidualPredicate(predicateMappingBuilder, compensatedQueryPredicate);
+        final QueryPredicate residualPredicate = extractComparisonRangeAndResidualPredicate(
+                predicateMappingBuilder, compensatedQueryPredicate, candidatePredicate.getCorrelatedTo());
 
         predicateMappingBuilder.setPredicateCompensation(((partialMatch, boundParameterPrefixMap, pullUp) -> {
             if (boundParameterPrefixMap.containsKey(alias)) {
@@ -444,12 +445,20 @@ public class PredicateWithValueAndRanges extends AbstractQueryPredicate implemen
      */
     @Nullable
     private QueryPredicate extractComparisonRangeAndResidualPredicate(@Nonnull PredicateMapping.Builder predicateMappingBuilder,
-                                                                      @Nonnull PredicateWithValueAndRanges compensatedQueryPredicate) {
+                                                                      @Nonnull PredicateWithValueAndRanges compensatedQueryPredicate,
+                                                                      @Nonnull Set<CorrelationIdentifier> candidatePredicateCorrelations) {
         if (!compensatedQueryPredicate.isSargable()) {
             // This predicate cannot be pushed into the scan. Return the entire original predicate as a "residual"
             return compensatedQueryPredicate;
         }
+
         final ComparisonRange.MergeResult mergeResult = Iterables.getOnlyElement(compensatedQueryPredicate.getRanges()).asMergedComparisonRange();
+        if (mergeResult.getComparisonRange().isCorrelatedToAny(candidatePredicateCorrelations)) {
+            // This predicate cannot be pushed into the scan as the comparison range is also correlated to the scan
+            // quantifier. Return the original predicate.
+            return compensatedQueryPredicate;
+        }
+
         predicateMappingBuilder.setComparisonRange(mergeResult.getComparisonRange());
         if (mergeResult.getResidualComparisons().isEmpty()) {
             // Nothing to compensate. Return null to indicate no compensation needed
