@@ -35,6 +35,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 
+/**
+ * Scans the index at snapshot isolation, then, before the scanning transaction commits, changes the index from
+ * another transaction, and gives the scanning transaction writes of its own that do not touch the index.
+ * Verifies that the scanning transaction still commits, that its scan saw the index as it was before the
+ * change, and that the change did take effect.
+ */
 @AutoService(IndexScenario.class)
 public class SnapshotScan implements IndexScenario {
 

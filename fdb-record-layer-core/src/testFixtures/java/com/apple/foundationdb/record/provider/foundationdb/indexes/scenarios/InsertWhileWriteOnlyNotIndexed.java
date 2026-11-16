@@ -32,6 +32,11 @@ import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+/**
+ * Marks the index write-only before any records exist, saves records while it is write-only (so they are
+ * indexed as they are written, though the index cannot yet be read), then builds the index. Verifies that the
+ * index then matches one rebuilt from scratch.
+ */
 @AutoService(IndexScenario.class)
 public class InsertWhileWriteOnlyNotIndexed implements IndexScenario {
     @Override

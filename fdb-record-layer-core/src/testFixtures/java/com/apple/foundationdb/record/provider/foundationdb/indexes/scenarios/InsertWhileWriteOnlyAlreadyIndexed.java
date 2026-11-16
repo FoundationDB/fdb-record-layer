@@ -34,6 +34,12 @@ import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+/**
+ * Saves records, then disables the index and rebuilds it without marking it readable, leaving it write-only.
+ * Saves the same records again while the index is write-only, and then finishes the build. Because the records
+ * are already indexed, finishing the build only needs to mark the index readable. Verifies that the index then
+ * matches one rebuilt from scratch.
+ */
 @AutoService(IndexScenario.class)
 public class InsertWhileWriteOnlyAlreadyIndexed implements IndexScenario {
     @Override
