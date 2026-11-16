@@ -104,7 +104,7 @@ class PermutedMinMaxIndexTest extends FDBRecordStoreTestBase {
         };
     }
 
-    public static Stream<Arguments> indexScenariosTest() {
+    static Stream<Arguments> indexScenariosTest() {
         return ParameterizedTestUtils.cartesianProduct(
                 IndexScenariosArgumentsProvider.getScenarios(),
                 Stream.of(
