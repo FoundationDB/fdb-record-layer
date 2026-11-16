@@ -92,7 +92,7 @@ test_block:
       - query: select (t1.*), (t2.*)
                 from t1, t2
                 where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3
-      - explain: "ISCAN(t2$b1 [EQUALS promote(@c21 AS LONG)]) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c21 AS LONG)]) | FILTER _.a3 EQUALS q0.b3 AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q0.id AS id, q0.b1 AS b1, q0.b2 AS b2, q0.b3 AS b3) AS t2) }"
+      - explain: "ISCAN(t1$a1 [EQUALS promote(@c21 AS LONG)]) | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c21 AS LONG), EQUALS q0.a3]) AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS t1, (q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS t2) }"
       - unorderedResult: [
           { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 2001, b1: 1, b2: 20, b3: "a" } },
           { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 2002, b1: 1, b2: 19, b3: "a" } },
@@ -108,7 +108,7 @@ test_block:
                 from t1, t2
                 where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3
                 order by t1.a2
-      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c21 AS LONG)]) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c21 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS t1, (q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS t2) }"
+      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c21 AS LONG)]) | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c21 AS LONG), EQUALS q0.a3]) AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS t1, (q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS t2) }"
       - result: [
           { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 2001, b1: 1, b2: 20, b3: "a" } },
           { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 2002, b1: 1, b2: 19, b3: "a" } },
@@ -124,7 +124,7 @@ test_block:
                 from t1, t2
                 where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3
                 order by t1.a2 desc
-      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c21 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c21 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS t1, (q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS t2) }"
+      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c21 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c21 AS LONG), EQUALS q0.a3]) AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS t1, (q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS t2) }"
       - result: [
           { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 2003, b1: 1, b2: 18, b3: "b" } },
           { { id: 1004, a1: 1, a2: 13, a3: "b" }, { id: 2004, b1: 1, b2: 17, b3: "b" } },
@@ -141,7 +141,7 @@ test_block:
                 from t1, t2
                 where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3
                 order by t1.a2 desc
-      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c15 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c15 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS t2, q0.a2 AS a2) } | MAP (_.t2 AS t2)"
+      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c15 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c15 AS LONG), EQUALS q0.a3]) AS q1 RETURN ((q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS t2, q0.a2 AS a2) } | MAP (_.t2 AS t2)"
       - result: [
           { { id: 2003, b1: 1, b2: 18, b3: "b" } },
           { { id: 2004, b1: 1, b2: 17, b3: "b" } },
@@ -158,7 +158,7 @@ test_block:
                 from t1, t2
                 where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3
                 order by t1.a2 desc
-      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c25 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c25 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN (q0.a2 AS a2, q0.a3 AS a3, q1.b2 AS b2, q1.b3 AS b3) }"
+      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c25 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c25 AS LONG), EQUALS q0.a3]) AS q1 RETURN (q0.a2 AS a2, q0.a3 AS a3, q1.b2 AS b2, q1.b3 AS b3) }"
       - result: [
           { a2: 13, a3: "b", b2: 18, b3: "b" },
           { a2: 13, a3: "b", b2: 17, b3: "b" },
@@ -175,7 +175,7 @@ test_block:
                 from t1, t2
                 where t1.a1 = 1 and t2.b1 = 1 and t1.a3 = t2.b3
                 order by t1.a2 desc
-      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c21 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c21 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN (q0.a3 AS a3, q1.b2 AS b2, q1.b3 AS b3, q0.a2 AS a2) } | MAP (_.a3 AS a3, _.b2 AS b2, _.b3 AS b3)"
+      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c21 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c21 AS LONG), EQUALS q0.a3]) AS q1 RETURN (q0.a3 AS a3, q1.b2 AS b2, q1.b3 AS b3, q0.a2 AS a2) } | MAP (_.a3 AS a3, _.b2 AS b2, _.b3 AS b3)"
       - result: [
           { a3: "b", b2: 18, b3: "b" },
           { a3: "b", b2: 17, b3: "b" },
@@ -192,7 +192,7 @@ test_block:
                 from t1_f(1) as x, t2_f(1) as y
                 where x.a3 = y.b3
                 order by x.a2 desc
-      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c15 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c15 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS x, (q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS y) }"
+      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c15 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c15 AS LONG), EQUALS q0.a3]) AS q1 RETURN ((q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS x, (q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS y) }"
       - result: [
           { { '__ROW_VERSION': !not_null _, id: 1004, a1: 1, a2: 13, a3: "b" }, { '__ROW_VERSION': !not_null _, id: 2003, b1: 1, b2: 18, b3: "b" } },
           { { '__ROW_VERSION': !not_null _, id: 1004, a1: 1, a2: 13, a3: "b" }, { '__ROW_VERSION': !not_null _, id: 2004, b1: 1, b2: 17, b3: "b" } },
@@ -209,7 +209,7 @@ test_block:
                 from t1_f(1) as x, t2_f(1) as y
                 where x.a3 = y.b3
                 order by x.a2 desc
-      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c9 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c9 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS y, q0.a2 AS a2) } | MAP (_.y AS y)"
+      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c9 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c9 AS LONG), EQUALS q0.a3]) AS q1 RETURN ((q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS y, q0.a2 AS a2) } | MAP (_.y AS y)"
       - initialVersionLessThan: 4.10.5.0
       - error: INTERNAL_ERROR
       - initialVersionAtLeast: 4.10.5.0
@@ -229,7 +229,7 @@ test_block:
                 from t1_g(1) as x, t2_g(1) as y
                 where x.a3 = y.b3
                 order by x.the_a2 desc
-      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c15 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c15 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3, q0.a2 AS the_a2) AS x, (q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3, q1.b2 AS the_b2) AS y) }"
+      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c15 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c15 AS LONG), EQUALS q0.a3]) AS q1 RETURN ((q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3, q0.a2 AS the_a2) AS x, (q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3, q1.b2 AS the_b2) AS y) }"
       - result: [
           { { '__ROW_VERSION': !not_null _, id: 1004, a1: 1, a2: 13, a3: "b", the_a2: 13 }, { '__ROW_VERSION': !not_null _, id: 2003, b1: 1, b2: 18, b3: "b", the_b2: 18 } },
           { { '__ROW_VERSION': !not_null _, id: 1004, a1: 1, a2: 13, a3: "b", the_a2: 13 }, { '__ROW_VERSION': !not_null _, id: 2004, b1: 1, b2: 17, b3: "b", the_b2: 17 } },
@@ -246,7 +246,7 @@ test_block:
                 from t1_g(1) as x, t2_g(1) as y
                 where x.a3 = y.b3
                 order by x.the_a2 desc
-      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c9 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c9 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3, q1.b2 AS the_b2) AS y, q0.a2 AS the_a2) } | MAP (_.y AS y)"
+      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c9 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c9 AS LONG), EQUALS q0.a3]) AS q1 RETURN ((q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3, q1.b2 AS the_b2) AS y, q0.a2 AS the_a2) } | MAP (_.y AS y)"
       - initialVersionLessThan: 4.10.5.0
       - error: INTERNAL_ERROR
       - initialVersionAtLeast: 4.10.5.0
@@ -266,7 +266,7 @@ test_block:
                 from t1_g(1) as x, t2_g(1) as y
                 where x.a3 = y.b3
                 order by x.the_a2 desc
-      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c19 AS LONG)] REVERSE) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c19 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN (q0.a2 AS a2, q0.a3 AS a3, q1.b2 AS b2, q1.b3 AS b3, q0.a2 AS the_a2) } | MAP (_.a2 AS a2, _.a3 AS a3, _.b2 AS b2, _.b3 AS b3)"
+      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c19 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c19 AS LONG), EQUALS q0.a3]) AS q1 RETURN (q0.a2 AS a2, q0.a3 AS a3, q1.b2 AS b2, q1.b3 AS b3, q0.a2 AS the_a2) } | MAP (_.a2 AS a2, _.a3 AS a3, _.b2 AS b2, _.b3 AS b3)"
       - result: [
           { a2: 13, a3: "b", b2: 18, b3: "b" },
           { a2: 13, a3: "b", b2: 17, b3: "b" },
@@ -379,7 +379,7 @@ test_block:
       - query: select (t1.*), (t3.*)
                  from t1, t3
                where t1.a1 = 1 and t3.aRef = t1.id
-      - explain: "ISCAN(t1$a1 [EQUALS promote(@c21 AS LONG)]) | FLATMAP q0 -> { ISCAN(t3$aRef [EQUALS q0.id]) AS q1 RETURN ((q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS t1, (q1.id AS id, q1.c1 AS c1, q1.c2 AS c2, q1.c3 AS c3, q1.aRef AS aRef) AS t3) }"
+      - explain: "ISCAN(t3$aRef <,>) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c21 AS LONG), EQUALS q0.aRef]) AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS t3) }"
       - unorderedResult: [
           { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
           { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 3002, c1: 1, c2: 11, c3: "a", aRef: 1002 } },
@@ -403,7 +403,7 @@ test_block:
                  from t1, t3
                where t1.a1 = 1 and t3.aRef = t1.id
                order by t3.c1, t3.c2
-      - explain: "ISCAN(t3$c1_c2 <,>) | FLATMAP q0 -> { COVERING(t1$a1 [EQUALS promote(@c21 AS LONG)] -> [a1: KEY:[0], id: KEY:[1]]) | FILTER q0.aRef EQUALS _.id | FETCH AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS t3) }"
+      - explain: "ISCAN(t3$c1_c2 <,>) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c21 AS LONG), EQUALS q0.aRef]) AS q1 RETURN ((q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS t1, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS t3) }"
       - result: [
           { { id: 1001, a1: 1, a2: 10, a3: "a" }, { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
           { { id: 1002, a1: 1, a2: 11, a3: "b" }, { id: 3002, c1: 1, c2: 11, c3: "a", aRef: 1002 } },
@@ -490,7 +490,7 @@ test_block:
                 where t1.a1 = 1 and m.maxA2 = t1.a2
                 order by t1.id desc
       # This _should_ have the same plan as the previous few, as it represents the same join, though it reverses the order of the operands in the t1.a2 = maxA2 predicate
-      - explain: "ISCAN(t1$a1 [EQUALS promote(@c24 AS LONG)] REVERSE) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c24 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) GROUP BY () | ON EMPTY NULL | FILTER _._0._0 EQUALS q0.a2 AS q0 RETURN (q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) }"
+      - explain: "ISCAN(t1$a1 [EQUALS promote(@c24 AS LONG)]) | MAP (_ AS _0) | AGG (max_l(_._0.a2) AS _0) GROUP BY () | FLATMAP q0 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c24 AS LONG), EQUALS q0._0._0] REVERSE) AS q1 RETURN (q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) }"
       - result: [
           { id: 1004, a1: 1, a2: 13, a3: "b" },
         ]
@@ -676,7 +676,7 @@ test_block:
                    and t3.c2 = t1.a2
                    and t3.c3 = t2.b3
                  order by t3.c2
-      - explain: "ISCAN(t3$c1_c2 [EQUALS promote(@c35 AS LONG)]) | FLATMAP q0 -> { COVERING(t1$a1_a2 [EQUALS promote(@c35 AS LONG)] -> [a1: KEY:[0], a2: KEY:[1], id: KEY:[2]]) | FILTER q0.c2 EQUALS _.a2 | FETCH | FLATMAP q1 -> { COVERING(t2$b1_b3 [EQUALS promote(@c35 AS LONG), EQUALS q1.a3] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.c3 EQUALS _.b3 | FETCH AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN ((q3._0.id AS id, q3._0.a1 AS a1, q3._0.a2 AS a2, q3._0.a3 AS a3) AS a, (q3._1.id AS id, q3._1.b1 AS b1, q3._1.b2 AS b2, q3._1.b3 AS b3) AS b, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS c) }"
+      - explain: "ISCAN(t3$c1_c2 [EQUALS promote(@c35 AS LONG)]) | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c35 AS LONG), EQUALS q0.c3]) | FLATMAP q1 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c35 AS LONG), EQUALS q0.c2]) | FILTER _.a3 EQUALS q1.b3 AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN ((q3._0.id AS id, q3._0.a1 AS a1, q3._0.a2 AS a2, q3._0.a3 AS a3) AS a, (q3._1.id AS id, q3._1.b1 AS b1, q3._1.b2 AS b2, q3._1.b3 AS b3) AS b, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS c) }"
       - result: [
           { a: { id: 1001, a1: 1, a2: 10, a3: "a" }, b: { id: 2001, b1: 1, b2: 20, b3: "a" }, c: { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
           { a: { id: 1001, a1: 1, a2: 10, a3: "a" }, b: { id: 2002, b1: 1, b2: 19, b3: "a" }, c: { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
@@ -691,7 +691,7 @@ test_block:
                    and t3.c2 = t1.a2
                    and t3.c3 = t2.b3
                  order by t3.c2, t3.c3
-      - explain: "ISCAN(t3$c1_c2_c3 [EQUALS promote(@c35 AS LONG)]) | FLATMAP q0 -> { COVERING(t1$a1_a2 [EQUALS promote(@c35 AS LONG)] -> [a1: KEY:[0], a2: KEY:[1], id: KEY:[2]]) | FILTER q0.c2 EQUALS _.a2 | FETCH | FLATMAP q1 -> { COVERING(t2$b1_b3 [EQUALS promote(@c35 AS LONG), EQUALS q1.a3] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.c3 EQUALS _.b3 | FETCH AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN ((q3._0.id AS id, q3._0.a1 AS a1, q3._0.a2 AS a2, q3._0.a3 AS a3) AS a, (q3._1.id AS id, q3._1.b1 AS b1, q3._1.b2 AS b2, q3._1.b3 AS b3) AS b, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS c) }"
+      - explain: "ISCAN(t3$c1_c2_c3 [EQUALS promote(@c35 AS LONG)]) | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c35 AS LONG), EQUALS q0.c3]) | FLATMAP q1 -> { ISCAN(t1$a1_a2 [EQUALS promote(@c35 AS LONG), EQUALS q0.c2]) | FILTER _.a3 EQUALS q1.b3 AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN ((q3._0.id AS id, q3._0.a1 AS a1, q3._0.a2 AS a2, q3._0.a3 AS a3) AS a, (q3._1.id AS id, q3._1.b1 AS b1, q3._1.b2 AS b2, q3._1.b3 AS b3) AS b, (q0.id AS id, q0.c1 AS c1, q0.c2 AS c2, q0.c3 AS c3, q0.aRef AS aRef) AS c) }"
       - result: [
           { a: { id: 1001, a1: 1, a2: 10, a3: "a" }, b: { id: 2001, b1: 1, b2: 20, b3: "a" }, c: { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
           { a: { id: 1001, a1: 1, a2: 10, a3: "a" }, b: { id: 2002, b1: 1, b2: 19, b3: "a" }, c: { id: 3001, c1: 1, c2: 10, c3: "a", aRef: 1001 } },
@@ -806,7 +806,7 @@ test_block:
       - query: select (a.*), (b.*)
                 from t1_f(1) as a, t2_f(1) as b
                 where a.a3 = b.b3
-      - explain: "ISCAN(t2$b1 [EQUALS promote(@c15 AS LONG)]) | FLATMAP q0 -> { ISCAN(t1$a1 [EQUALS promote(@c15 AS LONG)]) | FILTER _.a3 EQUALS q0.b3 AS q1 RETURN ((q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.a1 AS a1, q1.a2 AS a2, q1.a3 AS a3) AS a, (q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.b1 AS b1, q0.b2 AS b2, q0.b3 AS b3) AS b) }"
+      - explain: "ISCAN(t1$a1 [EQUALS promote(@c15 AS LONG)]) | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c15 AS LONG), EQUALS q0.a3]) AS q1 RETURN ((q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS a, (q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS b) }"
       - unorderedResult: [
           { { '__ROW_VERSION': !not_null _, id: 1001, a1: 1, a2: 10, a3: "a" }, { '__ROW_VERSION': !not_null _, id: 2001, b1: 1, b2: 20, b3: "a" } },
           { { '__ROW_VERSION': !not_null _, id: 1001, a1: 1, a2: 10, a3: "a" }, { '__ROW_VERSION': !not_null _, id: 2002, b1: 1, b2: 19, b3: "a" } },
@@ -822,7 +822,7 @@ test_block:
                 from t1_f(1) as a, t2_f(1) as b
                 where a.a3 = b.b3
                 order by a.a2
-      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c15 AS LONG)]) | FLATMAP q0 -> { COVERING(t2$b1_b3 [EQUALS promote(@c15 AS LONG)] -> [b1: KEY:[0], b3: KEY:[1], id: KEY:[2]]) | FILTER q0.a3 EQUALS _.b3 | FETCH AS q1 RETURN ((q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS a, (q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS b) }"
+      - explain: "ISCAN(t1$a1_a2 [EQUALS promote(@c15 AS LONG)]) | FLATMAP q0 -> { ISCAN(t2$b1_b3 [EQUALS promote(@c15 AS LONG), EQUALS q0.a3]) AS q1 RETURN ((q0.__ROW_VERSION AS __ROW_VERSION, q0.id AS id, q0.a1 AS a1, q0.a2 AS a2, q0.a3 AS a3) AS a, (q1.__ROW_VERSION AS __ROW_VERSION, q1.id AS id, q1.b1 AS b1, q1.b2 AS b2, q1.b3 AS b3) AS b) }"
       - result: [
           { { '__ROW_VERSION': !not_null _, id: 1001, a1: 1, a2: 10, a3: "a" }, { '__ROW_VERSION': !not_null _, id: 2001, b1: 1, b2: 20, b3: "a" } },
           { { '__ROW_VERSION': !not_null _, id: 1001, a1: 1, a2: 10, a3: "a" }, { '__ROW_VERSION': !not_null _, id: 2002, b1: 1, b2: 19, b3: "a" } },

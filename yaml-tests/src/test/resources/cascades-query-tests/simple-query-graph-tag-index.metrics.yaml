@@ -15,15 +15,15 @@ simple-query-graph-tag-index:
 -   query: EXPLAIN select r.name from restaurant_record as r where exists (select
         1 from r.tags as t where t.value in ?)
     ref: simple-query-graph-tag-index.yamsql:118
-    explain: ISCAN(RESTAURANT_RECORD_NAME <,>) | FLATMAP q0 -> { EXPLODE arrayDistinct(@c24)
-        | FLATMAP q1 -> { EXPLODE q0.TAGS | FILTER _.VALUE EQUALS q1 AS q2 RETURN
-        (@c12 AS _0) } | DEFAULT NULL | FILTER _ NOT_NULL AS q3 RETURN (q0.NAME AS
-        NAME) }
-    task_count: 988
-    task_total_time_ms: 23
-    transform_count: 336
-    transform_time_ms: 11
-    transform_yield_count: 77
+    explain: ISCAN(RESTAURANT_RECORD_NAME <,>) | FLATMAP q0 -> { EXPLODE q0.TAGS |
+        FLATMAP q1 -> { EXPLODE arrayDistinct(@c24) | FILTER _ EQUALS q1.VALUE AS
+        q2 RETURN (@c12 AS _0) } | DEFAULT NULL | FILTER _ NOT_NULL AS q3 RETURN (q0.NAME
+        AS NAME) }
+    task_count: 999
+    task_total_time_ms: 16
+    transform_count: 337
+    transform_time_ms: 7
+    transform_yield_count: 78
     insert_time_ms: 1
-    insert_new_count: 119
-    insert_reused_count: 4
+    insert_new_count: 124
+    insert_reused_count: 3

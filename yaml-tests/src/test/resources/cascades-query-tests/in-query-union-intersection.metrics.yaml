@@ -9,14 +9,14 @@ in-query-union-intersection:
         KEY:[2]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO) | FETCH } COMPARE BY
         (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED) } COMPARE BY (_.NUM_VALUE_3_INDEXED,
         _.REC_NO, _.NUM_VALUE_2)'
-    task_count: 2548
-    task_total_time_ms: 397
-    transform_count: 888
-    transform_time_ms: 205
-    transform_yield_count: 215
-    insert_time_ms: 30
-    insert_new_count: 336
-    insert_reused_count: 29
+    task_count: 2588
+    task_total_time_ms: 384
+    transform_count: 890
+    transform_time_ms: 200
+    transform_yield_count: 217
+    insert_time_ms: 28
+    insert_new_count: 340
+    insert_reused_count: 27
 -   query: EXPLAIN select * from my_simple_record where num_value_2 in ? and str_value_indexed
         in ? order by num_value_3_indexed
     ref: in-query-union-intersection.yamsql:105
@@ -27,14 +27,14 @@ in-query-union-intersection:
         KEY:[2]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO) | FETCH } COMPARE BY
         (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED) } COMPARE BY (_.NUM_VALUE_3_INDEXED,
         _.REC_NO, _.NUM_VALUE_2)'
-    task_count: 2548
-    task_total_time_ms: 397
-    transform_count: 888
-    transform_time_ms: 205
-    transform_yield_count: 215
-    insert_time_ms: 30
-    insert_new_count: 336
-    insert_reused_count: 29
+    task_count: 2588
+    task_total_time_ms: 384
+    transform_count: 890
+    transform_time_ms: 200
+    transform_yield_count: 217
+    insert_time_ms: 28
+    insert_new_count: 340
+    insert_reused_count: 27
 -   query: EXPLAIN select * from my_simple_record where num_value_2 in ? and str_value_indexed
         in ? order by num_value_3_indexed
     ref: in-query-union-intersection.yamsql:145
@@ -45,11 +45,11 @@ in-query-union-intersection:
         KEY:[2]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO) | FETCH } COMPARE BY
         (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED) } COMPARE BY (_.NUM_VALUE_3_INDEXED,
         _.REC_NO, _.NUM_VALUE_2)'
-    task_count: 2548
-    task_total_time_ms: 397
-    transform_count: 888
-    transform_time_ms: 205
-    transform_yield_count: 215
-    insert_time_ms: 30
-    insert_new_count: 336
-    insert_reused_count: 29
+    task_count: 2588
+    task_total_time_ms: 384
+    transform_count: 890
+    transform_time_ms: 200
+    transform_yield_count: 217
+    insert_time_ms: 28
+    insert_new_count: 340
+    insert_reused_count: 27
