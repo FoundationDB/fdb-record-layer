@@ -24,8 +24,11 @@ import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecordsGeoProto;
 import com.apple.foundationdb.record.TupleRange;
@@ -36,6 +39,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.GeospatialRTreeScanBounds;
 import com.apple.foundationdb.record.provider.foundationdb.GeospatialRTreeScanComparisons;
+import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.DoubleValueOrParameter;
@@ -53,6 +57,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -60,6 +65,7 @@ import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.recordType;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -85,6 +91,15 @@ class GeospatialRTreeIndexTest extends FDBRecordStoreQueryTestBase {
             metaData.addIndex("City", new Index(GROUPED_INDEX,
                     field("location").nest(concat(field("latitude"), field("longitude"))).groupBy(field("country")),
                     IndexTypes.GEOSPATIAL_RTREE, SMALL_NODE_OPTIONS));
+
+    // deleteRecordsWhere needs the filter to be a primary key prefix of the record type, so lead the City primary key
+    // with the grouping column. The typed overload also requires every record type to have a type prefix.
+    private static final RecordMetaDataHook GROUPED_BY_PRIMARY_KEY_HOOK = metaData -> {
+        metaData.getRecordType("City").setPrimaryKey(concat(recordType(), field("country"), field("geo_name_id")));
+        metaData.getRecordType("Country").setPrimaryKey(concat(recordType(), field("geo_name_id")));
+        GROUPED_HOOK.apply(metaData);
+    };
+    private static final int GROUPED_BY_PRIMARY_KEY_ID_COLUMN = 2;
 
     private void openRecordStore(final FDBRecordContext context, final RecordMetaDataHook hook) throws Exception {
         openAnyRecordStore(TestRecordsGeoProto.getDescriptor(), context, hook);
@@ -113,6 +128,13 @@ class GeospatialRTreeIndexTest extends FDBRecordStoreQueryTestBase {
                               @Nonnull final TupleRange prefixRange,
                               final double centerLatitude, final double centerLongitude,
                               final double radiusMeters) throws Exception {
+        return scanIds(hook, indexName, prefixRange, centerLatitude, centerLongitude, radiusMeters, 0);
+    }
+
+    private Set<Long> scanIds(@Nonnull final RecordMetaDataHook hook, @Nonnull final String indexName,
+                              @Nonnull final TupleRange prefixRange,
+                              final double centerLatitude, final double centerLongitude,
+                              final double radiusMeters, final int idColumn) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);
             final Index index = recordStore.getRecordMetaData().getIndex(indexName);
@@ -122,7 +144,7 @@ class GeospatialRTreeIndexTest extends FDBRecordStoreQueryTestBase {
             final List<IndexEntry> entries = context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR,
                     recordStore.scanIndex(index, bounds, null, ScanProperties.FORWARD_SCAN).asList());
             return entries.stream()
-                    .map(entry -> entry.getPrimaryKey().getLong(0))
+                    .map(entry -> entry.getPrimaryKey().getLong(idColumn))
                     .collect(Collectors.toSet());
         }
     }
@@ -305,5 +327,128 @@ class GeospatialRTreeIndexTest extends FDBRecordStoreQueryTestBase {
             assertThat(executePlanIds(context, plan)).containsExactlyInAnyOrder(1L, 2L);
             commit(context);
         }
+    }
+
+    @Test
+    void withinDistancePredicateEvaluatesWithoutIndex() throws Exception {
+        saveCities(NO_HOOK, ImmutableList.of(
+                city(1, "X", 0.0, 0.0),
+                city(2, "X", 0.5, 0.0),
+                city(3, "X", 0.7, 0.7),      // in the bounding box corner but outside the circle
+                city(4, "X", 5.0, 5.0)));
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, NO_HOOK);
+            final RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("City")
+                    .setFilter(withinDistance(0.0, 0.0, 100_000.0))
+                    .build();
+            final RecordQueryPlan plan = planQuery(query);
+            // With no index, the predicate can only be evaluated against each record.
+            assertThat(plan.getUsedIndexes()).isEmpty();
+            assertThat(executePlanIds(context, plan)).containsExactlyInAnyOrder(1L, 2L);
+            commit(context);
+        }
+    }
+
+    @Test
+    void withinDistanceScanResumesFromContinuationWithLimitOne() throws Exception {
+        final ImmutableList.Builder<TestRecordsGeoProto.City> cities = ImmutableList.builder();
+        cities.add(city(1, "X", 0.0, 0.0));
+        cities.add(city(2, "X", 0.5, 0.0));
+        cities.add(city(3, "X", 0.0, 0.5));
+        cities.add(city(4, "X", 0.7, 0.7));      // in the bounding box corner but outside the circle
+        // Bulk far-away points so the R-tree becomes multi-level and resuming crosses node boundaries.
+        for (int i = 10; i < 25; i++) {
+            cities.add(city(i, "X", i, i));
+        }
+        saveCities(UNGROUPED_HOOK, cities.build());
+
+        final RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("City")
+                .setFilter(withinDistance(0.0, 0.0, 100_000.0))
+                .build();
+        final ExecuteProperties limitOne = ExecuteProperties.newBuilder().setReturnedRowLimit(1).build();
+
+        final List<Long> ids = new ArrayList<>();
+        byte[] continuation = null;
+        boolean exhausted = false;
+        // Bounded so that a scan that never terminates fails the test rather than hanging it.
+        for (int iteration = 0; iteration < 10 && !exhausted; iteration++) {
+            try (FDBRecordContext context = openContext()) {
+                openRecordStore(context, UNGROUPED_HOOK);
+                final RecordQueryPlan plan = planQuery(query);
+                assertThat(plan.getUsedIndexes()).contains(UNGROUPED_INDEX);
+                try (RecordCursor<QueryResult> cursor = plan.executePlan(recordStore, EvaluationContext.EMPTY,
+                        continuation, limitOne)) {
+                    final RecordCursorResult<QueryResult> result =
+                            context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR, cursor.onNext());
+                    if (result.hasNext()) {
+                        ids.add(Objects.requireNonNull(result.get().getQueriedRecord()).getPrimaryKey().getLong(0));
+                        continuation = result.getContinuation().toBytes();
+                    } else {
+                        assertThat(result.getNoNextReason().isSourceExhausted()).isTrue();
+                        exhausted = true;
+                    }
+                }
+            }
+        }
+
+        assertThat(exhausted).isTrue();
+        assertThat(ids).containsExactlyInAnyOrder(1L, 2L, 3L);
+    }
+
+    @SuppressWarnings("resource")
+    @Test
+    void directIndexMaintainerScanByTypeAndRangeThrows() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, UNGROUPED_HOOK);
+
+            final Index index = recordStore.getRecordMetaData().getIndex(UNGROUPED_INDEX);
+            final IndexMaintainer indexMaintainer = recordStore.getIndexMaintainer(index);
+            assertThatThrownBy(() -> indexMaintainer.scan(IndexScanType.BY_DISTANCE, TupleRange.ALL,
+                    null, ScanProperties.FORWARD_SCAN))
+                    .isInstanceOf(RecordCoreException.class)
+                    .hasMessageContaining("does not support this scan api");
+        }
+    }
+
+    @Test
+    void deleteWhereRemovesOnlyTheDeletedGroup() throws Exception {
+        final ImmutableList.Builder<TestRecordsGeoProto.City> cities = ImmutableList.builder();
+        cities.add(city(1, "A", 0.0, 0.0));
+        cities.add(city(2, "A", 0.3, 0.0));
+        cities.add(city(3, "B", 0.0, 0.0));      // co-located with group A
+        cities.add(city(4, "B", 0.0, 0.3));
+        cities.add(city(5, "C", 0.0, 0.0));
+        // Bulk far-away points in group A so its R-tree becomes multi-level and has several nodes to delete.
+        for (int i = 10; i < 25; i++) {
+            cities.add(city(i, "A", i, i));
+        }
+        saveCities(GROUPED_BY_PRIMARY_KEY_HOOK, cities.build());
+
+        assertThat(scanGroup("A")).containsExactlyInAnyOrder(1L, 2L);
+        assertThat(scanGroup("B")).containsExactlyInAnyOrder(3L, 4L);
+        assertThat(scanGroup("C")).containsExactlyInAnyOrder(5L);
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, GROUPED_BY_PRIMARY_KEY_HOOK);
+            recordStore.deleteRecordsWhere("City", Query.field("country").equalsValue("A"));
+            commit(context);
+        }
+
+        assertThat(scanGroup("A")).isEmpty();
+        assertThat(scanGroup("B")).containsExactlyInAnyOrder(3L, 4L);
+        assertThat(scanGroup("C")).containsExactlyInAnyOrder(5L);
+        // Scanning every group catches entries that deleting the group would have left behind.
+        assertThat(scanIds(GROUPED_BY_PRIMARY_KEY_HOOK, GROUPED_INDEX, TupleRange.ALL, 0.0, 0.0, 100_000.0,
+                GROUPED_BY_PRIMARY_KEY_ID_COLUMN)).containsExactlyInAnyOrder(3L, 4L, 5L);
+    }
+
+    @Nonnull
+    private Set<Long> scanGroup(@Nonnull final String country) throws Exception {
+        return scanIds(GROUPED_BY_PRIMARY_KEY_HOOK, GROUPED_INDEX,
+                TupleRange.betweenInclusive(Tuple.from(country), Tuple.from(country)), 0.0, 0.0, 100_000.0,
+                GROUPED_BY_PRIMARY_KEY_ID_COLUMN);
     }
 }

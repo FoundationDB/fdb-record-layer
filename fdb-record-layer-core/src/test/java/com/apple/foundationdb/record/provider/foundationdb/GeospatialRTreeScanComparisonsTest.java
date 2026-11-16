@@ -20,6 +20,10 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.planprotos.PGeospatialRTreeScanComparisons;
+import com.apple.foundationdb.record.planprotos.PIndexScanParameters;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.DoubleValueOrParameter;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -122,6 +126,71 @@ class GeospatialRTreeScanComparisonsTest {
         assertThat(rebased.getCorrelatedTo()).containsExactly(q5(), q6(), q7(), q8());
         assertThat(rebased).hasToString(original.toString()
                 .replace("q1", "q5").replace("q2", "q6").replace("q3", "q7").replace("q4", "q8"));
+    }
+
+    @Test
+    void protoRoundTripTest() {
+        final ImmutableList<GeospatialRTreeScanComparisons> originals = ImmutableList.of(
+                byCenterAndRadius(randomScanComparisons(), randomScanComparisons()),
+                GeospatialRTreeScanComparisons.byCenterAndRadius(correlatedScanComparisons(q1(), q2()),
+                        DoubleValueOrParameter.parameter("lat"),
+                        DoubleValueOrParameter.parameter("lon"),
+                        DoubleValueOrParameter.parameter("radius"),
+                        null));
+        final GeospatialRTreeScanComparisons.Deserializer deserializer = new GeospatialRTreeScanComparisons.Deserializer();
+        for (final GeospatialRTreeScanComparisons original : originals) {
+            final PGeospatialRTreeScanComparisons proto = original.toProto(PlanSerializationContext.newForCurrentMode());
+            for (final GeospatialRTreeScanComparisons afterRoundTrip : ImmutableList.of(
+                    GeospatialRTreeScanComparisons.fromProto(PlanSerializationContext.newForCurrentMode(), proto),
+                    deserializer.fromProto(PlanSerializationContext.newForCurrentMode(), proto))) {
+                assertThat(afterRoundTrip).isEqualTo(original);
+                assertThat(afterRoundTrip).hasSameHashCodeAs(original);
+                assertThat(afterRoundTrip).hasToString(original.toString());
+                assertThat(afterRoundTrip.planHash(PlanHashable.CURRENT_FOR_CONTINUATION))
+                        .isEqualTo(original.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            }
+        }
+        assertThat(deserializer.getProtoMessageClass()).isEqualTo(PGeospatialRTreeScanComparisons.class);
+    }
+
+    @Test
+    void indexScanParametersProtoTest() {
+        final GeospatialRTreeScanComparisons original =
+                byCenterAndRadius(randomScanComparisons(), randomScanComparisons());
+        final PIndexScanParameters proto = original.toIndexScanParametersProto(PlanSerializationContext.newForCurrentMode());
+        assertThat(proto.hasGeospatialRtreeScanComparisons()).isTrue();
+        assertThat(proto.getGeospatialRtreeScanComparisons())
+                .isEqualTo(original.toProto(PlanSerializationContext.newForCurrentMode()));
+
+        final IndexScanParameters afterRoundTrip =
+                IndexScanParameters.fromIndexScanParametersProto(PlanSerializationContext.newForCurrentMode(), proto);
+        assertThat(afterRoundTrip).isEqualTo(original);
+    }
+
+    @Test
+    void planHashTest() {
+        final ScanComparisons prefix = randomScanComparisons();
+        final ScanComparisons suffix = randomScanComparisons();
+        final GeospatialRTreeScanComparisons original = byCenterAndRadius(prefix, suffix);
+        final GeospatialRTreeScanComparisons same = byCenterAndRadius(prefix, suffix);
+        final ImmutableList<GeospatialRTreeScanComparisons> different = ImmutableList.of(
+                GeospatialRTreeScanComparisons.byCenterAndRadius(prefix, DoubleValueOrParameter.value(1.0),
+                        DoubleValueOrParameter.value(-122.42), DoubleValueOrParameter.value(5000.0), suffix),
+                GeospatialRTreeScanComparisons.byCenterAndRadius(prefix, DoubleValueOrParameter.value(37.77),
+                        DoubleValueOrParameter.value(1.0), DoubleValueOrParameter.value(5000.0), suffix),
+                GeospatialRTreeScanComparisons.byCenterAndRadius(prefix, DoubleValueOrParameter.value(37.77),
+                        DoubleValueOrParameter.value(-122.42), DoubleValueOrParameter.value(1.0), suffix),
+                GeospatialRTreeScanComparisons.byCenterAndRadius(null, DoubleValueOrParameter.value(37.77),
+                        DoubleValueOrParameter.value(-122.42), DoubleValueOrParameter.value(5000.0), suffix),
+                GeospatialRTreeScanComparisons.byCenterAndRadius(prefix, DoubleValueOrParameter.value(37.77),
+                        DoubleValueOrParameter.value(-122.42), DoubleValueOrParameter.value(5000.0), null));
+
+        for (final PlanHashable.PlanHashMode mode : ImmutableList.of(PlanHashable.CURRENT_LEGACY, PlanHashable.CURRENT_FOR_CONTINUATION)) {
+            assertThat(same.planHash(mode)).isEqualTo(original.planHash(mode));
+            for (final GeospatialRTreeScanComparisons other : different) {
+                assertThat(other.planHash(mode)).isNotEqualTo(original.planHash(mode));
+            }
+        }
     }
 
     @Nonnull
