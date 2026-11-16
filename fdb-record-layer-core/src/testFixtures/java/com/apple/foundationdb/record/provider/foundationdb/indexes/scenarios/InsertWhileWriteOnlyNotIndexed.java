@@ -52,7 +52,6 @@ public class InsertWhileWriteOnlyNotIndexed implements IndexScenario {
 
         model.saveRecords(records);
 
-
         model.buildIndex();
 
         final List<IndexEntry> actual = model.scanIndex();

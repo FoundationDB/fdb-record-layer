@@ -30,7 +30,6 @@ import org.junit.jupiter.api.Assumptions;
 
 import java.util.List;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -67,7 +66,7 @@ public class DeleteWhereGroup implements IndexScenario {
         // Everything outside the deleted group must be untouched.
         final List<IndexEntry> expected = before.stream()
                 .filter(entry -> entry.getKey().getLong(0) != GROUP_TO_DELETE)
-                .collect(Collectors.toList());
+                .toList();
         model.assertScanResultsEqual(expected, after);
     }
 }
