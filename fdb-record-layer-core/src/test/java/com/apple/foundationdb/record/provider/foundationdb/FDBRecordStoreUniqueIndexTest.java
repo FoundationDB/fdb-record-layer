@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexEntry;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.ValueIndexMaintainer;
+import com.apple.foundationdb.record.provider.foundationdb.indexes.ValueIndexMaintainerWithQueue;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
@@ -54,6 +55,7 @@ import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
+import com.apple.test.ParameterizedTestUtils;
 import com.apple.test.Tags;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Any;
@@ -63,6 +65,8 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -80,6 +84,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -91,6 +97,8 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -356,6 +364,331 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @ParameterizedTest
+    @BooleanSource("resolveByUpdate")
+    void markReadableWhenLastViolationResolved(boolean resolveByUpdate) throws Exception {
+        // each num_value_2 value is shared by records n and n + 5
+        final List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 10).mapToObj(val ->
+                TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2((int)val % 5).build()
+        ).toList();
+        final Index index = new Index("indexA", field("num_value_2"), IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        final RecordMetaData metaData = buildUniquePending(records, List.of(index));
+
+        // resolve all but the last duplication, one per transaction - the index should remain unique pending
+        for (int i = 5; i < 9; i++) {
+            try (FDBRecordContext context = openContext()) {
+                createOrOpenRecordStore(context, metaData);
+                resolveDuplication(i, resolveByUpdate, 1000 + i);
+                commit(context);
+            }
+            try (FDBRecordContext context = openContext()) {
+                createOrOpenRecordStore(context, metaData);
+                assertTrue(recordStore.getIndexState(index).isReadableUniquePending());
+                assertEquals(2 * (9 - i), (int)recordStore.scanUniquenessViolations(index).getCount().join());
+                commit(context);
+            }
+        }
+
+        // resolve the last duplication - the index should become readable
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            resolveDuplication(9, resolveByUpdate, 1009);
+            commit(context);
+        }
+        assertReadableAndScrub(metaData, List.of(index));
+    }
+
+    @ParameterizedTest
+    @BooleanSource("resolveByUpdate")
+    void markReadableWhenViolationsOfTwoIndexesResolvedTogether(boolean resolveByUpdate) throws Exception {
+        // records 0-9 duplicate both indexes, records 10-11 duplicate only indexB
+        final List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 12).mapToObj(val ->
+                TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val)
+                        .setNumValue2((int)(val < 10 ? val % 5 : val))
+                        .setNumValue3Indexed((int)(val < 10 ? val % 5 : 100))
+                        .build()
+        ).toList();
+        final Index indexA = new Index("indexA", field("num_value_2"), IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        final Index indexB = new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        final RecordMetaData metaData = buildUniquePending(records, List.of(indexA, indexB));
+
+        // resolve all the duplications of indexA, and some of indexB, in a single transaction
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            for (int i = 5; i < 10; i++) {
+                resolveDuplication(i, resolveByUpdate, 1000 + i);
+            }
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            assertTrue(recordStore.getIndexState(indexA).isReadable());
+            assertTrue(recordStore.getIndexState(indexB).isReadableUniquePending());
+            assertEquals(2, (int)recordStore.scanUniquenessViolations(indexB).getCount().join());
+            commit(context);
+        }
+    }
+
+    @ParameterizedTest
+    @BooleanSource("resolveByUpdate")
+    void markTwoIndexesReadableTogether(boolean resolveByUpdate) throws Exception {
+        // records 0-9 duplicate both indexes, so resolving a duplication resolves it for both
+        final List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 10).mapToObj(val ->
+                TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val)
+                        .setNumValue2((int)val % 5)
+                        .setNumValue3Indexed((int)val % 5)
+                        .build()
+        ).toList();
+        final Index indexA = new Index("indexA", field("num_value_2"), IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        final Index indexB = new Index("indexB", field("num_value_3_indexed"), IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        final List<Index> indexes = List.of(indexA, indexB);
+        final RecordMetaData metaData = buildUniquePending(records, indexes);
+
+        // resolve all but the last duplication - both indexes should remain unique pending
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            for (int i = 5; i < 9; i++) {
+                resolveDuplication(i, resolveByUpdate, 1000 + i);
+            }
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            for (Index index : indexes) {
+                assertTrue(recordStore.getIndexState(index).isReadableUniquePending());
+                assertEquals(2, (int)recordStore.scanUniquenessViolations(index).getCount().join());
+            }
+            commit(context);
+        }
+
+        // a single record change resolves the last duplication of both indexes - both should become readable
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            resolveDuplication(9, resolveByUpdate, 1009);
+            commit(context);
+        }
+        assertReadableAndScrub(metaData, indexes);
+    }
+
+    @Test
+    void markReadableOrUniquePendingWithViolationsUnchanged() throws Exception {
+        // markIndexReadableOrUniquePending should not change a unique pending index that still has violations
+
+        // records 0 and 1 share a num_value_2 value
+        final List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 2).mapToObj(val ->
+                TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2(0).build()
+        ).toList();
+        final Index index = new Index("indexA", field("num_value_2"), IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        final RecordMetaData metaData = buildUniquePending(records, List.of(index));
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            assertFalse(recordStore.markIndexReadableOrUniquePending(index).join());
+            assertTrue(recordStore.getIndexState(index).isReadableUniquePending());
+            assertEquals(2, (int)recordStore.scanUniquenessViolations(index).getCount().join());
+            commit(context);
+        }
+    }
+
+    @Test
+    void markReadableOrUniquePendingAfterLastViolationResolvedUnchanged() throws Exception {
+        // Once resolving the last violation has marked a unique pending index as readable, markIndexReadableOrUniquePending
+        // has nothing left to change
+
+        // records 0 and 1 share a num_value_2 value
+        final List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 2).mapToObj(val ->
+                TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2(0).build()
+        ).toList();
+        final Index index = new Index("indexA", field("num_value_2"), IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        final RecordMetaData metaData = buildUniquePending(records, List.of(index));
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            resolveDuplication(1, true, 1);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            assertTrue(recordStore.getIndexState(index).isReadable());
+            assertFalse(recordStore.markIndexReadableOrUniquePending(index).join());
+            assertTrue(recordStore.getIndexState(index).isReadable());
+            commit(context);
+        }
+    }
+
+    @ParameterizedTest
+    @BooleanSource({"resolveByUpdate", "addViolationFirst"})
+    void newViolationWhenLastViolationResolvedFailsCommit(boolean resolveByUpdate, boolean addViolationFirst) throws Exception {
+        // Resolve the last uniqueness violation in READABLE_UNIQUE_PENDING index state and add a new violation in the same transaction
+
+        // records 0 and 1 share a num_value_2 value
+        final List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 2).mapToObj(val ->
+                TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2(0).build()
+        ).toList();
+        final Index index = new Index("indexA", field("num_value_2"), IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        final RecordMetaData metaData = buildUniquePending(records, List.of(index));
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            // record 2 duplicates record 0, which is not changed
+            final TestRecords1Proto.MySimpleRecord duplicate = TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(2L).setNumValue2(0).build();
+            if (addViolationFirst) {
+                recordStore.saveRecord(duplicate);
+                resolveDuplication(1, resolveByUpdate, 1);
+            } else {
+                resolveDuplication(1, resolveByUpdate, 1);
+                recordStore.saveRecord(duplicate);
+            }
+            assertThrows(RecordIndexUniquenessViolation.class, () -> commit(context));
+        }
+
+        // the failed transaction changed nothing
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            assertTrue(recordStore.getIndexState(index).isReadableUniquePending());
+            assertEquals(2, (int)recordStore.scanUniquenessViolations(index).getCount().join());
+            assertNull(recordStore.loadRecord(Tuple.from(2L)));
+            commit(context);
+        }
+    }
+
+    static Stream<Arguments> writeOnlyStatesAndResolveByUpdate() {
+        return ParameterizedTestUtils.cartesianProduct(
+                Stream.of(IndexState.WRITE_ONLY, IndexState.WRITE_ONLY_WITH_QUEUE, IndexState.WRITE_ONLY_WITH_TRACKING),
+                ParameterizedTestUtils.booleans("resolveByUpdate"));
+    }
+
+    @ParameterizedTest
+    @MethodSource("writeOnlyStatesAndResolveByUpdate")
+    void unbuiltWriteOnlyRemainsWriteOnlyWhenLastViolationResolved(IndexState writeOnlyState, boolean resolveByUpdate) {
+        // Only READABLE_UNIQUE_PENDING is marked readable when its last violation is resolved, so every write-only state
+        // stays as it is. With a queue, the resolving write is only queued, so the violations also stay.
+        final boolean withQueue = writeOnlyState.isWriteOnlyWithQueue();
+        final Index index = new Index("indexA", field("num_value_2"),
+                withQueue ? ValueIndexMaintainerWithQueue.Factory.INDEX_TYPE : IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        final RecordMetaData metaData = simpleMetaData(metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index));
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            // disabling clears the index's build data, so it is unbuilt once it is write-only
+            recordStore.markIndexDisabled(index).join();
+            recordStore.markIndexWriteOnly(index).join();
+            commit(context);
+        }
+
+        // a write-only unique index records duplications as violations (writes to a queued index are not checked
+        // until the queue is drained, so the violations are recorded before moving to the tested state)
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(1L).setNumValue2(10).build());
+            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(2L).setNumValue2(10).build());
+            recordStore.markIndexWriteOnly(index, writeOnlyState).join();
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            assertEquals(writeOnlyState, recordStore.getIndexState(index));
+            assertEquals(2, (int)recordStore.scanUniquenessViolations(index).getCount().join());
+            resolveDuplication(2L, resolveByUpdate, 11);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            assertEquals(writeOnlyState, recordStore.getIndexState(index));
+            assertEquals(withQueue ? 2 : 0, (int)recordStore.scanUniquenessViolations(index).getCount().join());
+            if (withQueue) {
+                assertTrue(IndexingPendingWriteQueue.hasPendingWrites(recordStore, index, context).join());
+            }
+            commit(context);
+        }
+    }
+
+    /**
+     * Save the given records, then add the given unique indexes and build them into
+     * {@link IndexState#READABLE_UNIQUE_PENDING}.
+     *
+     * @param records records that violate the uniqueness of the indexes
+     * @param indexes the unique indexes to add
+     * @return the meta-data with the indexes
+     */
+    @Nonnull
+    private RecordMetaData buildUniquePending(@Nonnull List<TestRecords1Proto.MySimpleRecord> records,
+                                              @Nonnull List<Index> indexes) throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            records.forEach(recordStore::saveRecord);
+            commit(context);
+        }
+        final RecordMetaData metaData = simpleMetaData(metaDataBuilder ->
+                indexes.forEach(index -> metaDataBuilder.addIndex("MySimpleRecord", index)));
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            for (Index index : indexes) {
+                recordStore.markIndexDisabled(index).join();
+            }
+            commit(context);
+            try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                    .setRecordStore(recordStore)
+                    .setTargetIndexes(indexes)
+                    .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder().allowUniquePendingState())
+                    .build()) {
+                indexer.buildIndex();
+            }
+        }
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            for (Index index : indexes) {
+                assertTrue(recordStore.getIndexState(index).isReadableUniquePending());
+            }
+            commit(context);
+        }
+        return metaData;
+    }
+
+    /**
+     * Resolve the duplications a record is part of, either by deleting it or by updating its indexed values.
+     *
+     * @param recNo the record to change
+     * @param resolveByUpdate if true, update the record, otherwise delete it
+     * @param uniqueValue the new value to update, must be unique
+     */
+    private void resolveDuplication(long recNo, boolean resolveByUpdate, int uniqueValue) {
+        if (resolveByUpdate) {
+            final FDBStoredRecord<Message> stored = recordStore.loadRecord(Tuple.from(recNo));
+            assertNotNull(stored);
+            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .mergeFrom(stored.getRecord())
+                    .setNumValue2(uniqueValue)
+                    .setNumValue3Indexed(uniqueValue)
+                    .build());
+        } else {
+            recordStore.deleteRecord(Tuple.from(recNo));
+        }
+    }
+
+    private void assertReadableAndScrub(@Nonnull RecordMetaData metaData, @Nonnull List<Index> indexes) {
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData);
+            for (Index index : indexes) {
+                assertTrue(recordStore.getIndexState(index).isReadable());
+            }
+            commit(context);
+            for (Index index : indexes) {
+                try (OnlineIndexScrubber scrubber = OnlineIndexScrubber.newBuilder()
+                        .setRecordStore(recordStore)
+                        .setIndex(index)
+                        .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder().setAllowRepair(false))
+                        .build()) {
+                    assertEquals(0L, scrubber.scrubDanglingIndexEntries());
+                    assertEquals(0L, scrubber.scrubMissingIndexEntries());
+                }
+            }
+        }
+    }
+
     @Test
     public void changeIndexAtFixedSubspaceKey() throws Exception {
         final Object subspaceKey = "fixed_subspace_key";
@@ -553,7 +886,6 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
         private final Index uniqueIndex;
         private final Index nonUniqueIndex;
         private final boolean allowReadableUniquePending;
-        private final IndexState readableUniquePendingState;
         private final RecordMetaData uniqueMetadata;
         private final RecordMetaData nonUniqueMetadata;
 
@@ -563,7 +895,6 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
 
         private DropUniquenessConstraint(final boolean allowReadableUniquePending, final String indexType, final boolean bumpVersion) {
             this.allowReadableUniquePending = allowReadableUniquePending;
-            readableUniquePendingState = allowReadableUniquePending ? IndexState.READABLE_UNIQUE_PENDING : IndexState.WRITE_ONLY;
             uniqueIndex = new Index("initiallyUniqueIndex", field("num_value_2"), indexType, IndexOptions.UNIQUE_OPTIONS);
             assertTrue(uniqueIndex.isUnique());
             uniqueMetadata = simpleMetaData(metaDataBuilder ->
@@ -667,8 +998,9 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
             try (FDBRecordContext context = openContext()) {
                 createOrOpenRecordStore(context, uniqueMetadata);
 
-                assertEquals(readableUniquePendingState, recordStore.getIndexState(uniqueIndex.getName()),
-                        "Index should still be " + readableUniquePendingState.getLogName());
+                // Resolving the last violation marks a READABLE_UNIQUE_PENDING index readable, but not a WRITE_ONLY one
+                final IndexState expectedState = allowReadableUniquePending ? IndexState.READABLE : IndexState.WRITE_ONLY;
+                assertEquals(expectedState, recordStore.getIndexState(uniqueIndex.getName()));
             }
         }
 
