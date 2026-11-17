@@ -97,7 +97,9 @@
  * The remaining methods have defaults that suit most index types. {@code configureStore} and
  * {@code setupIndex} cover per-store settings and state that has to exist before records are indexed,
  * and {@code scanResultsEqual} relaxes the comparison of scan results for index types whose scans
- * cannot be compared exactly. When a maintainer genuinely cannot support something that some scenarios
+ * cannot be compared exactly. {@code ignoresUnchangedSaves} says whether saving a record again,
+ * unchanged, leaves the index unchanged, which is not true of index types that count every save. When a
+ * maintainer genuinely cannot support something that some scenarios
  * rely on, such as group deletion, the definition turns off the corresponding capability (for
  * example {@code supportsGrouping}), with the reason documented. Those scenarios are then skipped for
  * that index type, rather than being weakened for every index type.
