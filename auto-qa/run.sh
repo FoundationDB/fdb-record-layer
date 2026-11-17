@@ -96,7 +96,7 @@ ALLOWED_TOOLS=(
     "Edit(/auto-qa/**)" "Write(/auto-qa/**)"
     "Bash(./gradlew:*)"
     "Bash(git:*)"
-    "Bash(gh pr list:*)" "Bash(gh pr create:*)" "Bash(gh pr view:*)"
+    "Bash(gh pr list:*)" "Bash(gh pr create:*)" "Bash(gh pr view:*)" "Bash(gh pr edit:*)"
     "Bash(ls:*)" "Bash(cat:*)" "Bash(head:*)" "Bash(tail:*)" "Bash(grep:*)" "Bash(find:*)"
     "Bash(wc:*)" "Bash(sort:*)" "Bash(date:*)" "Bash(hostname)" "Bash(stat:*)"
     "Bash(rm:*)" "Bash(mkdir:*)" "Bash(echo:*)" "Bash(test:*)"

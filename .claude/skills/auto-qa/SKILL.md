@@ -21,6 +21,17 @@ Arguments: `$ARGUMENTS`
 - AUTO_QA_TIMEOUT = 4 hours (or the `AUTO_QA_TIMEOUT` environment variable, in seconds).
 - State files (only on SEARCH): `auto-qa/progress.md`, `auto-qa/bugs.md`,
   `auto-qa/notes/<test file path>.md`.
+- REJECTED_FILE (only on CAUGHT): `auto-qa/rejected.md`. The single source of truth for
+  confirmed bugs that the team decided not to fix, each with its reason. People reject an
+  issue by adding it to this file on CAUGHT (i.e. by pushing to the caught PR's branch). You read it
+  every iteration and apply it; you never remove entries from it. Format:
+  ```
+  # Auto QA rejected issues
+
+  ## AQA-<n>: <summary>
+  - rejected: <date> by <who>
+  - reason: <why it will not be fixed>
+  ```
 
 ## Permissions
 
@@ -79,6 +90,17 @@ release the lock).
 6. **Bugs fixed upstream.** For each bug with status `open` in bugs.md, run its test. If it
    passes 3 out of 3 times: set its status to `fixed upstream (<date>)`, change its comment
    from `// BUG AQA-<n>:` to `// FIXED UPSTREAM AQA-<n>:`, and keep the test.
+7. **Rejected issues.** Read REJECTED_FILE from `UPSTREAM/CAUGHT` (or the local CAUGHT if
+   the remote branch doesn't exist; skip if neither has the file). Remember its content as
+   REJECTED. For each `AQA-<n>` in it whose status in bugs.md is not already `rejected`:
+   - set its status in bugs.md to `rejected (see auto-qa/rejected.md on CAUGHT)`; do not copy
+     the reason, REJECTED_FILE stays the only place for it;
+   - delete its test from the companion file (and the companion file, with its yamsql
+     registration, if no tests are left), and remove helpers/imports that became unused;
+   - add the idea under "Rejected" in that test file's notes, with
+     `rejected by the team, see AQA-<n> in auto-qa/rejected.md on CAUGHT`;
+   - update the test count in progress.md.
+   Run step 5b again for the affected modules.
 
 ## B. Pick the batch
 
@@ -108,6 +130,8 @@ checkout, Gradle build folders, FDB, and YamlIntegrationTests.java). Give each:
 - UPSTREAM_COMMIT (`git rev-parse UPSTREAM/main`), LAST_VISIT_COMMIT (from progress.md, or
   `none`),
 - the content of auto-qa/bugs.md,
+- "Rejected issues": the content of REJECTED (or `none`), so known and accepted behavior is
+  not reported again,
 - "Candidates so far": a one-line summary of each CANDIDATE_BUG returned by earlier workers
   in this iteration (still unverified), or `none`, so the same bug is not reported twice.
 
@@ -148,6 +172,7 @@ After each verifier, check that `git status` is unchanged; revert any leftovers.
 
    AQA-<n>: <short summary>            (one line per new bug)
    AQA-<n>: fixed upstream             (one line per bug fixed upstream in A.6)
+   AQA-<n>: rejected                   (one line per bug newly rejected in A.7)
    ```
 4. If PUSH = yes: `git push --force-with-lease UPSTREAM SEARCH`.
 
@@ -157,8 +182,9 @@ After each verifier, check that `git status` is unchanged; revert any leftovers.
 2. `git rebase UPSTREAM/main`.
 3. Make CAUGHT's companion files contain exactly the tests of bugs with status `open` in
    bugs.md (read them from SEARCH with `git show SEARCH:<path>`), plus the class skeleton,
-   imports, setup, and helpers they need. Remove tests of fixed bugs, and delete companion
-   files left with no tests (and their yamsql registrations). Do not copy `auto-qa/`.
+   imports, setup, and helpers they need. Remove tests of fixed and rejected bugs, and delete
+   companion files left with no tests (and their yamsql registrations). Do not copy the
+   SEARCH state files. Keep REJECTED_FILE exactly as it is (it was written by people).
 4. Compile, run `checkstyleTest` for the affected modules, and run each copied test to
    confirm it still fails.
 5. If nothing changed, skip the commit. Otherwise commit with the same message as E.3.
@@ -168,7 +194,11 @@ After each verifier, check that `git status` is unchanged; revert any leftovers.
    `gh pr create --draft --repo FoundationDB/fdb-record-layer --base main --head CAUGHT
    --label "testing improvement"` with title `Auto QA: tests that expose known bugs` and a
    description saying that its CI is expected to fail, each failing test is a known bug
-   listed with its AQA id, and the branch is maintained by the auto-qa skill.
+   listed with its AQA id, the branch is maintained by the auto-qa skill, and an issue can
+   be rejected by adding it to `auto-qa/rejected.md` on this branch.
+7. If PUSH = yes and the PR exists and the list of open bugs changed, update its description
+   (`gh pr edit`) so its table lists exactly the open bugs, plus a short list of rejected
+   ones with their reasons from REJECTED_FILE.
 
 ## G. Report, restore, release
 
@@ -181,6 +211,7 @@ After each verifier, check that `git status` is unchanged; revert any leftovers.
    New confirmed bugs: <AQA-n: summary, ...> | none
    Rejected candidates: <test: reason, ...> | none
    Fixed upstream: <AQA-n, ...> | none
+   Rejected by the team (newly applied): <AQA-n, ...> | none
    Pushed: yes | no (push=no) | failed (<error>)
    Problems / skipped steps: <...> | none
    ```
