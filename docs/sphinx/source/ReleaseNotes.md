@@ -4,6 +4,60 @@ This document contains a log of changes to the FoundationDB Record Layer. It aim
 
 As the [versioning guide](Versioning.md) details, it cannot always be determined solely by looking at the version numbers whether one Record Layer version contains all changes included in another. In particular, bug fixes and backwards-compatible changes might be back-ported to or introduced as patches against older versions. To track when a patch version has been included in the main release train, some releases will say as a note that they contain all changes from a specific patch.
 
+{#release-4-19}
+
+## 4.19
+
+{#release-4-19-1-0}
+
+### 4.19.1.0
+
+<h4> Breaking Changes </h4>
+
+* Replace ExplodeExpression with a table function over an ExplodeValue - [PR #4816](https://github.com/FoundationDB/fdb-record-layer/pull/4816)
+<h4> New Features </h4>
+
+* Automatically mark READABLE_UNIQUE_PENDING indexes READABLE once the last uniqueness violation is resolved - [PR #4828](https://github.com/FoundationDB/fdb-record-layer/pull/4828)
+<h4> Bug Fixes </h4>
+
+* Cost cached plans with a dedicated cost model instead of their plan hash - [PR #4739](https://github.com/FoundationDB/fdb-record-layer/pull/4739)
+* Compare merge and IN-list values in index order - [PR #4876](https://github.com/FoundationDB/fdb-record-layer/pull/4876)
+* Make `MetaDataProtoEditor` always rename the canonically named union field - [PR #4731](https://github.com/FoundationDB/fdb-record-layer/pull/4731)
+<h4> Performance Improvements </h4>
+
+* logScrubberRangeReset - change to debug level - [PR #4884](https://github.com/FoundationDB/fdb-record-layer/pull/4884)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Fix DirectoryLayer-allocator races in core tests - [PR #4827](https://github.com/FoundationDB/fdb-record-layer/pull/4827)
+* Bump minor version to 4.19 - [PR #4895](https://github.com/FoundationDB/fdb-record-layer/pull/4895)
+* Add an index maintainer scenario testing framework - [PR #4761](https://github.com/FoundationDB/fdb-record-layer/pull/4761)
+* Bump soupsieve from 3.0.4 to 4.0 in /docs/sphinx - [PR #4888](https://github.com/FoundationDB/fdb-record-layer/pull/4888)
+* Bump gradle/actions/setup-gradle from 6.4.0 to 6.4.1 in /actions/setup-base-env - [PR #4887](https://github.com/FoundationDB/fdb-record-layer/pull/4887)
+* Bump certifi from 2026.10.19 to 2026.10.23 in /docs/sphinx - [PR #4886](https://github.com/FoundationDB/fdb-record-layer/pull/4886)
+* Bump gradle/actions/dependency-submission from 6.4.0 to 6.4.1 - [PR #4885](https://github.com/FoundationDB/fdb-record-layer/pull/4885)
+* Fix test for verifying partition - [PR #4867](https://github.com/FoundationDB/fdb-record-layer/pull/4867)
+
+</details>
+
+
+**[Full Changelog (4.18.7.0...4.19.1.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.18.7.0...4.19.1.0)**
+
+<h4> Mixed Mode Test Results </h4>
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.16.1.0`, ❌`4.16.3.0`, ❌`4.16.4.0`, ❌`4.17.1.0`, ❌`4.17.2.0`, ❌`4.18.1.0`, ❌`4.18.3.0`, ✅`4.18.4.0`, ✅`4.18.5.0`, ✅`4.18.7.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/44073954952)
+
+
+
 {#release-4-18}
 
 ## 4.18
