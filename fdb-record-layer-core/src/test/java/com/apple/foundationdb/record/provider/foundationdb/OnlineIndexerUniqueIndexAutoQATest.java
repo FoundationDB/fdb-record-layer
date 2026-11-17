@@ -22,15 +22,11 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
-import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
-import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase.RecordMetaDataHook;
-import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.tuple.Tuple;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -43,7 +39,6 @@ import java.util.Set;
 import java.util.function.LongFunction;
 import java.util.stream.LongStream;
 
-import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
@@ -199,50 +194,5 @@ class OnlineIndexerUniqueIndexAutoQATest extends OnlineIndexerTest {
         }
         assertReadableWithNoViolations(index);
         scrubAndValidate(List.of(index));
-    }
-
-    @Test
-    void deleteRecordsWhereRemovesViolationsOfDeletedRecords() {
-        // BUG AQA-3: StandardIndexMaintainer.deleteWhere clears only the index range, not the uniqueness violations of the
-        // deleted records, so a READABLE_UNIQUE_PENDING index can never become READABLE. Spec: FDBRecordStoreBase
-        // deleteRecordsWhere javadoc, "Delete records and associated index entries"; IndexStateCommitCheck javadoc.
-        // deleteRecordsWhere deletes "records and associated index entries". The uniqueness violations of the deleted
-        // records must go too, otherwise the READABLE_UNIQUE_PENDING index keeps violations no record write can resolve.
-        final Index index = new Index("path_str_unique", concat(field("header").nest("path"), field("str_value")),
-                EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
-        final RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.getRecordType("MyRecord")
-                .setPrimaryKey(concat(field("header").nest("path"), field("header").nest("rec_no")));
-        openMetaData(TestRecordsWithHeaderProto.getDescriptor(), hook);
-        try (FDBRecordContext context = openContext()) {
-            for (long recNo = 0; recNo < 2; recNo++) {
-                for (String path : List.of("a", "b")) {
-                    recordStore.saveRecord(TestRecordsWithHeaderProto.MyRecord.newBuilder()
-                            .setHeader(TestRecordsWithHeaderProto.HeaderRecord.newBuilder().setPath(path).setRecNo(recNo))
-                            .setStrValue(path.equals("a") ? "dup" : "x" + recNo)
-                            .build());
-                }
-            }
-            context.commit();
-        }
-        openMetaData(TestRecordsWithHeaderProto.getDescriptor(), hook.andThen(metaDataBuilder ->
-                metaDataBuilder.addIndex("MyRecord", index)));
-        disableAll(List.of(index));
-        try (OnlineIndexer indexer = newIndexerBuilder(index)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder().allowUniquePendingState())
-                .build()) {
-            indexer.buildIndex();
-        }
-        try (FDBRecordContext context = openContext()) {
-            assertThat(recordStore.getIndexState(index).isReadableUniquePending()).isTrue();
-            assertThat(recordStore.scanUniquenessViolations(index).getCount().join()).isEqualTo(2);
-            recordStore.deleteRecordsWhere(Query.field("header").matches(Query.field("path").equalsValue("a")));
-            context.commit();
-        }
-        try (FDBRecordContext context = openContext()) {
-            assertThat(recordStore.scanRecords(null, ScanProperties.FORWARD_SCAN).getCount().join()).isEqualTo(2);
-            assertThat(recordStore.scanUniquenessViolations(index).map(RecordIndexUniquenessViolation::getPrimaryKey)
-                    .asList().join()).isEmpty();
-            context.commit();
-        }
     }
 }

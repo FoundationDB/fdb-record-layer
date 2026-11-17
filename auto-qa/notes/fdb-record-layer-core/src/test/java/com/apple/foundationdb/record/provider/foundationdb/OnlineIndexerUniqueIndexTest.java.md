@@ -14,6 +14,7 @@
 - deleteRecordsWhere on a RUP unique index prefixed by the delete key: violations of deleted records are NOT removed (StandardIndexMaintainer.deleteWhere clears only the index range). CANDIDATE_BUG (test deleteRecordsWhereRemovesViolationsOfDeletedRecords). Pre-existing, not from #4828, but leaves the RUP index stuck.
 - Already covered upstream by FDBRecordStoreUniqueIndexTest (commit 65f9c37bc): resolve by delete/update one per txn, two indexes together, new violation in same txn, write-only states stay write-only, replaced-index interplay.
 ## Rejected
+- deleteRecordsWhere does not remove the uniqueness violations of deleted records (AQA-3): rejected by the team, see AQA-3 in auto-qa/rejected.md on the caught branch
 - (none)
 ## Untried
 - deleteAllRecords on a RUP index: violations cleared but state stays RUP (javadoc says index states are kept; probably intended, check rebuildAllIndexes interplay).

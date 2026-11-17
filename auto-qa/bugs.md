@@ -18,7 +18,7 @@
   allowTakeoverContinue(false) is a workaround.
 
 ## AQA-3: deleteRecordsWhere leaves uniqueness violations of deleted records behind
-- status: open
+- status: rejected (see auto-qa/rejected.md on CAUGHT)
 - found: 2026-11-16
 - test: fdb-record-layer-core/src/test/java/com/apple/foundationdb/record/provider/foundationdb/OnlineIndexerUniqueIndexAutoQATest.java#deleteRecordsWhereRemovesViolationsOfDeletedRecords
 - spec: FDBRecordStoreBase.deleteRecordsWhere javadoc: "Delete records and associated index entries matching a query filter"; IndexStateCommitCheck javadoc (READABLE_UNIQUE_PENDING becomes READABLE once violations are resolved)
