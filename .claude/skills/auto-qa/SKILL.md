@@ -1,7 +1,7 @@
 ---
 name: auto-qa
-description: Run one iteration of the automated QA bug hunt. Writes new tests for a batch of existing test files on the shared apple/jjezra/auto-qa-search branch, verifies suspected bugs, and copies confirmed bug-found tests to apple/jjezra/auto-qa-caught. Usage - /auto-qa [FOCUS] [batch=<n>] [push=no], /auto-qa check-fixed to only re-check known bugs, or /auto-qa reject AQA-<n> [reason] to reject a confirmed bug
-argument-hint: "[FOCUS] [batch=<n>] [push=no] | check-fixed | reject AQA-<n> [reason]"
+description: Run one iteration of the automated QA bug hunt (/auto-qa help for usage). Writes new tests for a batch of existing test files on the shared apple/jjezra/auto-qa-search branch, verifies suspected bugs, and copies confirmed bug-found tests to apple/jjezra/auto-qa-caught. Usage - /auto-qa [FOCUS] [batch=<n>] [push=no], /auto-qa check-fixed to only re-check known bugs, or /auto-qa reject AQA-<n> [reason] to reject a confirmed bug
+argument-hint: "help | [FOCUS] [batch=<n>] [push=no] | check-fixed | reject AQA-<n> [reason]"
 disable-model-invocation: true
 ---
 
@@ -32,6 +32,13 @@ Arguments: `$ARGUMENTS`
   - rejected: <date> by <who>
   - reason: <why it will not be fixed>
   ```
+- FIX_IMPORTS = `<git dir>/auto-qa-fix-unused-imports.py`, a copy of
+  `auto-qa/fix-unused-imports.py` made in step A.1 (the SEARCH and CAUGHT branches may not
+  contain the tooling). **Removing tests:** whenever you delete tests from a companion file
+  (steps A.5b, A.7, D, F.3, R.5), afterwards run the module's `checkstyleTest` with its output
+  saved to a file, run `python3 FIX_IMPORTS <that file>` to drop the imports it reports as
+  unused, and run `checkstyleTest` again until it passes. Remove unused private helpers by
+  hand if SpotBugs reports them.
 
 ## Permissions
 
@@ -42,6 +49,9 @@ yourself on an unexpected branch, stop and report.
 
 ## Parse the arguments
 
+- If the first word is `help`, `--help` or `-h`, this is HELP MODE: print the text in section
+  "H. Help" exactly as written, and do nothing else (no lock, no git commands, no Gradle, no
+  agents). These words are therefore never a FOCUS.
 - If the first word is `reject`, this is REJECT MODE: follow section "R. Reject mode" below
   instead of steps A-G. The rest of the arguments are one or more `AQA-<n>` ids, optionally
   followed by `push=no`, then the REASON (all remaining text). `reject` is therefore never a
@@ -79,7 +89,7 @@ release the lock).
    in this checkout. If it is older, remove it and mention that in the report. Then create
    it containing the start time and `hostname`.
 1. Remember the current branch as START_BRANCH. If `git status --porcelain` is not empty,
-   stop (release the lock first).
+   stop (release the lock first). Copy `auto-qa/fix-unused-imports.py` to FIX_IMPORTS.
 2. **Find UPSTREAM:** the remote from `git remote -v` whose URL contains
    `FoundationDB/fdb-record-layer`. If none, stop. `git fetch UPSTREAM`.
 3. Check out SEARCH. If it doesn't exist locally, use `UPSTREAM/SEARCH` if it exists,
@@ -309,3 +319,56 @@ will not be fixed, and apply it to both branches now. No bug hunting happens in 
 7. **PR.** If PUSH = yes, update the caught PR description as in F.7.
 8. **Report** (`Auto QA reject report`: ids rejected, ids skipped, reason, who, pushed
    yes/no), then do G.2 and G.3.
+
+## H. Help
+
+Print exactly this (between the markers), then stop:
+
+<!-- HELP START -->
+```
+/auto-qa - automated QA: hunts for bugs by writing new tests for existing test files
+
+USAGE
+  /auto-qa help                      Show this help. Does nothing else.
+  /auto-qa [FOCUS] [batch=<n>]       One bug-hunting iteration (default: 5 test files).
+           [push=no]                 push=no: commit locally only, no push, no PR update.
+  /auto-qa check-fixed [push=no]     Only rebase and re-check known bugs (cheap, no hunting).
+  /auto-qa reject AQA-<n> [reason]   Mark a confirmed bug as "won't fix" (asks for the reason
+                                     if missing). Several ids may share one reason.
+
+FOCUS (optional, one word; picks which test files are candidates)
+  yaml                               .yamsql files under yaml-tests/
+  <module>                           e.g. fdb-relational-core
+  <package or path>                  e.g. com.apple.foundationdb.record.query.plan
+  <keyword>                          e.g. OnlineIndexer (file or tested class name)
+
+EXAMPLES
+  /auto-qa                           /auto-qa OnlineIndexer batch=2 push=no
+  /auto-qa yaml                      /auto-qa reject AQA-3 deleteWhere is not transactional
+
+WHAT ONE ITERATION DOES
+  1. Rebases apple/jjezra/auto-qa-search on main; re-checks known bugs (fixed upstream,
+     regressed) and applies rejections.
+  2. Picks test files: changed code first, then never-visited files, then untried ideas.
+  3. A worker agent writes 1-5 tests per file in a companion *AutoQATest.java /
+     *-auto-qa.yamsql file; failing tests become candidate bugs.
+  4. An independent verifier agent tries to prove each candidate wrong.
+  5. Confirmed bugs get an AQA-<n> id and are copied to apple/jjezra/auto-qa-caught,
+     whose permanent draft PR re-runs them in CI.
+
+WHERE THINGS ARE
+  auto-qa/bugs.md, progress.md, notes/   on apple/jjezra/auto-qa-search
+  auto-qa/rejected.md                    on apple/jjezra/auto-qa-caught (won't-fix list)
+  Draft PR "Auto QA: tests that expose known bugs"   open, fixed and rejected bugs
+
+TRIGGERING
+  Interactive   type /auto-qa in a Claude Code session; preferably in a dedicated checkout
+                (e.g. ~/.auto-qa/fdb-record-layer), since it switches branches.
+  Repeating     /loop 2h /auto-qa       (only while that session stays open)
+  Scheduled     auto-qa/run.sh [args]   from cron or launchd, e.g. nightly
+                `auto-qa/run.sh check-fixed` plus a full hunt every few days. It uses its
+                own checkout, a tool allow-list, a 4h timeout, and logs to ~/.auto-qa/logs.
+                Needs JDK 21, a running FDB, and git/gh logged in to github.com.
+  CI            a scheduled job calling auto-qa/run.sh (needs FDB and an API key).
+```
+<!-- HELP END -->
