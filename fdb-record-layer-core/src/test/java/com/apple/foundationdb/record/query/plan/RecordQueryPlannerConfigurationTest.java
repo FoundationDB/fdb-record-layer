@@ -94,6 +94,7 @@ class RecordQueryPlannerConfigurationTest {
         NORMALIZE_NESTED_FIELDS(RecordQueryPlannerConfiguration.Builder::setNormalizeNestedFields, RecordQueryPlannerConfiguration::shouldNormalizeNestedFields),
         OMIT_PRIMARY_KEY_IN_ORDERING_KEY_FOR_IN_UNION(RecordQueryPlannerConfiguration.Builder::setOmitPrimaryKeyInOrderingKeyForInUnion, RecordQueryPlannerConfiguration::shouldOmitPrimaryKeyInOrderingKeyForInUnion),
         JOIN_RIGHT_DEEP(RecordQueryPlannerConfiguration.Builder::setJoinRightDeep, RecordQueryPlannerConfiguration::shouldJoinRightDeep),
+        CONSIDER_SYNTHETIC_RECORD_TYPE_INDEXES(RecordQueryPlannerConfiguration.Builder::setConsiderSyntheticRecordTypeIndexes, RecordQueryPlannerConfiguration::shouldConsiderSyntheticRecordTypeIndexes),
         ;
 
         private final BiFunction<RecordQueryPlannerConfiguration.Builder, Boolean, RecordQueryPlannerConfiguration.Builder> setter;
