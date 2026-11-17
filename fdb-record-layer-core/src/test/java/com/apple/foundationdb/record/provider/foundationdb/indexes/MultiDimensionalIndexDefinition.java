@@ -46,7 +46,6 @@ class MultiDimensionalIndexDefinition implements IndexDefinition {
     @Override
     public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int ordinal) {
         return TestRecordsIndexScenariosProto.IndexedMessage.newBuilder()
-                .setStringValue("constant")
                 .setLongValue(100L * ordinal)
                 .setLongValue2(100L * ordinal + 50L)
                 .build();
@@ -54,15 +53,11 @@ class MultiDimensionalIndexDefinition implements IndexDefinition {
 
     @Override
     public Index buildIndex(final IndexTarget target) {
-        // The R-tree always needs a (non-empty) dimensions prefix; use string_value as the base and prepend
-        // the group prefix when grouped, so deleteRecordsWhere can clear a whole group (whose column is at
-        // the front of, and no longer than, the dimensions prefix).
-        final KeyExpression prefix = target.prefixed(target.indexedField(ScenarioRecords.STRING_VALUE));
         final KeyExpression dimensions = concat(
                 target.indexedField(ScenarioRecords.LONG_VALUE),
                 target.indexedField(ScenarioRecords.LONG_VALUE_2));
         return new Index(ScenarioRecords.INDEX_NAME,
-                DimensionsKeyExpression.of(prefix, dimensions),
+                DimensionsKeyExpression.of(target.groupingPrefix(), dimensions),
                 IndexTypes.MULTIDIMENSIONAL,
                 Map.of(IndexOptions.RTREE_STORAGE, BY_NODE.toString(),
                         IndexOptions.RTREE_STORE_HILBERT_VALUES, "true"));
