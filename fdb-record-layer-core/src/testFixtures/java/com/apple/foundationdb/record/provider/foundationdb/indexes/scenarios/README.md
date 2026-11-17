@@ -9,7 +9,7 @@ So far a few limitations have been found:
 
 ### `COUNT_UPDATES`
 
-Some of the existing tests are based on the idea that rebuilding the index should result in the same resulting data. This is not true for `COUNT_UPDATES`, and notably `InsertWhileWriteOnlyAlreadyIndexed` has special handling for `COUNT_UPDATES`, which is not great. In theory there is some abstraction akin to `This index type tracks updates`, which could also be applicable if we added a change-tracking index.
+Some of the scenarios rely on rebuilding the index giving the same data as maintaining it. That is not true for `COUNT_UPDATES` when a record is saved twice, because it counts every save. Definitions say whether saving an unchanged record leaves the index unchanged through `IndexDefinition.ignoresUnchangedSaves()`, and `InsertWhileWriteOnlyAlreadyIndexed` uses that to skip its final comparison. The flag only covers repeated saves; a change-tracking index, or deletes with `MAX_EVER`/`MIN_EVER` (below), would need something broader.
 
 ### TimeWindowLeaderboard
 

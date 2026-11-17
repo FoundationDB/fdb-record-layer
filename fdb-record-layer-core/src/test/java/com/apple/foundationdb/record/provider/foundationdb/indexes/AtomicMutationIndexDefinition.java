@@ -68,4 +68,10 @@ class AtomicMutationIndexDefinition implements IndexDefinition {
         return store.scanIndex(index,
                 new IndexScanRange(IndexScanType.BY_GROUP, TupleRange.ALL), null, scanProperties);
     }
+
+    @Override
+    public boolean ignoresUnchangedSaves() {
+        // COUNT_UPDATES counts every save of a record, whether or not the record changed.
+        return !IndexTypes.COUNT_UPDATES.equals(indexType);
+    }
 }

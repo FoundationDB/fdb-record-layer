@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios;
 
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexState;
-import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
@@ -70,11 +69,9 @@ public class InsertWhileWriteOnlyAlreadyIndexed implements IndexScenario {
         final List<IndexEntry> actual = model.scanIndex();
         model.markIndexDisabled();
         model.buildIndex();
-        // A COUNT_UPDATES index counts every save, so saving the records a second time rightly leaves it
-        // with higher counts than a rebuild, which sees each record once. Comparing them would need a way
-        // for a definition to say that its index depends on the history of saves, not just the current
-        // records.
-        if (!model.getIndex().getType().equals(IndexTypes.COUNT_UPDATES)) {
+        // The second save of each record only leaves the index matching a rebuild, which sees each record
+        // once, if the index ignores unchanged saves.
+        if (definition.ignoresUnchangedSaves()) {
             model.assertScanResultsEqual(model.scanIndex(), actual);
         }
     }
