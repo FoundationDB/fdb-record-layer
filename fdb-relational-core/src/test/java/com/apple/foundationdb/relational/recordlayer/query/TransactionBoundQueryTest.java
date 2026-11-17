@@ -50,6 +50,7 @@ import com.apple.foundationdb.relational.recordlayer.storage.BackingStore;
 import com.apple.foundationdb.relational.transactionbound.TransactionBoundEmbeddedRelationalEngine;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
 import com.apple.foundationdb.relational.utils.RelationalResultSetAssert;
+import com.apple.foundationdb.relational.utils.ResultSetAssert;
 
 import com.google.protobuf.Descriptors;
 import org.assertj.core.api.Assertions;
@@ -249,6 +250,11 @@ public class TransactionBoundQueryTest {
 
                 connection.setOption(Options.Name.CONSIDER_SYNTHETIC_RECORD_TYPE_INDEXES, true);
                 try (RelationalStatement statement = connection.createStatement()) {
+                    statement.executeUpdate("INSERT INTO T2 VALUES " +
+                            "(1, 1, 'foo', [('bar', 10), ('baz', 20)]), " +
+                            "(2, 2, 'foo', [('baz', 30)]), " +
+                            "(3, 3, 'qux', [('bar', 40)])");
+
                     String sqlQuery = "SELECT e.value " +
                             "FROM t2, (SELECT key, value FROM t2.d) e " +
                             "WHERE t2.c = 'foo' AND e.key = 'bar'";
@@ -257,9 +263,15 @@ public class TransactionBoundQueryTest {
                                 .hasNextRow();
                         Assertions.assertThat(resultSet.getString("plan"))
                                 .as("Planner should select the index on the unnested synthetic record type and bind both equalities")
-                                .containsPattern("COVERING\\(unnestedIndex \\[EQUALS [^,]+, EQUALS [^]]+\\]")
-                                .doesNotContain("ISCAN(cIndex");
+                                .contains("COVERING", "unnestedIndex")
+                                .doesNotContain("ISCAN", "cIndex", "aIndex");
                         RelationalResultSetAssert.assertThat(resultSet)
+                                .hasNoNextRow();
+                    }
+                    try (RelationalResultSet resultSet = statement.executeQuery(sqlQuery)) {
+                        ResultSetAssert.assertThat(resultSet)
+                                .hasNextRow()
+                                .isRowExactly(10L)
                                 .hasNoNextRow();
                     }
                 }
