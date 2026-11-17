@@ -29,6 +29,11 @@ import com.google.protobuf.Message;
 import java.util.List;
 import java.util.function.Supplier;
 
+/**
+ * Saves records with the index readable, so that the index is maintained as each record is written, then
+ * disables the index and rebuilds it with the {@link com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer},
+ * and verifies that the rebuilt index matches the maintained one.
+ */
 @AutoService(IndexScenario.class)
 public class RebuildIndex implements IndexScenario {
 
