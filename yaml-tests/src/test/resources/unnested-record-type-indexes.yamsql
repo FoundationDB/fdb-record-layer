@@ -20,6 +20,8 @@
 ---
 options:
   supported_version: !current_version
+  connection_options:
+    CONSIDER_SYNTHETIC_RECORD_TYPE_INDEXES: true
 ---
 # `mv_split` requires a synthetic record type: `reviewer` and `rating` both come from one review, but `region` (a
 # column of the parent row) sits between them.

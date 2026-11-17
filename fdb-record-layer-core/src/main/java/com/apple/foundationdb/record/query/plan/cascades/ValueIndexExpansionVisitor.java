@@ -156,18 +156,19 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
         // the instantiation of the type filter below to create a placeholder for the record type key parameter
         // alias and reuse it here. Similar to what we currently do for primary scans.
         //
-        @Nullable final GraphExpansion baseExpansion =
-                syntheticRecordTypeMaybe(queriedRecordTypes).map(recordType -> recordType.expand(accessHint)).orElse(null);
+        final Optional<GraphExpansion> baseExpansionMaybe =
+                syntheticRecordTypeMaybe(queriedRecordTypes).map(recordType -> recordType.expand(accessHint));
         final var allExpansionsBuilder = ImmutableList.<GraphExpansion>builder();
         final Quantifier.ForEach baseQuantifier;
         final Value baseObjectValue;
-        if (baseExpansion == null) {
+        if (baseExpansionMaybe.isEmpty()) {
             baseQuantifier = Quantifier.forEach(ExpansionVisitor.createBaseRef(availableRecordTypeNames,
                     queriedRecordTypeNames, baseType, null, accessHint));
             baseObjectValue = baseQuantifier.getFlowedObjectValue();
             // add the value for the flow of records
             allExpansionsBuilder.add(GraphExpansion.ofQuantifier(baseQuantifier));
         } else {
+            final var baseExpansion = baseExpansionMaybe.get();
             // the base expansion's own quantifiers reach the graph when the key expansion is merged into it
             baseQuantifier = Quantifier.forEach(Reference.initialOf(baseExpansion.seal().buildSelect()));
             baseObjectValue = RecordConstructorValue.ofColumns(baseExpansion.getResultColumns());
@@ -269,7 +270,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
         }
 
         final var sealedExpansion = mergeWithBaseIfNeeded(
-                baseExpansion,
+                baseExpansionMaybe.orElse(null),
                 GraphExpansion.ofOthers(allExpansionsBuilder.build()),
                 baseQuantifier)
                 .seal();
