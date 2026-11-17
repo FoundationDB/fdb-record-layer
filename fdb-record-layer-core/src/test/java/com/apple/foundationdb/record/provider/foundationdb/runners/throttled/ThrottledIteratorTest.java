@@ -826,8 +826,8 @@ class ThrottledIteratorTest extends FDBRecordStoreTestBase {
         }
 
         // Only first future in the list, none other was created since the first one didn't complete
+        assertThatThrownBy(() -> future.get(10, TimeUnit.SECONDS)).hasCauseInstanceOf(FDBDatabaseRunner.RunnerClosed.class);
         assertThat(future).isCompletedExceptionally();
-        assertThatThrownBy(() -> future.get()).hasCauseInstanceOf(FDBDatabaseRunner.RunnerClosed.class);
         // Overall status is failed because we can't runAsync() anymore
         assertThatThrownBy(iterateAll::join).hasCauseInstanceOf(FDBDatabaseRunner.RunnerClosed.class);
         // Cursor is closed
