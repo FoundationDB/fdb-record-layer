@@ -115,6 +115,18 @@ public interface IndexDefinition {
     }
 
     /**
+     * Whether saving a record again, unchanged, leaves the index unchanged. This holds for most index types,
+     * whose entries depend only on the records' current contents, so that an index maintained through such
+     * saves matches one rebuilt from scratch. Return {@code false} for index types that record each save, for
+     * example {@code COUNT_UPDATES}, which counts every save of a record, whether or not the record changed.
+     *
+     * @return {@code true} if saving an unchanged record does not change the index
+     */
+    default boolean ignoresUnchangedSaves() {
+        return true;
+    }
+
+    /**
      * Apply any per-store configuration the index needs. This is called on every store the scenarios
      * open, immediately after {@code createOrOpen}, because these settings live on the store instance
      * rather than in the metadata. For example a Lucene index wants
