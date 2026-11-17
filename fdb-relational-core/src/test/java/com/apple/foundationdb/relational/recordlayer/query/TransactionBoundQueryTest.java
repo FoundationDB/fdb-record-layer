@@ -247,6 +247,7 @@ public class TransactionBoundQueryTest {
                                         .doesNotContain("unnestedIndex")
                         );
 
+                connection.setOption(Options.Name.CONSIDER_SYNTHETIC_RECORD_TYPE_INDEXES, true);
                 try (RelationalStatement statement = connection.createStatement()) {
                     String sqlQuery = "SELECT e.value " +
                             "FROM t2, (SELECT key, value FROM t2.d) e " +
