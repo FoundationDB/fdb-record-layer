@@ -98,3 +98,35 @@
 - spec: getQueueCursor javadoc: "row/byte/skip limits are still honored at the entry level"
 - details: the inner cursor clears skip and nothing applies it again (FDBRecordStore.scanRecords adds .skip()).
   The core class queue/PendingWritesQueue has the same code and likely the same bug (not tested).
+
+## AQA-13: Geospatial distance scan throws NPE when the R-tree holds a record without a location
+- status: open
+- found: 2026-11-17
+- test: fdb-record-layer-core/src/test/java/com/apple/foundationdb/record/provider/foundationdb/indexes/GeospatialRTreeIndexAutoQATest.java#withinDistanceWithNullLocationRecordInMultiLevelTreeSkipsNullPoint
+- spec: GeospatialRTreeIndexMaintainer.encodePoint javadoc: "A null coordinate is preserved as null"
+- details: RTree.Rectangle.unionWith keeps null as a node MBR low; GeospatialRTreeScanBounds.overlapsMbrApproximately
+  (~154) calls longValue() on it without a null check (containsPosition does check). New in #4355.
+
+## AQA-14: Geospatial withinDistance with radius 0 misses the center cell when the center is off the precision grid
+- status: open
+- found: 2026-11-17
+- test: fdb-record-layer-core/src/test/java/com/apple/foundationdb/record/provider/foundationdb/indexes/GeospatialRTreeIndexAutoQATest.java#withinDistanceZeroRadiusMatchesPointInCenterCell
+- spec: GeospatialRTreeScanBounds.withinDistance javadoc: "non-positive values match only the exact center cell"
+- details: pruning selects the center cell, but containsPosition compares the quantized stored point with the raw
+  center (haversine <= 0), so e.g. lat 0.12345678 at precision 7 matches nothing. New in #4355.
+
+## AQA-15: Geospatial withinDistance with radius 0 at longitude +180 prunes a point stored at +180
+- status: open
+- found: 2026-11-17
+- test: fdb-record-layer-core/src/test/java/com/apple/foundationdb/record/provider/foundationdb/GeospatialRTreeScanBoundsAutoQATest.java#withinDistanceZeroRadiusAtAntimeridianMatchesCenterStoredAsPlus180
+- spec: overlapsMbrApproximately javadoc (only false positives, removed by containsPosition); withinDistance javadoc
+- details: the center is normalized to [-180, 180), so +180 becomes -180 and the single rectangle never overlaps a
+  point encoded at +180, although containsPosition accepts it. New in #4355.
+
+## AQA-16: GeospatialWithinDistanceComponent evaluates against the top-level record when nested
+- status: open
+- found: 2026-11-17
+- test: fdb-record-layer-core/src/test/java/com/apple/foundationdb/record/query/expressions/GeospatialWithinDistanceComponentAutoQATest.java#nestedComponentEvaluatesAgainstNestedMessage
+- spec: QueryComponent.evalMessage javadoc: "If the key expression is meaningful against a subrecord, it should evaluate against the message."
+- details: evalMessage calls coordinatesExpression.evaluateSingleton(rec) and ignores message, so
+  Query.field("location").matches(<geo component>) never matches; validate() accepts the nested form. New in #4355.
