@@ -65,12 +65,6 @@ public class LuceneScanQuery extends LuceneScanBounds {
         this(scanType, groupKey, query, sort, storedFields, storedFieldTypes, luceneQueryHighlightParameters, termMap, false);
     }
 
-    /**
-     * Create a scan of a {@code LUCENE} index.
-     *
-     * @param includeScoreValue whether to include the Lucene score in the returned entries, see
-     * {@link LuceneRecordCursor.ScoreDocIndexEntry#getScore()}
-     */
     public LuceneScanQuery(@Nonnull final IndexScanType scanType, @Nonnull final Tuple groupKey,
                            @Nonnull final Query query, @Nullable final Sort sort, @Nullable final List<String> storedFields,
                            @Nullable final List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes,
@@ -78,7 +72,6 @@ public class LuceneScanQuery extends LuceneScanBounds {
                            @Nullable final Map<String, Set<String>> termMap,
                            final boolean includeScoreValue) {
         super(scanType, groupKey);
-        validateScoreValueSupported(sort, includeScoreValue);
         this.query = query;
         this.sort = sort;
         this.storedFields = storedFields;

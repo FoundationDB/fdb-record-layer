@@ -617,22 +617,6 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     }
 
     /**
-     * The Lucene relevance score of a hit of a search that is ranked by relevance. When the search has a sort, Lucene
-     * does not populate {@link ScoreDoc#score} and the score is the value of the leading (score) sort field instead.
-     */
-    private float relevanceScore(@Nonnull ScoreDoc scoreDoc) {
-        if (sort == null) {
-            return scoreDoc.score;
-        }
-        final Object leadingSortValue = ((FieldDoc)scoreDoc).fields[0];
-        if (!(leadingSortValue instanceof Float)) {
-            throw new RecordCoreException("expected a score as the leading sort value")
-                    .addLogInfo("sortValue", leadingSortValue);
-        }
-        return (Float)leadingSortValue;
-    }
-
-    /**
      * An IndexEntry based off a Lucene ScoreDoc.
      */
     public static final class ScoreDocIndexEntry extends IndexEntry {
@@ -690,7 +674,6 @@ public class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                                    @Nullable Float score) {
             super(index, key, TupleHelpers.EMPTY);
             this.scoreDoc = scoreDoc;
-            this.score = score;
             this.luceneQueryHighlightParameters = luceneQueryHighlightParameters;
             this.termMap = termMap;
             this.analyzerSelector = analyzerSelector;

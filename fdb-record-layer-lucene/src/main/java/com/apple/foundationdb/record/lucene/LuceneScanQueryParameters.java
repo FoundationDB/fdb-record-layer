@@ -119,8 +119,6 @@ public class LuceneScanQueryParameters extends LuceneScanParameters implements P
                                      @Nullable LuceneQueryHighlightParameters luceneQueryHighlightParameters,
                                      boolean includeScoreValue) {
         super(LuceneScanTypes.BY_LUCENE, groupComparisons);
-        LuceneScanQuery.validateScoreValueSupported(sort, includeScoreValue);
-        this.includeScoreValue = includeScoreValue;
         this.query = query;
         this.sort = sort;
         this.storedFields = storedFields;
@@ -157,7 +155,7 @@ public class LuceneScanQueryParameters extends LuceneScanParameters implements P
     public int planHash(@Nonnull PlanHashMode mode) {
         final String sortString = sort == null ? null : sort.toString(); // `Sort.hashCode` ends up hashing an enum so the hash would not be stable
         if (includeScoreValue) {
-            // the flag is only part of the hash when set, so that the hash of existing plans does not change
+            // the includeScoreValue is only part of the hash when set, so that the hash of existing plans does not change
             return PlanHashable.objectsPlanHash(mode, BASE_HASH, scanType, groupComparisons, query, sortString,
                     storedFields, storedFieldTypes, includeScoreValue);
         } else {

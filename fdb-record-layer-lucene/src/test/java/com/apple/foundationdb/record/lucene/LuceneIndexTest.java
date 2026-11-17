@@ -2183,6 +2183,13 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
         }
     }
 
+    static Stream<Sort> partitionedSorts() {
+        return Stream.of(
+                null,
+                new Sort(new SortField("timestamp", SortField.Type.LONG, true)),
+                new Sort(SortField.FIELD_SCORE, new SortField("timestamp", SortField.Type.LONG, true)));
+    }
+
     @ParameterizedTest
     @MethodSource("partitionedSorts")
     void scoreInPartitionedIndex(@Nullable Sort sort) {
@@ -2202,13 +2209,6 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
             onePage.values().forEach(score -> assertTrue(Float.isFinite(score) && score >= 0, "score " + score));
             assertEquals(onePage, paged);
         }
-    }
-
-    static Stream<Sort> partitionedSorts() {
-        return Stream.of(
-                null,
-                new Sort(new SortField("timestamp", SortField.Type.LONG, true)),
-                new Sort(SortField.FIELD_SCORE, new SortField("timestamp", SortField.Type.LONG, true)));
     }
 
     private void setTimestamps() {
@@ -2367,7 +2367,6 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
             saveScoredDocuments(context, index);
             final Map<Tuple, Float> scores = scoresByPrimaryKey(index, scoredSearch(index, "vision", RELEVANCE_THEN_PRIMARY_KEY, true), 100);
             assertEquals(Set.of(Tuple.from(1L), Tuple.from(2L), Tuple.from(3L), Tuple.from(5L)), scores.keySet());
-            // Lucene does not populate ScoreDoc.score for a sorted search, the score has to come from the sort values
             scores.values().forEach(score -> assertTrue(Float.isFinite(score) && score > 0, "score " + score));
             final List<Float> inOrder = new ArrayList<>(scores.values()); // ScoresByPrimaryKey returns the items' score in their sort order
             assertTrue(Comparators.isInOrder(inOrder, Comparator.<Float>naturalOrder().reversed()), "scores " + inOrder);
@@ -2425,7 +2424,7 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
     }
 
     @Test
-    void scoreEquelsHashCode() {
+    void scoreEqualsHashCode() {
         final var clause = new LuceneQueryMultiFieldSearchClause(LuceneQueryType.QUERY, "vision", false);
         final var without = new LuceneScanQueryParameters(ScanComparisons.EMPTY, clause, null, null, null, null, false);
         final var with = new LuceneScanQueryParameters(ScanComparisons.EMPTY, clause, null, null, null, null, true);
