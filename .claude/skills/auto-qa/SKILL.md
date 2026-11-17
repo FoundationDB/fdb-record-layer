@@ -1,7 +1,7 @@
 ---
 name: auto-qa
-description: Run one iteration of the automated QA bug hunt. Writes new tests for a batch of existing test files on the shared apple/jjezra/auto-qa-search branch, verifies suspected bugs, and copies confirmed bug-found tests to apple/jjezra/auto-qa-caught. Usage - /auto-qa [FOCUS] [batch=<n>] [push=no], or /auto-qa reject AQA-<n> [reason] to reject a confirmed bug
-argument-hint: "[FOCUS] [batch=<n>] [push=no] | reject AQA-<n> [reason]"
+description: Run one iteration of the automated QA bug hunt. Writes new tests for a batch of existing test files on the shared apple/jjezra/auto-qa-search branch, verifies suspected bugs, and copies confirmed bug-found tests to apple/jjezra/auto-qa-caught. Usage - /auto-qa [FOCUS] [batch=<n>] [push=no], /auto-qa check-fixed to only re-check known bugs, or /auto-qa reject AQA-<n> [reason] to reject a confirmed bug
+argument-hint: "[FOCUS] [batch=<n>] [push=no] | check-fixed | reject AQA-<n> [reason]"
 disable-model-invocation: true
 ---
 
@@ -46,6 +46,10 @@ yourself on an unexpected branch, stop and report.
   instead of steps A-G. The rest of the arguments are one or more `AQA-<n>` ids, optionally
   followed by `push=no`, then the REASON (all remaining text). `reject` is therefore never a
   FOCUS.
+- If the first word is `check-fixed`, this is CHECK-FIXED MODE: a cheap run that only
+  rebases, re-checks known bugs, and updates the caught branch and PR, with no bug hunting.
+  Follow section "K. Check-fixed mode" below. Only `push=no` may follow. `check-fixed` is
+  therefore never a FOCUS.
 - `batch=<n>` -> BATCH_SIZE (default 5).
 - `push=no` -> PUSH = no: commit locally on both branches but do not push and do not create
   or update the PR. Use it for trial runs. Default PUSH = yes.
@@ -82,18 +86,40 @@ release the lock).
    otherwise create it from `UPSTREAM/main`. If the local branch exists and
    `UPSTREAM/SEARCH` is ahead of it, reset the local branch to `UPSTREAM/SEARCH` (the remote
    is the shared source of truth).
-4. `git rebase UPSTREAM/main`. Resolve conflicts; normally only the registrations in
-   `yaml-tests/src/test/java/YamlIntegrationTests.java` conflict (keep both sides).
+4. Remember PREV_BASE = `git merge-base SEARCH UPSTREAM/main` (the main commit the branch
+   was based on before this run). Then `git rebase UPSTREAM/main`. Resolve conflicts;
+   normally only the registrations in `yaml-tests/src/test/java/YamlIntegrationTests.java`
+   conflict (keep both sides).
 5. **Clean up after upstream changes:**
    a. For each companion file whose original test file no longer exists: delete the
       companion file (and its yamsql registration), its notes file, and its line in
       progress.md.
    b. For every module that has companion files, run `./gradlew :<module>:compileTestJava`.
       Fix compile errors in companion files only. Delete any test you cannot fix and record
-      why under "Rejected" in its notes file.
-6. **Bugs fixed upstream.** For each bug with status `open` in bugs.md, run its test. If it
-   passes 3 out of 3 times: set its status to `fixed upstream (<date>)`, change its comment
-   from `// BUG AQA-<n>:` to `// FIXED UPSTREAM AQA-<n>:`, and keep the test.
+      why under "Rejected" in its notes file. Remember every bug test (`// BUG` or
+      `// FIXED UPSTREAM`) whose code you changed here as REPAIRED.
+6. **Re-check known bugs.** Skip this step if PREV_BASE equals `UPSTREAM/main` (main did
+   not move, so nothing can have changed).
+   a. **Fixed upstream.** For each bug with status `open`, run its test. If it passes 3 out
+      of 3 times:
+      - If the test is in REPAIRED, do NOT mark it fixed: a repaired test may pass because
+        the repair changed what it checks. Keep it `open` and list it under "Needs review"
+        in the report.
+      - Otherwise find what fixed it: `git log --format='%h %s' PREV_BASE..UPSTREAM/main --
+        <production files>`, where the production files are the ones named in the bug's
+        details/spec, plus the "Production code" list in the test file's notes. Prefer the
+        PR number from a subject like `... (#4931)`; else the short commit hash; else the
+        range `PREV_BASE..<UPSTREAM/main short>`. Call it FIX.
+      - Set its status to `fixed upstream (<date>, <FIX>)`, change its comment from
+        `// BUG AQA-<n>:` to `// FIXED UPSTREAM AQA-<n> (<FIX>):`, and keep the test on SEARCH
+        as a regression test.
+      A test that passes 1 or 2 times out of 3 stays `open`; list it as flaky in the report.
+   b. **Regressions.** For each bug with status `fixed upstream ...`, run its test. If it
+      fails 3 out of 3 times, the bug is back: set its status to `open`, add a line
+      `- regressed: <date> (between PREV_BASE short and UPSTREAM/main short)`, keep the
+      earlier `fixed upstream` information in a line `- previously fixed: <FIX>`, and change
+      its comment back to `// BUG AQA-<n>: ... (regressed <date>)`. Step F copies it back to
+      CAUGHT. If it fails only sometimes, keep it fixed and list it as flaky in the report.
 7. **Rejected issues.** Read REJECTED_FILE from `UPSTREAM/CAUGHT` (or the local CAUGHT if
    the remote branch doesn't exist; skip if neither has the file). Remember its content as
    REJECTED. For each `AQA-<n>` in it whose status in bugs.md is not already `rejected`:
@@ -175,9 +201,11 @@ After each verifier, check that `git status` is unchanged; revert any leftovers.
    Auto QA[ [focus: <FOCUS>]]: <N> files, <M> tests, <K> new bugs
 
    AQA-<n>: <short summary>            (one line per new bug)
-   AQA-<n>: fixed upstream             (one line per bug fixed upstream in A.6)
+   AQA-<n>: fixed upstream (<FIX>)     (one line per bug fixed upstream in A.6a)
+   AQA-<n>: regressed                  (one line per bug that came back in A.6b)
    AQA-<n>: rejected                   (one line per bug newly rejected in A.7)
    ```
+   If nothing changed on SEARCH (possible in check-fixed mode), skip the commit.
 4. If PUSH = yes: `git push --force-with-lease UPSTREAM SEARCH`.
 
 ## F. Update the caught branch
@@ -201,9 +229,12 @@ After each verifier, check that `git status` is unchanged; revert any leftovers.
    listed with its AQA id, the branch is maintained by the auto-qa skill, and an issue can
    be rejected with `/auto-qa reject AQA-<n> <reason>` or by adding it to
    `auto-qa/rejected.md` on this branch.
-7. If PUSH = yes and the PR exists and the list of open bugs changed, update its description
-   (`gh pr edit`) so its table lists exactly the open bugs, plus a short list of rejected
-   ones with their reasons from REJECTED_FILE.
+7. If PUSH = yes and the PR exists and the list of open, fixed, or rejected bugs changed,
+   update its description (`gh pr edit`) so that it has:
+   - an "Open bugs" table listing exactly the open bugs (mark regressed ones as such);
+   - a "Fixed upstream" section: one line per fixed bug with its summary and FIX, so the
+     history stays visible after the test leaves this branch;
+   - a "Rejected" section: one line per rejected bug with its reason from REJECTED_FILE.
 
 ## G. Report, restore, release
 
@@ -215,13 +246,31 @@ After each verifier, check that `git status` is unchanged; revert any leftovers.
    Tests added: <M>
    New confirmed bugs: <AQA-n: summary, ...> | none
    Rejected candidates: <test: reason, ...> | none
-   Fixed upstream: <AQA-n, ...> | none
+   Fixed upstream: <AQA-n (FIX), ...> | none
+   Regressed: <AQA-n, ...> | none
+   Needs review (passing after a repair, not marked fixed): <AQA-n, ...> | none
+   Flaky (passed or failed only sometimes): <AQA-n, ...> | none
    Rejected by the team (newly applied): <AQA-n, ...> | none
    Pushed: yes | no (push=no) | failed (<error>)
    Problems / skipped steps: <...> | none
    ```
 2. `git checkout START_BRANCH`.
 3. Remove the lock.
+
+## K. Check-fixed mode
+
+`/auto-qa check-fixed [push=no]`: keep the bug list current without hunting for new bugs.
+Cheap enough to run often, e.g. nightly from cron or on every push to main
+(`auto-qa/run.sh check-fixed`).
+
+1. Do all of step A (lock, rebase, clean up, re-check known bugs, apply rejections).
+2. Skip steps B, C and D.
+3. Do step E without E.1 (no files were processed). Use the commit message first line
+   `Auto QA: check fixed` and the same per-bug lines. Skip the commit if nothing changed.
+4. Do step F (it removes fixed tests, copies regressed tests back, and updates the PR).
+   Skip committing or pushing CAUGHT if nothing changed.
+5. Do step G, with `Mode: check-fixed` instead of the Focus/Files/Tests/New/Rejected
+   candidates lines.
 
 ## R. Reject mode
 

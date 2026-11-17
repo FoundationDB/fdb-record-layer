@@ -24,6 +24,7 @@
 #
 # Usage: auto-qa/run.sh [FOCUS] [batch=<n>] [push=no]
 #        auto-qa/run.sh reject AQA-<n> <reason>   (the reason is required when headless)
+#        auto-qa/run.sh check-fixed               (cheap: only re-checks known bugs; good for nightly cron)
 #
 # Environment:
 #   AUTO_QA_DIR       dedicated checkout (default ~/.auto-qa/fdb-record-layer); cloned on first run
