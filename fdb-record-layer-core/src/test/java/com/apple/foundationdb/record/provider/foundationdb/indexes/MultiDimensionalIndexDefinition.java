@@ -46,7 +46,7 @@ class MultiDimensionalIndexDefinition implements IndexDefinition {
     @Override
     public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int ordinal) {
         return TestRecordsIndexScenariosProto.IndexedMessage.newBuilder()
-                .setStringValue("group")
+                .setStringValue("constant")
                 .setLongValue(100L * ordinal)
                 .setLongValue2(100L * ordinal + 50L)
                 .build();
