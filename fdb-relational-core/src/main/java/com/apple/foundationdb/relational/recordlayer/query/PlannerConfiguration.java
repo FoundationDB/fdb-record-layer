@@ -36,6 +36,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.apple.foundationdb.relational.api.Options.Name.CONSIDER_SYNTHETIC_RECORD_TYPE_INDEXES;
 import static com.apple.foundationdb.relational.api.Options.Name.DISABLE_PLANNER_REWRITING;
 import static com.apple.foundationdb.relational.api.Options.Name.PLAN_RIGHT_DEEP;
 
@@ -66,6 +67,8 @@ public final class PlannerConfiguration {
     @Nonnull
     private final VectorIndexEnginePreference vectorIndexEnginePreference;
 
+    private final boolean considerSyntheticRecordTypeIndexes;
+
     @Nonnull
     private final RecordQueryPlannerConfiguration recordQueryPlannerConfiguration;
 
@@ -76,13 +79,15 @@ public final class PlannerConfiguration {
                                  @Nonnull final Set<String> disabledPlannerRewriteRules,
                                  boolean disabledAllPlannerRules,
                                  boolean planRightDeep,
-                                 @Nonnull final VectorIndexEnginePreference vectorIndexEnginePreference) {
+                                 @Nonnull final VectorIndexEnginePreference vectorIndexEnginePreference,
+                                 boolean considerSyntheticRecordTypeIndexes) {
         this.readableIndexes = readableIndexes;
         this.indexFetchMethod = indexFetchMethod;
         this.disabledAllPlannerRules = disabledAllPlannerRules;
         this.disabledPlannerRewriteRules = ImmutableSet.copyOf(disabledPlannerRewriteRules);
         this.planRightDeep = planRightDeep;
         this.vectorIndexEnginePreference = vectorIndexEnginePreference;
+        this.considerSyntheticRecordTypeIndexes = considerSyntheticRecordTypeIndexes;
         this.memoizedHash = computeHash();
         this.recordQueryPlannerConfiguration = buildRecordQueryPlannerConfiguration();
     }
@@ -120,7 +125,8 @@ public final class PlannerConfiguration {
         if (this.planRightDeep == newPlanRightDeep) {
             return this;
         }
-        return new PlannerConfiguration(readableIndexes, indexFetchMethod, disabledPlannerRewriteRules, disabledAllPlannerRules, newPlanRightDeep, vectorIndexEnginePreference);
+        return new PlannerConfiguration(readableIndexes, indexFetchMethod, disabledPlannerRewriteRules, disabledAllPlannerRules, newPlanRightDeep, vectorIndexEnginePreference,
+                considerSyntheticRecordTypeIndexes);
     }
 
     @Override
@@ -137,12 +143,13 @@ public final class PlannerConfiguration {
                 && this.disabledAllPlannerRules == that.disabledAllPlannerRules
                 && this.disabledPlannerRewriteRules.equals(that.disabledPlannerRewriteRules)
                 && this.planRightDeep == that.planRightDeep
-                && this.vectorIndexEnginePreference == that.vectorIndexEnginePreference;
+                && this.vectorIndexEnginePreference == that.vectorIndexEnginePreference
+                && this.considerSyntheticRecordTypeIndexes == that.considerSyntheticRecordTypeIndexes;
     }
 
     private int computeHash() {
         return Objects.hash(readableIndexes, indexFetchMethod, disabledAllPlannerRules, disabledPlannerRewriteRules, planRightDeep,
-                vectorIndexEnginePreference);
+                vectorIndexEnginePreference, considerSyntheticRecordTypeIndexes);
     }
 
     @Override
@@ -162,6 +169,7 @@ public final class PlannerConfiguration {
         }
         configurationBuilder.setJoinRightDeep(planRightDeep);
         configurationBuilder.setVectorIndexEnginePreference(vectorIndexEnginePreference);
+        configurationBuilder.setConsiderSyntheticRecordTypeIndexes(considerSyntheticRecordTypeIndexes);
         return configurationBuilder.build();
     }
 
@@ -171,7 +179,8 @@ public final class PlannerConfiguration {
         final var disabledPlannerRules = ImmutableSet.copyOf(options.<Collection<String>>getOption(Options.Name.DISABLED_PLANNER_RULES));
         return new PlannerConfiguration(readableIndexesMaybe, OptionsUtils.getIndexFetchMethod(options),
                 disabledPlannerRules, options.getOption(DISABLE_PLANNER_REWRITING),
-                options.getOption(PLAN_RIGHT_DEEP), OptionsUtils.getVectorIndexEnginePreference(options));
+                options.getOption(PLAN_RIGHT_DEEP), OptionsUtils.getVectorIndexEnginePreference(options),
+                options.getOption(CONSIDER_SYNTHETIC_RECORD_TYPE_INDEXES));
     }
 
     @Nonnull
