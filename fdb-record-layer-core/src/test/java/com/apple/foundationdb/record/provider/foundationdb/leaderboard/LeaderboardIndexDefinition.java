@@ -28,40 +28,26 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexDefinition;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.IndexTarget;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.ScenarioRecords;
+import com.apple.foundationdb.tuple.Tuple;
 
 import java.util.Collections;
+import java.util.List;
+import java.util.stream.LongStream;
 
 class LeaderboardIndexDefinition implements IndexDefinition {
-    @Override
-    public boolean supportsGrouping() {
-        // A grouped time-window leaderboard cannot be scanned with an all-groups range: the maintainer
-        // requires the scan range to include the group ("Ranked scan range does not include group"). The
-        // generic DeleteWhereGroup scenario scans the whole index (TupleRange.ALL), so it cannot apply here
-        // without leaderboard-specific per-group scanning (or a maintainer change). Skip grouping.
-        return false;
-    }
-
-    @Override
-    public boolean supportsSynthetic() {
-        // A time-window leaderboard needs windows created before indexing and a time-window scan; combining
-        // that with synthetic record types (where the leaderboard entries are themselves a repeated field
-        // within an unnested/joined constituent) is not supported without maintainer-level work. Skip.
-        return false;
-    }
-
     @Override
     public TestRecordsIndexScenariosProto.IndexedMessage generateIndexedMessage(final int ordinal) {
         return TestRecordsIndexScenariosProto.IndexedMessage.newBuilder()
                 .addEntries(TestRecordsIndexScenariosProto.ScoreEntry.newBuilder()
                         .setScore(100L + ordinal)
-                        .setTimestamp(1000L + ordinal)
-                        .setContext(ordinal))
+                        .setTimestamp(1000L + ordinal))
                 .build();
     }
 
@@ -90,8 +76,25 @@ class LeaderboardIndexDefinition implements IndexDefinition {
     @Override
     public RecordCursor<IndexEntry> scanIndex(final FDBRecordStore store, final Index index,
                                               final ScanProperties scanProperties) {
+        if (((GroupingKeyExpression)index.getRootExpression()).getGroupingCount() == 0) {
+            return scanRange(store, index, TupleRange.ALL, null, scanProperties);
+        }
+        // A grouped leaderboard can only be scanned within a group ("Ranked scan range does not include
+        // group"), so walk the groups the framework generates and chain the per-group scans together.
+        final List<Long> groups = LongStream.range(0, ScenarioRecords.NUM_GROUPS).boxed().toList();
+        return RecordCursor.flatMapPipelined(
+                outerContinuation -> RecordCursor.fromList(store.getExecutor(), groups, outerContinuation),
+                (group, innerContinuation) -> scanRange(store, index, TupleRange.allOf(Tuple.from(group)),
+                        innerContinuation, scanProperties),
+                null,
+                1);
+    }
+
+    private static RecordCursor<IndexEntry> scanRange(final FDBRecordStore store, final Index index,
+                                                      final TupleRange range, final byte[] continuation,
+                                                      final ScanProperties scanProperties) {
         return store.scanIndex(index,
-                new TimeWindowScanRange(TimeWindowLeaderboard.ALL_TIME_LEADERBOARD_TYPE, 0L, TupleRange.ALL),
-                null, scanProperties);
+                new TimeWindowScanRange(TimeWindowLeaderboard.ALL_TIME_LEADERBOARD_TYPE, 0L, range),
+                continuation, scanProperties);
     }
 }
