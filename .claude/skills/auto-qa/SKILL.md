@@ -1,7 +1,7 @@
 ---
 name: auto-qa
-description: Run one iteration of the automated QA bug hunt. Writes new tests for a batch of existing test files on the shared apple/jjezra/auto-qa-search branch, verifies suspected bugs, and copies confirmed bug-found tests to apple/jjezra/auto-qa-caught. Usage - /auto-qa [FOCUS] [batch=<n>] [push=no]
-argument-hint: "[FOCUS] [batch=<n>] [push=no]"
+description: Run one iteration of the automated QA bug hunt. Writes new tests for a batch of existing test files on the shared apple/jjezra/auto-qa-search branch, verifies suspected bugs, and copies confirmed bug-found tests to apple/jjezra/auto-qa-caught. Usage - /auto-qa [FOCUS] [batch=<n>] [push=no], or /auto-qa reject AQA-<n> [reason] to reject a confirmed bug
+argument-hint: "[FOCUS] [batch=<n>] [push=no] | reject AQA-<n> [reason]"
 disable-model-invocation: true
 ---
 
@@ -42,6 +42,10 @@ yourself on an unexpected branch, stop and report.
 
 ## Parse the arguments
 
+- If the first word is `reject`, this is REJECT MODE: follow section "R. Reject mode" below
+  instead of steps A-G. The rest of the arguments are one or more `AQA-<n>` ids, optionally
+  followed by `push=no`, then the REASON (all remaining text). `reject` is therefore never a
+  FOCUS.
 - `batch=<n>` -> BATCH_SIZE (default 5).
 - `push=no` -> PUSH = no: commit locally on both branches but do not push and do not create
   or update the PR. Use it for trial runs. Default PUSH = yes.
@@ -195,7 +199,8 @@ After each verifier, check that `git status` is unchanged; revert any leftovers.
    --label "testing improvement"` with title `Auto QA: tests that expose known bugs` and a
    description saying that its CI is expected to fail, each failing test is a known bug
    listed with its AQA id, the branch is maintained by the auto-qa skill, and an issue can
-   be rejected by adding it to `auto-qa/rejected.md` on this branch.
+   be rejected with `/auto-qa reject AQA-<n> <reason>` or by adding it to
+   `auto-qa/rejected.md` on this branch.
 7. If PUSH = yes and the PR exists and the list of open bugs changed, update its description
    (`gh pr edit`) so its table lists exactly the open bugs, plus a short list of rejected
    ones with their reasons from REJECTED_FILE.
@@ -217,3 +222,41 @@ After each verifier, check that `git status` is unchanged; revert any leftovers.
    ```
 2. `git checkout START_BRANCH`.
 3. Remove the lock.
+
+## R. Reject mode
+
+`/auto-qa reject AQA-<n> [AQA-<m> ...] [push=no] [reason...]`: record that confirmed bugs
+will not be fixed, and apply it to both branches now. No bug hunting happens in this mode.
+
+1. **Get the reason.** If no REASON was given, ask the user for the justification (one
+   question naming the ids and their summaries from bugs.md), and stop until they answer.
+   If no one can answer (headless run), stop and report that the reason must be passed as
+   an argument. Never invent a reason.
+2. **Prepare.** Do steps A.0, A.1 and A.2 (lock, clean tree, find and fetch UPSTREAM).
+3. **Validate.** Read bugs.md from `UPSTREAM/SEARCH` (or the local SEARCH). Every id must
+   exist with status `open` or `fixed upstream ...`. If an id is unknown, stop and report.
+   If an id is already listed in REJECTED_FILE, skip it and say so; if none are left, stop.
+4. **WHO** = the GitHub login from `gh api --hostname github.com user --jq .login`, or else
+   `git config user.name`.
+5. **Caught branch.** Check out CAUGHT as in F.1 (do not rebase). Append to REJECTED_FILE
+   (create it with its header, see Constants, if missing) one entry per id:
+   ```
+   ## AQA-<n>: <summary from bugs.md>
+   - rejected: <date> by <WHO>
+   - reason: <REASON>
+   ```
+   Remove the tests of these ids from CAUGHT's companion files (delete companion files left
+   with no tests, and their yamsql registrations), and remove helpers/imports that became
+   unused. Compile and run `checkstyleTest` for the affected modules. Commit:
+   ```
+   Auto QA: reject AQA-<n>[, AQA-<m>...]
+
+   AQA-<n>: rejected (<REASON>)
+   ```
+   If PUSH = yes: `git push --force-with-lease UPSTREAM CAUGHT`.
+6. **Search branch.** Check out SEARCH as in A.3 (do not rebase). Apply step A.7 for these
+   ids (status, delete tests, notes, progress.md, step 5b). Commit with the same message,
+   and if PUSH = yes: `git push --force-with-lease UPSTREAM SEARCH`.
+7. **PR.** If PUSH = yes, update the caught PR description as in F.7.
+8. **Report** (`Auto QA reject report`: ids rejected, ids skipped, reason, who, pushed
+   yes/no), then do G.2 and G.3.

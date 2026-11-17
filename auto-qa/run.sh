@@ -23,6 +23,7 @@
 # Meant to be called from cron, launchd, or CI.
 #
 # Usage: auto-qa/run.sh [FOCUS] [batch=<n>] [push=no]
+#        auto-qa/run.sh reject AQA-<n> <reason>   (the reason is required when headless)
 #
 # Environment:
 #   AUTO_QA_DIR       dedicated checkout (default ~/.auto-qa/fdb-record-layer); cloned on first run
@@ -96,7 +97,7 @@ ALLOWED_TOOLS=(
     "Edit(/auto-qa/**)" "Write(/auto-qa/**)"
     "Bash(./gradlew:*)"
     "Bash(git:*)"
-    "Bash(gh pr list:*)" "Bash(gh pr create:*)" "Bash(gh pr view:*)" "Bash(gh pr edit:*)"
+    "Bash(gh pr list:*)" "Bash(gh pr create:*)" "Bash(gh pr view:*)" "Bash(gh pr edit:*)" "Bash(gh api --hostname github.com user:*)"
     "Bash(ls:*)" "Bash(cat:*)" "Bash(head:*)" "Bash(tail:*)" "Bash(grep:*)" "Bash(find:*)"
     "Bash(wc:*)" "Bash(sort:*)" "Bash(date:*)" "Bash(hostname)" "Bash(stat:*)"
     "Bash(rm:*)" "Bash(mkdir:*)" "Bash(echo:*)" "Bash(test:*)"
@@ -131,7 +132,7 @@ if [[ $STATUS -ne 0 ]]; then
     log "FAILED: claude exited with status $STATUS. Log: $LOG"
     exit "$STATUS"
 fi
-if ! grep -q "Auto QA report" "$LOG"; then
+if ! grep -q -E "Auto QA (reject )?report" "$LOG"; then
     log "FAILED: no report in the output. Log: $LOG"
     exit 1
 fi
