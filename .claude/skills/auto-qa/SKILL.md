@@ -1,7 +1,7 @@
 ---
 name: auto-qa
-description: Run one iteration of the automated QA bug hunt (/auto-qa help for usage). Writes new tests for a batch of existing test files on the shared apple/jjezra/auto-qa-search branch, verifies suspected bugs, and copies confirmed bug-found tests to apple/jjezra/auto-qa-caught. Usage - /auto-qa [FOCUS] [batch=<n>] [no-push], /auto-qa check-fixed to only re-check known bugs, or /auto-qa reject AQA-<n> [reason] to reject a confirmed bug
-argument-hint: "help | [FOCUS] [batch=<n>] [no-push] | check-fixed | reject AQA-<n> [reason]"
+description: Run one iteration of the automated QA bug hunt (/auto-qa help for usage). Writes new tests for a batch of existing test files on the shared apple/jjezra/auto-qa-search branch, verifies suspected bugs, and copies confirmed bug-found tests to apple/jjezra/auto-qa-caught. Usage - /auto-qa [FOCUS] [batch=<n>] [no-push], /auto-qa check-fixed to only re-check known bugs, /auto-qa reject AQA-<n> [reason] to reject a confirmed bug, or /auto-qa unreject AQA-<n> to undo a rejection
+argument-hint: "help | [FOCUS] [batch=<n>] [no-push] | check-fixed | reject AQA-<n> [reason] | unreject AQA-<n>"
 disable-model-invocation: true
 ---
 
@@ -24,7 +24,8 @@ Arguments: `$ARGUMENTS`
 - REJECTED_FILE (only on CAUGHT): `auto-qa/rejected.md`. The single source of truth for
   confirmed bugs that the team decided not to fix, each with its reason. People reject an
   issue by adding it to this file on CAUGHT (i.e. by pushing to the caught PR's branch). You read it
-  every iteration and apply it; you never remove entries from it. Format:
+  every iteration and apply it. You never remove entries from it, except in unreject mode
+  (section U), when a user explicitly asks for it. Format:
   ```
   # Auto QA rejected issues
 
@@ -56,6 +57,10 @@ yourself on an unexpected branch, stop and report.
   instead of steps A-G. The rest of the arguments are one or more `AQA-<n>` ids, optionally
   followed by `no-push`, then the REASON (all remaining text). `reject` is therefore never a
   FOCUS.
+- If the first word is `unreject`, this is UNREJECT MODE: follow section "U. Unreject mode"
+  below instead of steps A-G. The rest of the arguments are one or more `AQA-<n>` ids,
+  optionally followed by `no-push`, then an optional REASON (all remaining text).
+  `unreject` is therefore never a FOCUS.
 - If the first word is `check-fixed`, this is CHECK-FIXED MODE: a cheap run that only
   rebases, re-checks known bugs, and updates the caught branch and PR, with no bug hunting.
   Follow section "K. Check-fixed mode" below. Only `no-push` may follow. `check-fixed` is
@@ -65,7 +70,7 @@ yourself on an unexpected branch, stop and report.
   or update the PR. Use it for trial runs. Default PUSH = yes.
 - Any other word that contains `=` or starts with `-` (other than `-h`, `--help`), for
   example the old `push=no`, is an error (this does not apply to the free-text REASON of
-  reject mode): stop before step A.0 and report the unknown
+  reject and unreject modes): stop before step A.0 and report the unknown
   argument with a pointer to `/auto-qa help`. Never treat it as a FOCUS, and never start a
   run with it, since that run would push.
 - Anything else (at most one word) -> FOCUS. Interpret it by trying, in order:
@@ -325,6 +330,53 @@ will not be fixed, and apply it to both branches now. No bug hunting happens in 
 8. **Report** (`Auto QA reject report`: ids rejected, ids skipped, reason, who, pushed
    yes/no), then do G.2 and G.3.
 
+## U. Unreject mode
+
+`/auto-qa unreject AQA-<n> [AQA-<m> ...] [no-push] [reason...]`: undo rejections, for example
+when the team learns a rejected bug is real after all. No bug hunting happens in this mode.
+The order matters: the entry must leave REJECTED_FILE before the restored test is pushed to
+SEARCH, or the next iteration's step A.7 would reject the bug again.
+
+1. **Prepare.** Do steps A.0, A.1 and A.2 (lock, clean tree, FIX_IMPORTS, find and fetch
+   UPSTREAM). WHO as in R.4.
+2. **Validate.** Every id must be listed in REJECTED_FILE on `UPSTREAM/CAUGHT` and have status
+   `rejected ...` in bugs.md on `UPSTREAM/SEARCH`. Skip (and report) ids that are not; if none
+   are left, stop.
+3. **Find each test's last version.** The test path and method are in its bugs.md entry. On
+   SEARCH, find the commit that deleted the test:
+   `git log -1 --format=%H -S '<method name>' SEARCH -- <companion path>` (call it DEL), and
+   read the test from `git show DEL^:<companion path>`, including its annotations, its
+   `// BUG AQA-<n>:` comment, and any helpers and imports it needs.
+4. **Restore on SEARCH (do not push yet).** Check out SEARCH as in A.3 (do not rebase).
+   - Put the test back into its companion file. If the file was deleted, recreate it from the
+     DEL^ version with only this test plus the other tests that still exist there (and restore
+     its yamsql registration if needed).
+   - Compile and run `checkstyleTest` for the module (use FIX_IMPORTS as in Constants).
+   - Run the test 3 times. If it still fails 3 out of 3 times, set its status in bugs.md to
+     `open`. If it now passes 3 out of 3 times, find FIX as in A.6a and set it to
+     `fixed upstream (<date>, <FIX>)` instead. If it is flaky, set `open` and report it.
+   - In bugs.md, keep the history: add `- unrejected: <date> by <WHO>[: <REASON>]` and
+     `- previously rejected: <date and reason from REJECTED_FILE>`.
+   - In the test file's notes, replace the `rejected by the team, see AQA-<n> ...` line under
+     "Rejected" with `unrejected <date> by <WHO>`, and move the idea back under "Explored".
+   - Update the test count in progress.md.
+   - Commit (locally):
+     ```
+     Auto QA: unreject AQA-<n>[, AQA-<m>...]
+
+     AQA-<n>: unrejected[ (<REASON>)], status <open | fixed upstream (<FIX>)>
+     ```
+5. **Caught branch.** Check out CAUGHT as in F.1 (do not rebase). Remove the ids' entries from
+   REJECTED_FILE (keep its header even if no entries are left). For ids that are now `open`,
+   copy their tests from SEARCH into CAUGHT's companion files as in F.3. Compile, run
+   `checkstyleTest`, and confirm each copied test fails. Commit with the same message.
+   If PUSH = yes: `git push --force-with-lease UPSTREAM CAUGHT`. If this push fails, stop and
+   do not push SEARCH (the rejection is still in force, so nothing is inconsistent).
+6. **Push SEARCH.** If PUSH = yes: `git push --force-with-lease UPSTREAM SEARCH`.
+7. **PR.** If PUSH = yes, update the caught PR description as in F.7.
+8. **Report** (`Auto QA unreject report`: ids unrejected with their new status, ids skipped
+   and why, who, pushed yes/no), then do G.2 and G.3.
+
 ## H. Help
 
 Print exactly this (between the markers), then stop:
@@ -340,6 +392,8 @@ USAGE
   /auto-qa check-fixed [no-push]     Only rebase and re-check known bugs (cheap, no hunting).
   /auto-qa reject AQA-<n> [reason]   Mark a confirmed bug as "won't fix" (asks for the reason
                                      if missing). Several ids may share one reason.
+  /auto-qa unreject AQA-<n>          Undo a rejection: restore the test on both branches
+                                     and reopen the bug.
 
 FOCUS (optional, one word; picks which test files are candidates)
   yaml                               .yamsql files under yaml-tests/

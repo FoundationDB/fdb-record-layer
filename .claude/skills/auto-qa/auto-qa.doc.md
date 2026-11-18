@@ -29,13 +29,15 @@ and reports bugs. It never fixes production code.
                                    one bug-hunting iteration (default batch: 5 test files)
 /auto-qa check-fixed [no-push]     only rebase and re-check known bugs (cheap, no hunting)
 /auto-qa reject AQA-<n> [reason]   mark confirmed bugs "won't fix" (asks for the reason if missing)
+/auto-qa unreject AQA-<n> [reason] undo a rejection: restore the test on both branches, reopen the bug
 ```
 
 - **FOCUS** (one word) limits which test files are candidates. It is tried in this order: `yaml`
   (`.yamsql` files), a Gradle module, a package or path, a keyword (file name or tested class
   name). The report says which interpretation was used.
-- `help`, `--help`, `-h`, `check-fixed` and `reject` are reserved words and are never treated as a
-  FOCUS.
+- `help`, `--help`, `-h`, `check-fixed`, `reject` and `unreject` are reserved words and are never
+  treated as a FOCUS. Any other word that contains `=` or starts with `-` (such as the old
+  `push=no`) is an error, so a typo can never start a run that pushes.
 - `no-push` commits locally but does not push and does not touch the PR. Use it for trial runs.
 
 ## Branches and state
@@ -62,7 +64,8 @@ State files:
   reference and details.
 - `auto-qa/rejected.md` (caught): **the single source** of bugs the team decided not to fix, each
   with its reason. People add entries with `/auto-qa reject` or by pushing to the caught branch. The
-  skill reads the file every iteration and never removes entries.
+  skill reads the file every iteration and removes an entry only when someone runs
+  `/auto-qa unreject`.
 
 Rebasing rewrites history, so pushes use `git push --force-with-lease`.
 
@@ -70,8 +73,10 @@ Rebasing rewrites history, so pushes use `git push --force-with-lease`.
 
 ```
 candidate --verifier--> CONFIRMED -> open --test passes 3/3 after a rebase--> fixed upstream (<date>, <PR>)
-    |                                  |                                        |
-    +--> REJECTED (noted in notes)     +--> rejected (team, rejected.md)        +--test fails 3/3--> open (regressed)
+    |                                 ^  |                                       |
+    +--> REJECTED (noted in notes)    |  +--> rejected (team, rejected.md)       +--test fails 3/3--> open (regressed)
+                                      |             |
+                                      +--unreject---+   (back to open, or to fixed upstream if the test passes now)
 ```
 
 - **Candidate:** a failing new test counts only if it fails 3 out of 3 runs, is caused by the code
@@ -90,6 +95,12 @@ candidate --verifier--> CONFIRMED -> open --test passes 3/3 after a rebase--> fi
 - **Flaky:** a test that passes or fails only sometimes keeps its status and is listed in the report.
 - **Rejected by the team:** the bug's test is removed from both branches. Its status in `bugs.md`
   points to `rejected.md`, and workers are told about it, so the behavior is not reported again.
+- **Unrejected:** `/auto-qa unreject AQA-<n>` undoes a rejection, for example when the team learns
+  the bug is real after all. It restores the test from git history on both branches, removes the
+  entry from `rejected.md`, and reopens the bug. If the test now passes, the bug is marked fixed
+  upstream instead. `bugs.md` keeps the history (`previously rejected`, `unrejected`). The entry
+  leaves `rejected.md` before the restored test is pushed to the search branch, so a run in
+  between can never reject the bug again.
 
 The caught PR description keeps three sections: Open bugs, Fixed upstream and Rejected.
 

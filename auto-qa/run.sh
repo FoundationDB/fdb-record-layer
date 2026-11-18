@@ -24,6 +24,7 @@
 #
 # Usage: auto-qa/run.sh [FOCUS] [batch=<n>] [no-push]
 #        auto-qa/run.sh reject AQA-<n> <reason>   (the reason is required when headless)
+#        auto-qa/run.sh unreject AQA-<n> [reason]
 #        auto-qa/run.sh check-fixed               (cheap: only re-checks known bugs; good for nightly cron)
 #
 # Environment:
@@ -134,7 +135,7 @@ if [[ $STATUS -ne 0 ]]; then
     log "FAILED: claude exited with status $STATUS. Log: $LOG"
     exit "$STATUS"
 fi
-if ! grep -q -E "Auto QA (reject )?report" "$LOG"; then
+if ! grep -q -E "Auto QA (reject |unreject )?report" "$LOG"; then
     log "FAILED: no report in the output. Log: $LOG"
     exit 1
 fi
