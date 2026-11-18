@@ -5,4 +5,4 @@ branch; the next /auto-qa iteration removes its test and stops reporting it.
 
 ## AQA-3: deleteRecordsWhere leaves uniqueness violations of deleted records behind
 - rejected: 2026-11-16 by jjezra
-- reason: deleteWhere was not designed to maintain indexes within the transaction
+- reason: (temporary rejection example. Will undo this rejection in the future)
