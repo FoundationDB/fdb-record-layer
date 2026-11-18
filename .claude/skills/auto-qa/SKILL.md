@@ -1,7 +1,7 @@
 ---
 name: auto-qa
-description: Run one iteration of the automated QA bug hunt (/auto-qa help for usage). Writes new tests for a batch of existing test files on the shared apple/jjezra/auto-qa-search branch, verifies suspected bugs, and copies confirmed bug-found tests to apple/jjezra/auto-qa-caught. Usage - /auto-qa [FOCUS] [batch=<n>] [push=no], /auto-qa check-fixed to only re-check known bugs, or /auto-qa reject AQA-<n> [reason] to reject a confirmed bug
-argument-hint: "help | [FOCUS] [batch=<n>] [push=no] | check-fixed | reject AQA-<n> [reason]"
+description: Run one iteration of the automated QA bug hunt (/auto-qa help for usage). Writes new tests for a batch of existing test files on the shared apple/jjezra/auto-qa-search branch, verifies suspected bugs, and copies confirmed bug-found tests to apple/jjezra/auto-qa-caught. Usage - /auto-qa [FOCUS] [batch=<n>] [no-push], /auto-qa check-fixed to only re-check known bugs, or /auto-qa reject AQA-<n> [reason] to reject a confirmed bug
+argument-hint: "help | [FOCUS] [batch=<n>] [no-push] | check-fixed | reject AQA-<n> [reason]"
 disable-model-invocation: true
 ---
 
@@ -54,15 +54,20 @@ yourself on an unexpected branch, stop and report.
   agents). These words are therefore never a FOCUS.
 - If the first word is `reject`, this is REJECT MODE: follow section "R. Reject mode" below
   instead of steps A-G. The rest of the arguments are one or more `AQA-<n>` ids, optionally
-  followed by `push=no`, then the REASON (all remaining text). `reject` is therefore never a
+  followed by `no-push`, then the REASON (all remaining text). `reject` is therefore never a
   FOCUS.
 - If the first word is `check-fixed`, this is CHECK-FIXED MODE: a cheap run that only
   rebases, re-checks known bugs, and updates the caught branch and PR, with no bug hunting.
-  Follow section "K. Check-fixed mode" below. Only `push=no` may follow. `check-fixed` is
+  Follow section "K. Check-fixed mode" below. Only `no-push` may follow. `check-fixed` is
   therefore never a FOCUS.
 - `batch=<n>` -> BATCH_SIZE (default 5).
-- `push=no` -> PUSH = no: commit locally on both branches but do not push and do not create
+- `no-push` -> PUSH = no: commit locally on both branches but do not push and do not create
   or update the PR. Use it for trial runs. Default PUSH = yes.
+- Any other word that contains `=` or starts with `-` (other than `-h`, `--help`), for
+  example the old `push=no`, is an error (this does not apply to the free-text REASON of
+  reject mode): stop before step A.0 and report the unknown
+  argument with a pointer to `/auto-qa help`. Never treat it as a FOCUS, and never start a
+  run with it, since that run would push.
 - Anything else (at most one word) -> FOCUS. Interpret it by trying, in order:
   1. `yaml` -> `.yamsql` files under `yaml-tests/src/test/resources/`.
   2. a Gradle module name (a top-level directory with a `*.gradle` file) -> test files in
@@ -261,7 +266,7 @@ After each verifier, check that `git status` is unchanged; revert any leftovers.
    Needs review (passing after a repair, not marked fixed): <AQA-n, ...> | none
    Flaky (passed or failed only sometimes): <AQA-n, ...> | none
    Rejected by the team (newly applied): <AQA-n, ...> | none
-   Pushed: yes | no (push=no) | failed (<error>)
+   Pushed: yes | no (no-push) | failed (<error>)
    Problems / skipped steps: <...> | none
    ```
 2. `git checkout START_BRANCH`.
@@ -269,7 +274,7 @@ After each verifier, check that `git status` is unchanged; revert any leftovers.
 
 ## K. Check-fixed mode
 
-`/auto-qa check-fixed [push=no]`: keep the bug list current without hunting for new bugs.
+`/auto-qa check-fixed [no-push]`: keep the bug list current without hunting for new bugs.
 Cheap enough to run often, e.g. nightly from cron or on every push to main
 (`auto-qa/run.sh check-fixed`).
 
@@ -284,7 +289,7 @@ Cheap enough to run often, e.g. nightly from cron or on every push to main
 
 ## R. Reject mode
 
-`/auto-qa reject AQA-<n> [AQA-<m> ...] [push=no] [reason...]`: record that confirmed bugs
+`/auto-qa reject AQA-<n> [AQA-<m> ...] [no-push] [reason...]`: record that confirmed bugs
 will not be fixed, and apply it to both branches now. No bug hunting happens in this mode.
 
 1. **Get the reason.** If no REASON was given, ask the user for the justification (one
@@ -331,8 +336,8 @@ Print exactly this (between the markers), then stop:
 USAGE
   /auto-qa help                      Show this help. Does nothing else.
   /auto-qa [FOCUS] [batch=<n>]       One bug-hunting iteration (default: 5 test files).
-           [push=no]                 push=no: commit locally only, no push, no PR update.
-  /auto-qa check-fixed [push=no]     Only rebase and re-check known bugs (cheap, no hunting).
+           [no-push]                 no-push: commit locally only, no push, no PR update.
+  /auto-qa check-fixed [no-push]     Only rebase and re-check known bugs (cheap, no hunting).
   /auto-qa reject AQA-<n> [reason]   Mark a confirmed bug as "won't fix" (asks for the reason
                                      if missing). Several ids may share one reason.
 
@@ -343,7 +348,7 @@ FOCUS (optional, one word; picks which test files are candidates)
   <keyword>                          e.g. OnlineIndexer (file or tested class name)
 
 EXAMPLES
-  /auto-qa                           /auto-qa OnlineIndexer batch=2 push=no
+  /auto-qa                           /auto-qa OnlineIndexer batch=2 no-push
   /auto-qa yaml                      /auto-qa reject AQA-3 deleteWhere is not transactional
 
 WHAT ONE ITERATION DOES

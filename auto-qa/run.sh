@@ -22,7 +22,7 @@
 # Runs one headless iteration of the /auto-qa skill (see .claude/skills/auto-qa/SKILL.md).
 # Meant to be called from cron, launchd, or CI.
 #
-# Usage: auto-qa/run.sh [FOCUS] [batch=<n>] [push=no]
+# Usage: auto-qa/run.sh [FOCUS] [batch=<n>] [no-push]
 #        auto-qa/run.sh reject AQA-<n> <reason>   (the reason is required when headless)
 #        auto-qa/run.sh check-fixed               (cheap: only re-checks known bugs; good for nightly cron)
 #

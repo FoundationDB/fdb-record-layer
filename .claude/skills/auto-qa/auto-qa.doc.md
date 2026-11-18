@@ -25,9 +25,9 @@ and reports bugs. It never fixes production code.
 
 ```
 /auto-qa help                      usage guide; does nothing else
-/auto-qa [FOCUS] [batch=<n>] [push=no]
+/auto-qa [FOCUS] [batch=<n>] [no-push]
                                    one bug-hunting iteration (default batch: 5 test files)
-/auto-qa check-fixed [push=no]     only rebase and re-check known bugs (cheap, no hunting)
+/auto-qa check-fixed [no-push]     only rebase and re-check known bugs (cheap, no hunting)
 /auto-qa reject AQA-<n> [reason]   mark confirmed bugs "won't fix" (asks for the reason if missing)
 ```
 
@@ -36,7 +36,7 @@ and reports bugs. It never fixes production code.
   name). The report says which interpretation was used.
 - `help`, `--help`, `-h`, `check-fixed` and `reject` are reserved words and are never treated as a
   FOCUS.
-- `push=no` commits locally but does not push and does not touch the PR. Use it for trial runs.
+- `no-push` commits locally but does not push and does not touch the PR. Use it for trial runs.
 
 ## Branches and state
 
