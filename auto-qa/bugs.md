@@ -130,3 +130,31 @@
 - spec: QueryComponent.evalMessage javadoc: "If the key expression is meaningful against a subrecord, it should evaluate against the message."
 - details: evalMessage calls coordinatesExpression.evaluateSingleton(rec) and ignores message, so
   Query.field("location").matches(<geo component>) never matches; validate() accepts the nested form. New in #4355.
+
+## AQA-17: MaxMatchMap.translateQueryValueMaybe throws when the candidate repeats the matched column
+- status: open
+- found: 2026-11-18
+- test: fdb-record-layer-core/src/test/java/com/apple/foundationdb/record/query/plan/cascades/values/ValueTranslationAutoQATest.java#translateQueryValueMaybeCandidateWithDuplicateColumnsTranslates
+- spec: MaxMatchMap.translateQueryValueMaybe javadoc: returns "the translated query value or Optional.empty()"
+- details: Value.pullUp returns a Multimap (C._0 and C._1 for candidate rcv(T.a, T.a)), but MaxMatchMap.java ~263 calls
+  Iterables.getOnlyElement and throws IllegalArgumentException. PullUp.java ~185, MatchInfo and
+  AggregateIndexExpansionVisitor use the same pattern (not tested). Confirmed at the API level only.
+
+## AQA-18: RecordLayerSchemaTemplate.toBuilder() drops storeRowVersions
+- status: open
+- found: 2026-11-18
+- test: fdb-relational-core/src/test/java/com/apple/foundationdb/relational/recordlayer/ddl/DdlRecordLayerSchemaTemplateAutoQATest.java#toBuilderPreservesStoreRowVersions, #createTemporaryFunctionKeepsRowVersionColumn
+- spec: SchemaTemplate.isStoreRowVersions javadoc; TEMPORARY_FUNCTION.rst (creates a transaction-scoped function only)
+- details: toBuilder() (~983) never calls setStoreRowVersions. CREATE/DROP TEMPORARY FUNCTION and the stored-query
+  warm-up rebuild the bound template through it, so "__ROW_VERSION" becomes an unknown column for the rest of the
+  transaction on a store_row_versions schema.
+
+## AQA-19: Plan cache serves another database's DESCRIBE SCHEMA plan
+- status: open
+- found: 2026-11-18
+- test: fdb-relational-core/src/test/java/com/apple/foundationdb/relational/recordlayer/query/cache/RelationalPlanCacheAutoQATest.java#describeSchemaInSecondDatabaseReportsThatDatabase
+- spec: MetadataPlanVisitor.visitSimpleDescribeSchemaStatement resolves an unqualified schema against the connection's
+  database; PlanGenerator.getPlan javadoc (the cache only avoids re-planning); ISO/IEC 9075-2 5.4
+- details: the MetadataQueryPlan embeds the database URI, but QueryCacheKey has no database and utility statements are
+  cached, so the first database to run DESCRIBE SCHEMA decides the answer for all databases on the same template.
+  SHOW DATABASES likely has the same problem (not tested).
