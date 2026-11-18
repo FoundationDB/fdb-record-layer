@@ -26,12 +26,61 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.planprotos.PDoubleValueOrParameter;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/**
+ * Runtime-evaluation branches of {@link DoubleValueOrParameter}'s Value-backed variant. The literal and named-parameter
+ * variants trust their source to hand back a {@code Double} directly; the {@code Value}-backed variant must coerce any
+ * {@link Number} to double, propagate a {@code null} result unchanged, and reject anything else so a misconfigured
+ * center/radius expression surfaces a diagnostic error rather than a raw {@code ClassCastException}.
+ */
 class DoubleValueOrParameterTest {
+
+    @Test
+    void getValueOnValueBackedSourceReturnsNullWhenExpressionEvaluatesToNull() {
+        final DoubleValueOrParameter source = DoubleValueOrParameter.valueExpression(
+                new LiteralValue<>(Type.primitiveType(Type.TypeCode.DOUBLE, true), null));
+
+        assertThat(source.getValue(EvaluationContext.EMPTY)).isNull();
+        assertThat(source.getValue(null, EvaluationContext.EMPTY)).isNull();
+    }
+
+    @Test
+    void getValueOnValueBackedSourceWidensNonDoubleNumberToDouble() {
+        // An Integer literal exercises the Number-but-not-Double branch (doubleValue() coercion) that both
+        // getValue overloads must apply.
+        final DoubleValueOrParameter source =
+                DoubleValueOrParameter.valueExpression(LiteralValue.ofScalar(42));
+
+        assertThat(source.getValue(EvaluationContext.EMPTY)).isEqualTo(42.0);
+        assertThat(source.getValue(null, EvaluationContext.EMPTY)).isEqualTo(42.0);
+    }
+
+    @Test
+    void getValueOnValueBackedSourceThrowsWhenExpressionEvaluatesToNonNumeric() {
+        final DoubleValueOrParameter source =
+                DoubleValueOrParameter.valueExpression(LiteralValue.ofScalar("not-a-number"));
+
+        assertThatThrownBy(() -> source.getValue(EvaluationContext.EMPTY))
+                .isInstanceOf(RecordCoreException.class)
+                .hasMessageContaining("value expression did not evaluate to a numeric result");
+    }
+
+    @Test
+    void getValueWithStoreOnValueBackedSourceThrowsWhenExpressionEvaluatesToNonNumeric() {
+        final DoubleValueOrParameter source =
+                DoubleValueOrParameter.valueExpression(LiteralValue.ofScalar("not-a-number"));
+
+        assertThatThrownBy(() -> source.getValue(null, EvaluationContext.EMPTY))
+                .isInstanceOf(RecordCoreException.class)
+                .hasMessageContaining("value expression did not evaluate to a numeric result");
+    }
+
     @Test
     void valueProtoRoundTripTest() {
         final DoubleValueOrParameter original = DoubleValueOrParameter.value(37.77);
