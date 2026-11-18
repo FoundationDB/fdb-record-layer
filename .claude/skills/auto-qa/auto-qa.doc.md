@@ -1,0 +1,182 @@
+# auto-qa: requirements and design
+
+This document records what the `/auto-qa` skill is for and how it is designed. It is reference
+documentation only: Claude Code does not load it when the skill runs. **`SKILL.md` is the source
+of truth** for the exact steps. If the two disagree, `SKILL.md` wins, and this document should be
+updated.
+
+## Objective
+
+Catch bugs by writing new unit tests for existing test files and running them. The tool only finds
+and reports bugs. It never fixes production code.
+
+## Components
+
+| Component | File | Role |
+|---|---|---|
+| Orchestrator skill | `.claude/skills/auto-qa/SKILL.md` | Runs one iteration: git, batching, workers, verifiers, commits, pushes, report. Runs in the main session, because subagents cannot start other subagents. |
+| Worker agent | `.claude/agents/auto-qa-worker.md` | Gets one test file in a fresh context. Writes 1-5 tests in a companion file and reports candidate bugs. |
+| Verifier agent | `.claude/agents/auto-qa-verifier.md` | Gets one candidate bug, without the worker's reasoning. Tries to prove the test wrong and returns CONFIRMED or REJECTED. |
+| Wrapper script | `auto-qa/run.sh` | Runs a headless iteration (cron, launchd, CI) in a dedicated checkout, with a tool allow-list, a timeout and a log. |
+| Import helper | `auto-qa/fix-unused-imports.py` | Removes the imports that checkstyle reports as unused after tests are deleted from a companion file. |
+| Checkstyle rule | `gradle/codequality/checkstyle.xml` | Allows the `QA` abbreviation, so companions can be named `*AutoQATest`. |
+
+## Usage
+
+```
+/auto-qa help                      usage guide; does nothing else
+/auto-qa [FOCUS] [batch=<n>] [push=no]
+                                   one bug-hunting iteration (default batch: 5 test files)
+/auto-qa check-fixed [push=no]     only rebase and re-check known bugs (cheap, no hunting)
+/auto-qa reject AQA-<n> [reason]   mark confirmed bugs "won't fix" (asks for the reason if missing)
+```
+
+- **FOCUS** (one word) limits which test files are candidates. It is tried in this order: `yaml`
+  (`.yamsql` files), a Gradle module, a package or path, a keyword (file name or tested class
+  name). The report says which interpretation was used.
+- `help`, `--help`, `-h`, `check-fixed` and `reject` are reserved words and are never treated as a
+  FOCUS.
+- `push=no` commits locally but does not push and does not touch the PR. Use it for trial runs.
+
+## Branches and state
+
+Both branches live on upstream (`FoundationDB/fdb-record-layer`), as `CLAUDE.md` requires. They are
+**deliberately shared** by the whole team, so coverage and the bug list add up across people. The
+owner name `jjezra` is a placeholder and may change later, for example to per-user branches or a
+team-owned name.
+
+| Branch | Contents |
+|---|---|
+| `apple/jjezra/auto-qa-search` | Every auto-QA test written so far, plus the state files. |
+| `apple/jjezra/auto-qa-caught` | Only the tests of open bugs, plus `auto-qa/rejected.md`. It has a permanent draft PR (label `testing improvement`) whose CI is expected to fail, one failure per known bug. |
+
+State files:
+
+- `auto-qa/progress.md` (search): one line per processed test file, with the visit date, the
+  upstream `main` commit and the test count.
+- `auto-qa/notes/<test file path>.md` (search): what is known about a test file across visits:
+  Visits, Production code, Explored, Rejected ideas (with reasons), Untried ideas. Each iteration
+  builds on these notes. Workers try Untried ideas first, skip Rejected ones unless the code
+  changed, and look at production-code diffs since the last visit first.
+- `auto-qa/bugs.md` (search): one entry per confirmed bug (`AQA-<n>`), with its status, test, spec
+  reference and details.
+- `auto-qa/rejected.md` (caught): **the single source** of bugs the team decided not to fix, each
+  with its reason. People add entries with `/auto-qa reject` or by pushing to the caught branch. The
+  skill reads the file every iteration and never removes entries.
+
+Rebasing rewrites history, so pushes use `git push --force-with-lease`.
+
+## Bug lifecycle
+
+```
+candidate --verifier--> CONFIRMED -> open --test passes 3/3 after a rebase--> fixed upstream (<date>, <PR>)
+    |                                  |                                        |
+    +--> REJECTED (noted in notes)     +--> rejected (team, rejected.md)        +--test fails 3/3--> open (regressed)
+```
+
+- **Candidate:** a failing new test counts only if it fails 3 out of 3 runs, is caused by the code
+  under test (not the environment), cites a specific javadoc, doc, standard or code invariant that
+  the behavior violates ("I expected X" is not enough), and has been reduced to a minimal test.
+- **Verification:** an independent verifier sees only the test, the failure, the spec reference and
+  a one-line summary. Anything uncertain is REJECTED, and the reason goes into the file's notes.
+- **Fixed upstream:** after each rebase, the tests of open bugs are run again. A bug whose test
+  passes 3 out of 3 times is marked fixed, together with the PR or commit that touched its
+  production code since the previous rebase base. Its test leaves the caught branch but stays on
+  the search branch as a regression test.
+- **Needs review:** a bug test that had to be repaired after an API change is never marked fixed
+  automatically, because the repair may have changed what it checks.
+- **Regressed:** a fixed bug whose test fails 3 out of 3 times again goes back to open, and its test
+  returns to the caught branch.
+- **Flaky:** a test that passes or fails only sometimes keeps its status and is listed in the report.
+- **Rejected by the team:** the bug's test is removed from both branches. Its status in `bugs.md`
+  points to `rejected.md`, and workers are told about it, so the behavior is not reported again.
+
+The caught PR description keeps three sections: Open bugs, Fixed upstream and Rejected.
+
+## Companion files
+
+New test code never goes into an existing test file. Each test file gets a companion in the same
+package and source set:
+
+- `FooTest.java` becomes `FooAutoQATest.java`. A trailing `Test` / `Tests` is replaced, not repeated.
+- `foo.yamsql` becomes `foo-auto-qa.yamsql`, registered in `YamlIntegrationTests.java` right
+  after the original.
+- Companion files are never picked as test-file candidates.
+- A companion must not extend the original test class when it has `@Test` methods, because JUnit
+  would run them all again. It extends the same base class instead. Extending an abstract helper
+  base with no tests is fine.
+- The license header is copied from the original with the current year. The tests follow the
+  `frl-test-coding-standard` skill. Each test has a short `//` comment under its signature; bug
+  tests carry `// BUG AQA-<n>: ... Spec: ...`.
+- For yamsql: never commit `CORRECT_EXPECTATIONS`, because it would hide bugs. A failure that only
+  happens against older versions in mixed mode is not a bug in `main`.
+- Workers may modify only their companion file, its yamsql registration and its notes file. They
+  never touch production code, build files or git state.
+
+## One iteration (overview)
+
+The exact steps are in `SKILL.md`.
+
+1. **Prepare:** take the lock, require a clean tree, fetch upstream, rebase the search branch on
+   `main`, compile and repair companion files, re-check known bugs (fixed, regressed), and apply
+   `rejected.md`.
+2. **Pick the batch:** files whose production code changed since their last visit first, then
+   never-visited files (preferring recently changed code), then files with untried ideas, then the
+   oldest visits. Abstract helper bases come last within each group. At least one never-visited
+   file is taken when any exist. The focus is respected strictly.
+3. **Workers:** one at a time, never in parallel, because they share the checkout, Gradle, FDB and
+   `YamlIntegrationTests.java`. Each worker is told the known bugs, the rejected issues and the
+   candidates found so far in this iteration.
+4. **Verify:** one verifier per candidate, one at a time. Confirmed bugs get the next `AQA-<n>` id.
+5. **Commit and push** the search branch, then rebuild the caught branch from the open bugs (it
+   must compile, pass checkstyle and fail exactly for those bugs), push it, and keep the PR
+   description in sync.
+6. **Report**, switch back to the starting branch, and release the lock, also when the run fails.
+
+## Permissions
+
+Within the workflow the skill may commit to, push and force-push (`--force-with-lease`) only the two
+auto-qa branches, and create or update the caught PR, without asking. It must never commit to or
+push any other branch, and never modify production code.
+
+## Triggering
+
+| How | Notes |
+|---|---|
+| Interactive: `/auto-qa ...` | Best in a dedicated checkout (e.g. `~/.auto-qa/fdb-record-layer`), because the skill switches branches. Use it for the first runs, to judge quality. |
+| Repeating: `/loop 2h /auto-qa` | Only while that session stays open. |
+| Scheduled: `auto-qa/run.sh [args]` from cron or launchd | Suggested: a nightly `check-fixed` plus a full hunt every few days. Requires the tooling to be merged to `main`, because `run.sh` checks out `upstream/main`. |
+| CI | A scheduled job calling `run.sh`. Needs FDB on the runner and an API key as a secret. |
+
+`run.sh` works like this:
+
+- It uses its own checkout (`AUTO_QA_DIR`, default `~/.auto-qa/fdb-record-layer`) and clones it on
+  first use.
+- It copies `fdb-environment.yaml` into that checkout and starts from the latest `upstream/main`.
+- It runs `claude -p "/auto-qa <args>"` with an explicit tool allow-list and `--max-turns`. It never
+  uses a blanket permission mode.
+- It kills the run after `AUTO_QA_TIMEOUT` (default 4 hours) and logs to `AUTO_QA_LOG_DIR`
+  (default `~/.auto-qa/logs`, kept 30 days).
+- It exits non-zero when the run fails.
+
+Lock: `<git dir>/auto-qa.lock` holds the start time and host. A lock older than the timeout is
+treated as stale.
+
+To set up a machine: clone the repo, log in to Claude Code, log in to git and `gh` for `github.com`
+(the FoundationDB organization requires SAML SSO), install JDK 21 and FDB, and configure
+`fdb-environment.yaml`.
+
+## Known limitations
+
+- The lock protects only one checkout. Two runs on different machines at the same time can fail
+  each other's pushes, and can assign the same `AQA-<n>` id to different bugs.
+- Until the tooling is merged, the caught branch keeps `@SuppressWarnings("checkstyle:AbbreviationAsWordInName")`
+  on companion classes, because `main` does not allow the `QA` abbreviation yet.
+
+## Out of scope (for now)
+
+- Fixing the bugs it finds.
+- Opening GitHub issues automatically.
+- More than one iteration per invocation. Repeat it with cron, CI or `/loop`.
+- Using FOCUS to steer a worker's test ideas inside a file. FOCUS only picks which files are
+  processed.
