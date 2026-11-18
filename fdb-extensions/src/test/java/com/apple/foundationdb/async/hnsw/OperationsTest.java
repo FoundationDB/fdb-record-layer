@@ -653,7 +653,7 @@ class OperationsTest implements BaseTest {
      * coordinates, and those written after it, stored encoded in the rotated and translated storage space.
      */
     @Nonnull
-    private HNSW newStructureSwitchingToRaBitQ(final int numDimensions, final boolean useInlining) {
+    private HNSW newStructureSwitchingToRaBitQ(final int numDimensions, final boolean useInlining, final int statsThreshold) {
         return new HNSW(subspaceExtension.getSubspace(), TestExecutors.defaultThreadPool(),
                 HNSW.newConfigBuilder()
                         .setMetric(Metric.EUCLIDEAN_METRIC)
@@ -662,7 +662,7 @@ class OperationsTest implements BaseTest {
                         .setRaBitQNumExBits(5)
                         .setSampleVectorStatsProbability(1.0d) // every vector is sampled
                         .setMaintainStatsProbability(1.0d) // for every vector we maintain the stats
-                        .setStatsThreshold(200) // after 200 vectors we enable RaBitQ
+                        .setStatsThreshold(statsThreshold) // after statsThreshold vectors we enable RaBitQ
                         .build(numDimensions),
                 new TestOnWriteListener(), new TestOnReadListener());
     }
@@ -692,7 +692,7 @@ class OperationsTest implements BaseTest {
     void scanLayerDecodesNodesLikeFetchNode(final long seed, final boolean useInlining) throws Exception {
         final Random random = new Random(seed);
         final int numDimensions = 64;
-        final HNSW hnsw = newStructureSwitchingToRaBitQ(numDimensions, useInlining);
+        final HNSW hnsw = newStructureSwitchingToRaBitQ(numDimensions, useInlining, 250);
         insertAll(hnsw, randomVectors(random, numDimensions, 300));
 
         final AccessInfo accessInfo = fetchAccessInfo(hnsw);
@@ -796,7 +796,7 @@ class OperationsTest implements BaseTest {
         final Random random = new Random(seed);
         final Metric metric = Metric.EUCLIDEAN_METRIC;
         final int numDimensions = 64;
-        final HNSW hnsw = newStructureSwitchingToRaBitQ(numDimensions, false);
+        final HNSW hnsw = newStructureSwitchingToRaBitQ(numDimensions, false, 275);
         final List<PrimaryKeyAndVector> insertedData = randomVectors(random, numDimensions, 300);
         insertAll(hnsw, insertedData);
         final Map<Tuple, RealVector> insertedVectors = Maps.newHashMap();

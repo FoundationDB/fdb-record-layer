@@ -74,6 +74,8 @@ A stored query may declare parameters, which is how it stands in for a runtime q
 
 In the body a parameter is written as a **bare identifier**, with no ``?`` — unlike the runtime statement it stands for, where the same reference is ``?param_a``. It becomes exactly that internally, so the stored form above is equivalent to ``SELECT * FROM t1 WHERE col1 = ?PARAM_A``. A parameter may also be referred to inside a declared function's body.
 
+The name does not take part in matching. The plan-cache key writes every parameter as a bare ``?``, and a value is bound by its position in the query text. So a runtime query that writes ``?x``, or a plain ``?``, at the same place reuses the plan just as well as one that writes ``?PARAM_A``.
+
 A parameter is **nullable by default**, as a column is. Write ``NOT NULL`` to declare that it never receives a null.
 
 A parameter may be of any type a prepared statement parameter can be. A type declared by the schema template — a struct or an enum — needs the ``TYPE`` keyword, unlike a column definition, which takes the bare name:
@@ -91,19 +93,9 @@ Such a parameter is not warmed yet: see `What is not warmed`_.
 Naming
 ------
 
-A parameter name is an ordinary identifier. Quoted, it keeps its spelling exactly. Unquoted, it is normalized according to the connection option ``CASE_SENSITIVE_IDENTIFIERS``. A prepared parameter name, on the other hand, always keeps the spelling it was written with — both the ``?name`` in the query text and the name passed to ``setLong``, ``setNull`` and the rest.
+A parameter name is an ordinary identifier. Quoted, it keeps its spelling exactly. Unquoted, it is normalized according to the connection option ``CASE_SENSITIVE_IDENTIFIERS``. Inside the stored query the same rule applies to the parameter list, the prepared cases and every reference in the body, so they must agree with each other. An application that sends the matching query at runtime does not have to use the same name: matching is by position, not by name.
 
-The two are compared as raw strings, so the name a client uses is the declared identifier **after** normalization:
-
-.. code-block:: sql
-
-    CREATE STORED QUERY by_region("regionId" BIGINT, owner_a INTEGER)
-        PREPARE FOR ("regionId" IS NOT NULL, owner_a IS NOT NULL)
-        AS SELECT * FROM t1 WHERE region_id = "regionId" AND owner = owner_a
-
-``"regionId"`` is quoted, so it keeps its spelling and a client binds ``?regionId``. ``owner_a`` is not, so it becomes ``OWNER_A`` and a client binds ``?OWNER_A``. Quote a parameter — in the parameter list, in the prepared cases, and in every reference in the body — whenever the client's spelling is not already upper case.
-
-A quoted name still has to be one a client can bind: it must start with a letter and continue with letters, digits, ``_`` or ``/``, which is what ``?name`` accepts. ``"my param"`` and ``"a-b"`` are rejected, because a reference to them in the body would become ``?my param``, which does not parse, and ``?a - b``, which parses as something else.
+A quoted name must still be valid after a ``?``, since every reference in the body is rewritten to ``?name``: it must start with a letter and continue with letters, digits, ``_`` or ``/``, which is what ``?name`` accepts. ``"my param"`` and ``"a-b"`` are rejected, because a reference to them in the body would become ``?my param``, which does not parse, and ``?a - b``, which parses as something else.
 
 A parameter name must not collide with a parameter of a declared function, since inside that function's body the two references would be indistinguishable.
 
@@ -218,7 +210,33 @@ A parameter list and a ``DECLARE`` block combine, and a parameter may be capture
         AS
             SELECT id FROM f1(param_b)
 
-Here ``param_a`` is captured by ``f1``'s body while ``param_b`` is passed as its argument. The runtime counterpart installs the same temporary function and issues the same query, binding ``?PARAM_A`` and ``?PARAM_B``. The declared function is planned together with the body, once per case, since a captured parameter changes the function's plan too.
+Here ``param_a`` is captured by ``f1``'s body while ``param_b`` is passed as its argument. The runtime counterpart installs the same temporary function and issues the same query, binding a value at each of the two places, under any names. The declared function is planned together with the body, once per case, since a captured parameter changes the function's plan too.
+
+Because names do not matter, each declared function can have its own parameter, pinned by its own case, even when the application uses one prepared parameter name in all of them. Here every function filters on a flag that selects a filtered index, so each needs a real value at warm-up:
+
+.. code-block:: sql
+
+    CREATE STORED QUERY by_flags(flag1 BOOLEAN, flag2 BOOLEAN)
+        PREPARE FOR (flag1 = TRUE, flag2 = TRUE), (flag1 = TRUE, flag2 = FALSE),
+                    (flag1 = FALSE, flag2 = TRUE), (flag1 = FALSE, flag2 = FALSE)
+        DECLARE
+            FUNCTION t1_by_flag() AS (SELECT * FROM t1 WHERE flag = flag1);
+            FUNCTION t2_by_flag() AS (SELECT * FROM t2 WHERE flag = flag2)
+        AS
+            SELECT A.id FROM t1_by_flag() AS A, t2_by_flag() AS B WHERE A.id = B.id
+
+At runtime, the application creates the same two temporary functions. Each ``CREATE TEMPORARY FUNCTION`` is its own prepared statement with a named parameter ``?flag``, and each statement binds its own value: ``true`` for the first function and ``false`` for the second. The query then reuses the plan warmed for the case ``(flag1 = TRUE, flag2 = FALSE)``:
+
+.. code-block:: sql
+
+    CREATE TEMPORARY FUNCTION t1_by_flag() ON COMMIT DROP FUNCTION
+        AS SELECT * FROM t1 WHERE flag = ?flag;    -- ?flag bound to true
+    CREATE TEMPORARY FUNCTION t2_by_flag() ON COMMIT DROP FUNCTION
+        AS SELECT * FROM t2 WHERE flag = ?flag;    -- ?flag bound to false
+
+    SELECT A.id FROM t1_by_flag() AS A, t2_by_flag() AS B WHERE A.id = B.id
+
+One shared parameter cannot do this: a case pins it once, so both functions would receive the same value.
 
 See Also
 ========
