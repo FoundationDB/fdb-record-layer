@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
@@ -35,6 +36,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class NotProvidedValueTest {
     private static final Type LONG = Type.primitiveType(Type.TypeCode.LONG, false);
+    private static final Type STRING = Type.primitiveType(Type.TypeCode.STRING, false);
 
     @Test
     void semanticEqualsOnlyItself() {
@@ -73,6 +75,15 @@ class NotProvidedValueTest {
         assertThat(deserialized.semanticEquals(original, AliasMap.emptyMap())).isFalse();
         assertThatThrownBy(() -> deserialized.eval(null, EvaluationContext.empty()))
                 .isInstanceOf(RecordCoreException.class);
+    }
+
+    @Test
+    void planHashDependsOnTypeOnly() {
+        for (final var mode : new PlanHashable.PlanHashMode[] {PlanHashable.CURRENT_FOR_CONTINUATION, PlanHashable.CURRENT_LEGACY}) {
+            assertThat(new NotProvidedValue(LONG).planHash(mode)).isEqualTo(new NotProvidedValue(LONG).planHash(mode));
+            assertThat(new NotProvidedValue(LONG).planHash(mode)).isNotEqualTo(new NotProvidedValue(STRING).planHash(mode));
+            assertThat(new NotProvidedValue(LONG).planHash(mode)).isNotEqualTo(new NullValue(LONG).planHash(mode));
+        }
     }
 
     @Test
