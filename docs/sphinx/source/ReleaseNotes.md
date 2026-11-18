@@ -8,6 +8,44 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.19
 
+{#release-4-19-2-0}
+
+### 4.19.2.0
+
+<h4> New Features </h4>
+
+* Remove parameter names from the canonical query string - [PR #4898](https://github.com/FoundationDB/fdb-record-layer/pull/4898)
+* Match an explode that does not preserve its order against one that does - [PR #4619](https://github.com/FoundationDB/fdb-record-layer/pull/4619)
+* Let the planner consider indexes on synthetic record types, behind a planner flag and connection option, off by default - [PR #4918](https://github.com/FoundationDB/fdb-record-layer/pull/4918)
+* Geospatial indexing using RTree - [PR #4355](https://github.com/FoundationDB/fdb-record-layer/pull/4355)
+<h4> Bug Fixes </h4>
+
+* Fix test - wait for the future to avoid race condition on assertion - [PR #4922](https://github.com/FoundationDB/fdb-record-layer/pull/4922)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Update statThreshold value for HNSW operations test - [PR #4863](https://github.com/FoundationDB/fdb-record-layer/pull/4863)
+
+</details>
+
+
+**[Full Changelog (4.19.1.0...4.19.2.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.19.1.0...4.19.2.0)**
+
+<h4> Mixed Mode Test Results </h4>
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.16.3.0`, ❌`4.16.4.0`, ❌`4.17.1.0`, ❌`4.17.2.0`, ❌`4.18.1.0`, ❌`4.18.3.0`, ✅`4.18.4.0`, ✅`4.18.5.0`, ✅`4.18.7.0`, ✅`4.19.1.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/44324415043)
+
+
+
 {#release-4-19-1-0}
 
 ### 4.19.1.0
