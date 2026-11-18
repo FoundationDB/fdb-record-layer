@@ -93,7 +93,7 @@ Such a parameter is not warmed yet: see `What is not warmed`_.
 Naming
 ------
 
-A parameter name is an ordinary identifier. Quoted, it keeps its spelling exactly. Unquoted, it is normalized according to the connection option ``CASE_SENSITIVE_IDENTIFIERS``. Inside the stored query the same rule applies to the parameter list, the prepared cases and every reference in the body, so they must agree with each other. A runtime client does not have to use the same name: matching is by position, not by name.
+A parameter name is an ordinary identifier. Quoted, it keeps its spelling exactly. Unquoted, it is normalized according to the connection option ``CASE_SENSITIVE_IDENTIFIERS``. Inside the stored query the same rule applies to the parameter list, the prepared cases and every reference in the body, so they must agree with each other. An application that sends the matching query at runtime does not have to use the same name: matching is by position, not by name.
 
 A quoted name must still be valid after a ``?``, since every reference in the body is rewritten to ``?name``: it must start with a letter and continue with letters, digits, ``_`` or ``/``, which is what ``?name`` accepts. ``"my param"`` and ``"a-b"`` are rejected, because a reference to them in the body would become ``?my param``, which does not parse, and ``?a - b``, which parses as something else.
 
@@ -212,7 +212,7 @@ A parameter list and a ``DECLARE`` block combine, and a parameter may be capture
 
 Here ``param_a`` is captured by ``f1``'s body while ``param_b`` is passed as its argument. The runtime counterpart installs the same temporary function and issues the same query, binding a value at each of the two places, under any names. The declared function is planned together with the body, once per case, since a captured parameter changes the function's plan too.
 
-Because names do not matter, each declared function can have its own parameter, pinned by its own case, even when the runtime client uses one name in all of them. Here every function filters on a flag that selects a filtered index, so each needs a real value at warm-up:
+Because names do not matter, each declared function can have its own parameter, pinned by its own case, even when the application uses one prepared parameter name in all of them. Here every function filters on a flag that selects a filtered index, so each needs a real value at warm-up:
 
 .. code-block:: sql
 
@@ -225,7 +225,7 @@ Because names do not matter, each declared function can have its own parameter, 
         AS
             SELECT A.id FROM t1_by_flag() AS A, t2_by_flag() AS B WHERE A.id = B.id
 
-The runtime client binds ``?flag`` separately in each function, ``true`` in one and ``false`` in the other, and reuses the plan warmed for that pair:
+At runtime, the application creates the same two temporary functions. Each ``CREATE TEMPORARY FUNCTION`` is its own prepared statement with a named parameter ``?flag``, and each statement binds its own value: ``true`` for the first function and ``false`` for the second. The query then reuses the plan warmed for the case ``(flag1 = TRUE, flag2 = FALSE)``:
 
 .. code-block:: sql
 
