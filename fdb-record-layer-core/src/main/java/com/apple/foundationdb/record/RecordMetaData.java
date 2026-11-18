@@ -281,6 +281,27 @@ public class RecordMetaData implements RecordMetaDataProvider {
         return recordType;
     }
 
+    /**
+     * Get the synthetic record types whose records are all generated from records of the given stored record types.
+     * That is the case if every stored constituent of the synthetic record type is of one of the given types.
+     *
+     * @param recordTypes the stored record types records are read from
+     * @return the synthetic record types whose records are all generated from records of {@code recordTypes}
+     */
+    @Nonnull
+    @API(API.Status.EXPERIMENTAL)
+    public List<SyntheticRecordType<?>> getSyntheticRecordTypesFromRecordTypes(@Nonnull Collection<RecordType> recordTypes) {
+        final List<SyntheticRecordType<?>> result = new ArrayList<>();
+        for (SyntheticRecordType<?> syntheticRecordType : syntheticRecordTypes.values()) {
+            final Set<RecordType> storedRecordTypes = syntheticRecordType.getStoredRecordTypes();
+            Verify.verify(!storedRecordTypes.isEmpty());
+            if (recordTypes.containsAll(storedRecordTypes)) {
+                result.add(syntheticRecordType);
+            }
+        }
+        return result;
+    }
+
     @Nonnull
     @API(API.Status.EXPERIMENTAL)
     @SuppressWarnings("squid:S1452")

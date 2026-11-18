@@ -295,7 +295,14 @@ public final class Options {
         /**
          * A fixed Unix epoch timestamp in milliseconds to use in current datetime value functions.
          */
-        FIXED_EPOCH_TIMESTAMP_MILLIS_FOR_CURRENT_DATETIME_FUNCTIONS
+        FIXED_EPOCH_TIMESTAMP_MILLIS_FOR_CURRENT_DATETIME_FUNCTIONS,
+
+        /**
+         * A boolean indicating whether the planner should consider the indexes defined on synthetic record types, such
+         * as the indexes on unnested record types, when a query reads all of their stored constituents.
+         * Scope: Connection
+         */
+        CONSIDER_SYNTHETIC_RECORD_TYPE_INDEXES
 
     }
 
@@ -348,6 +355,7 @@ public final class Options {
         builder.put(Name.EXECUTION_SCANNED_ROWS_LIMIT, Integer.MAX_VALUE);
         builder.put(Name.DRY_RUN, false);
         builder.put(Name.PLAN_RIGHT_DEEP, false);
+        builder.put(Name.CONSIDER_SYNTHETIC_RECORD_TYPE_INDEXES, false);
         builder.put(Name.ISOLATION_LEVEL_SNAPSHOT, false);
         builder.put(Name.CASE_SENSITIVE_IDENTIFIERS, false);
         builder.put(Name.ASYNC_OPERATIONS_TIMEOUT_MILLIS, 10_000L);
@@ -606,6 +614,7 @@ public final class Options {
         data.put(Name.EXECUTION_SCANNED_BYTES_LIMIT, List.of(TypeContract.longType(), RangeContract.of(0L, Long.MAX_VALUE)));
         data.put(Name.DRY_RUN, List.of(TypeContract.booleanType()));
         data.put(Name.PLAN_RIGHT_DEEP, List.of(TypeContract.booleanType()));
+        data.put(Name.CONSIDER_SYNTHETIC_RECORD_TYPE_INDEXES, List.of(TypeContract.booleanType()));
         data.put(Name.ISOLATION_LEVEL_SNAPSHOT, List.of(TypeContract.booleanType()));
         data.put(Name.CASE_SENSITIVE_IDENTIFIERS, List.of(TypeContract.booleanType()));
         data.put(Name.CURRENT_PLAN_HASH_MODE, List.of(TypeContract.stringType()));

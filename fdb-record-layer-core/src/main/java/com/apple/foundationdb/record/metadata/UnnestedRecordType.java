@@ -56,11 +56,13 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 
@@ -260,6 +262,12 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
     @Nonnull
     public NestedConstituent getParentConstituent() {
         return parentConstituent;
+    }
+
+    @Nonnull
+    @Override
+    public Set<RecordType> getStoredRecordTypes() {
+        return Collections.singleton(getParentConstituent().getRecordType());
     }
 
     @Override

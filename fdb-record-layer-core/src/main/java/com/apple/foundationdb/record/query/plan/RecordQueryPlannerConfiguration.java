@@ -72,6 +72,7 @@ public class RecordQueryPlannerConfiguration {
     private static final long NORMALIZE_NESTED_FIELDS_MASK = 1L << 10;
     private static final long OMIT_PRIMARY_KEY_IN_ORDERING_KEY_FOR_IN_UNION_MASK = 1L << 11;
     private static final long JOIN_RIGHT_DEEP_MASK = 1L << 12;
+    private static final long CONSIDER_SYNTHETIC_RECORD_TYPE_INDEXES_MASK = 1L << 13;
 
     @Nonnull
     private final RecordPlannerConfigurationProto.PlannerConfiguration proto;
@@ -427,6 +428,17 @@ public class RecordQueryPlannerConfiguration {
      */
     public boolean shouldJoinRightDeep() {
         return flagSet(JOIN_RIGHT_DEEP_MASK);
+    }
+
+    /**
+     * Should the planner consider the indexes defined on synthetic record types. If this option is set, the
+     * {@link com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner} also considers the readable indexes of
+     * every synthetic record type whose stored constituents a query reads all of. It is off by default.
+     *
+     * @return whether the planner should consider indexes on synthetic record types
+     */
+    public boolean shouldConsiderSyntheticRecordTypeIndexes() {
+        return flagSet(CONSIDER_SYNTHETIC_RECORD_TYPE_INDEXES_MASK);
     }
 
     /**
@@ -880,6 +892,21 @@ public class RecordQueryPlannerConfiguration {
         @Nonnull
         public Builder setJoinRightDeep(boolean joinRightDeep) {
             updateFlags(joinRightDeep, JOIN_RIGHT_DEEP_MASK);
+            return this;
+        }
+
+        /**
+         * Set whether the planner should consider indexes on synthetic record types. See
+         * {@link #shouldConsiderSyntheticRecordTypeIndexes()} for more details.
+         *
+         * @param considerSyntheticRecordTypeIndexes whether the planner should consider indexes on synthetic record types
+         * @return this builder
+         * @see #shouldConsiderSyntheticRecordTypeIndexes()
+         */
+        @CanIgnoreReturnValue
+        @Nonnull
+        public Builder setConsiderSyntheticRecordTypeIndexes(boolean considerSyntheticRecordTypeIndexes) {
+            updateFlags(considerSyntheticRecordTypeIndexes, CONSIDER_SYNTHETIC_RECORD_TYPE_INDEXES_MASK);
             return this;
         }
 
