@@ -49,6 +49,7 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.common.text.DefaultTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextSamples;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -2182,24 +2183,18 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
         }
     }
 
-    static Stream<Sort> partitionedSorts() {
-        return Stream.of(
-                null,
-                new Sort(new SortField("timestamp", SortField.Type.LONG, true)),
-                new Sort(SortField.FIELD_SCORE, new SortField("timestamp", SortField.Type.LONG, true)));
-    }
-
     @ParameterizedTest
-    @MethodSource("partitionedSorts")
+    @MethodSource("allSorts")
     void scoreInPartitionedIndex(@Nullable Sort sort) {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_PARTITIONED);
             setTimestamps();
-            createDualPartitionsWithComplexDocs(10);
+            final int docCount = 10;
+            createDualPartitionsWithComplexDocs(COMPLEX_PARTITIONED, docCount, true);
 
             final var scanQuery = new LuceneScanQueryParameters(
                     Verify.verifyNotNull(ScanComparisons.from(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1))),
-                    new LuceneQuerySearchClause(LuceneQueryType.QUERY, "text:propose", false),
+                    new LuceneQuerySearchClause(LuceneQueryType.QUERY, "text:hardware", false),
                     sort, null, null, null, true)
                     .bind(recordStore, COMPLEX_PARTITIONED, EvaluationContext.EMPTY);
             final Map<Tuple, Float> onePage = scoresByPrimaryKey(COMPLEX_PARTITIONED, scanQuery, 100);
@@ -2207,6 +2202,10 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
             assertFalse(onePage.isEmpty());
             onePage.values().forEach(score -> assertTrue(Float.isFinite(score) && score >= 0, "score " + score));
             assertEquals(onePage, paged);
+            // assert that the current partition's docs (the ones with more recent dates - with id==1000+i) come first
+            // this is working because the map is order-preserving
+            onePage.keySet().stream().limit(docCount).forEach(key -> assertTrue(key.getLong(1) >= 1000));
+            onePage.keySet().stream().skip(docCount).forEach(key -> assertTrue(key.getLong(1) < 1000));
         }
     }
 
@@ -2248,12 +2247,17 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
     }
 
     void createDualPartitionsWithComplexDocs(Index index, int docCount) {
+        createDualPartitionsWithComplexDocs(index, docCount, false);
+    }
+
+    void createDualPartitionsWithComplexDocs(Index index, int docCount, boolean useDifferentContent) {
         // two partitions: 0 and 1. 0 has older messages, 1 has newer.
         // doc keys in 0 start at (1, 0), doc keys in 1 start at (1, 1000)
         createPartitionMetadata(index, Tuple.from(1L), 0, timestamp60DaysAgo, timestamp30DaysAgo);
         createPartitionMetadata(index, Tuple.from(1L), 1, timestamp29DaysAgo, yesterday);
+        String text = useDifferentContent ? ENGINEER_JOKE_TRUNCATED : ENGINEER_JOKE;
         for (int i = 0; i < docCount; i++) {
-            recordStore.saveRecord(createComplexDocument(i, ENGINEER_JOKE, 1, ThreadLocalRandom.current().nextLong(timestamp60DaysAgo, timestamp30DaysAgo + 1)));
+            recordStore.saveRecord(createComplexDocument(i, text, 1, ThreadLocalRandom.current().nextLong(timestamp60DaysAgo, timestamp30DaysAgo + 1)));
         }
         for (int i = 0; i < docCount; i++) {
             recordStore.saveRecord(createComplexDocument(1000L + i, ENGINEER_JOKE, 1, ThreadLocalRandom.current().nextLong(timestamp29DaysAgo, yesterday + 1)));
@@ -2372,6 +2376,15 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
         }
     }
 
+    static Stream<Sort> allSorts() {
+        return Stream.of(
+                null,
+                RELEVANCE_THEN_PRIMARY_KEY,
+                new Sort(SortField.FIELD_DOC),
+                new Sort(new SortField(null, SortField.Type.SCORE, true)),
+                new Sort(new SortField(LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME, SortField.Type.STRING), SortField.FIELD_SCORE));
+    }
+
     @ParameterizedTest
     @MethodSource("allSorts")
     void scoreIsIndependentOfSort(@Nullable Sort sort) {
@@ -2386,15 +2399,6 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
         }
     }
 
-    static Stream<Sort> allSorts() {
-        return Stream.of(
-                null,
-                RELEVANCE_THEN_PRIMARY_KEY,
-                new Sort(SortField.FIELD_DOC),
-                new Sort(new SortField(null, SortField.Type.SCORE, true)),
-                new Sort(new SortField(LuceneIndexMaintainer.PRIMARY_KEY_SEARCH_NAME, SortField.Type.STRING), SortField.FIELD_SCORE));
-    }
-
     @ParameterizedTest
     @MethodSource("allSorts")
     void scoreAcrossContinuations(@Nullable Sort sort) {
@@ -2404,16 +2408,18 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
             final Map<Tuple, Float> onePage = scoresByPrimaryKey(index, scoredSearch(index, "vision", sort, true), 100);
             final Map<Tuple, Float> paged = scoresByPrimaryKey(index, scoredSearch(index, "vision", sort, true), 1);
             assertEquals(onePage, paged);
+            // assert the order of the entries (they should be in the same order)
             assertEquals(new ArrayList<>(onePage.keySet()), new ArrayList<>(paged.keySet()));
         }
     }
 
-    @Test
-    void scoreNotRequested() {
+    @ParameterizedTest
+    @MethodSource("allSorts")
+    void scoreNotRequested(@Nullable Sort sort) {
         final Index index = SIMPLE_TEXT_SUFFIXES;
         try (FDBRecordContext context = openContext()) {
             saveScoredDocuments(context, index);
-            final List<IndexEntry> entries = recordStore.scanIndex(index, scoredSearch(index, "vision", RELEVANCE_THEN_PRIMARY_KEY, false),
+            final List<IndexEntry> entries = recordStore.scanIndex(index, scoredSearch(index, "vision", sort, false),
                     null, ScanProperties.FORWARD_SCAN).asList().join();
             assertEquals(4, entries.size());
             for (IndexEntry entry : entries) {
@@ -2422,8 +2428,50 @@ public class LuceneIndexTest extends FDBLuceneTestBase {
         }
     }
 
+    private void saveComplexScoredRecords() {
+        recordStore.saveRecord(createComplexDocument(1L, "vision vision vision cat", "alpha", 10L, 100, true, 1.5));
+        recordStore.saveRecord(createComplexDocument(2L, "vision dog dog dog dog dog dog", "beta", 20L, 200, true, 2.5));
+        recordStore.saveRecord(createComplexDocument(3L, "vision", "alpha", 30L, 300, true, 3.5));
+        recordStore.saveRecord(createComplexDocument(4L, "unrelated", "gamma", 40L, 400, true, 4.5));
+        recordStore.saveRecord(createComplexDocument(5L, "vision vision", "alpha", 50L, 500, true, 5.5));
+    }
+
+    static Stream<Arguments> scoreByFieldTypeCases() {
+        return Stream.of(
+                Arguments.of("text", LuceneIndexExpressions.DocumentFieldType.TEXT,
+                        new Comparisons.TextComparison(Comparisons.Type.TEXT_CONTAINS_ANY, List.of("vision"), null, DefaultTextTokenizer.NAME),
+                        Set.of(1L, 2L, 3L, 5L)),
+                Arguments.of("text2", LuceneIndexExpressions.DocumentFieldType.STRING,
+                        new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "alpha"), Set.of(1L, 3L, 5L)),
+                Arguments.of("score", LuceneIndexExpressions.DocumentFieldType.INT,
+                        new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 200), Set.of(3L, 4L, 5L)),
+                Arguments.of("group", LuceneIndexExpressions.DocumentFieldType.LONG,
+                        new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, 30L), Set.of(1L, 2L, 3L)),
+                Arguments.of("time", LuceneIndexExpressions.DocumentFieldType.DOUBLE,
+                        new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, 2.5), Set.of(2L, 3L, 4L, 5L)));
+    }
+
+    @ParameterizedTest(name = "scoreByFieldType[{1}]")
+    @MethodSource("scoreByFieldTypeCases")
+    void scoreByFieldType(String field, LuceneIndexExpressions.DocumentFieldType fieldType,
+                          Comparisons.Comparison comparison, Set<Long> expectedDocIds) {
+        final Index index = LuceneIndexTestUtils.TEXT_AND_STORED_COMPLEX;
+        try (FDBRecordContext context = openContext()) {
+            rebuildIndexMetaData(context, COMPLEX_DOC, index);
+            saveComplexScoredRecords();
+
+            final LuceneQueryClause clause = LuceneQueryFieldComparisonClause.create(LuceneQueryType.QUERY, field, fieldType, false, null, comparison);
+            final LuceneScanQuery scanQuery = new LuceneScanQueryParameters(ScanComparisons.EMPTY, clause, RELEVANCE_THEN_PRIMARY_KEY, null, null, null, true)
+                    .bind(recordStore, index, EvaluationContext.EMPTY);
+            final Map<Tuple, Float> scores = scoresByPrimaryKey(index, scanQuery, 100);
+            // the primary key is (group, doc_id)
+            assertEquals(expectedDocIds, scores.keySet().stream().map(key -> key.getLong(1)).collect(Collectors.toSet()));
+            scores.values().forEach(score -> assertTrue(score != null && Float.isFinite(score) && score > 0, "score " + score));
+        }
+    }
+
     @Test
-    void scoreEqualsHashCode() {
+    void includeScoreAffectsEqualsAndHashCode() {
         final var clause = new LuceneQueryMultiFieldSearchClause(LuceneQueryType.QUERY, "vision", false);
         final var without = new LuceneScanQueryParameters(ScanComparisons.EMPTY, clause, null, null, null, null, false);
         final var with = new LuceneScanQueryParameters(ScanComparisons.EMPTY, clause, null, null, null, null, true);
