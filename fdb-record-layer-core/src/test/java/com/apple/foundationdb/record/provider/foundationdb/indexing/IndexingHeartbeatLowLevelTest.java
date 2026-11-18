@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexingSubspaces;
+import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.record.test.TestKeySpace;
@@ -464,6 +465,24 @@ class IndexingHeartbeatLowLevelTest {
                     .hasCauseInstanceOf(SynchronizedSessionLockedException.class);
             // and clear
             heartbeatMutual.clearHeartbeat(recordStore, index);
+            context.commit();
+        }
+    }
+
+    @Test
+    void checkAnyOngoingOnlineIndexBuildsStaleHeartbeatReturnsFalse() throws InterruptedException {
+        // A heartbeat older than the given lease length must not count as an active indexing session
+        Index index = new Index("simple$num_value_2", field("num_value_2"), IndexTypes.VALUE);
+        openSimpleMetaData(allIndexesHook(List.of(index)));
+        try (FDBRecordContext context = openContext()) {
+            new IndexingHeartbeat(UUID.randomUUID(), "stale", 10, false).updateHeartbeat(recordStore, index);
+            context.commit();
+        }
+
+        Thread.sleep(500);
+        try (FDBRecordContext context = openContext()) {
+            Assertions.assertThat(OnlineIndexer.checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index, 100).join()).isFalse();
+            Assertions.assertThat(OnlineIndexer.checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index, TimeUnit.MINUTES.toMillis(10)).join()).isTrue();
             context.commit();
         }
     }

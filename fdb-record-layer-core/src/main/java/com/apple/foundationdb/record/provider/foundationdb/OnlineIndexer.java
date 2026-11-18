@@ -551,8 +551,8 @@ public class OnlineIndexer implements AutoCloseable {
     public static CompletableFuture<Boolean> checkAnyOngoingOnlineIndexBuildsAsync(@Nonnull FDBRecordStore recordStore, @Nonnull Index index, long leasingMilliseconds) {
         return IndexingHeartbeat.getIndexingHeartbeats(recordStore, index, 0)
                 .thenApply(list -> {
-                    long activeTime = System.currentTimeMillis() + leasingMilliseconds;
-                    return list.values().stream().anyMatch(item -> item.getHeartbeatTimeMilliseconds() < activeTime);
+                    long minActiveTime = System.currentTimeMillis() - leasingMilliseconds;
+                    return list.values().stream().anyMatch(item -> item.getHeartbeatTimeMilliseconds() > minActiveTime);
                 });
     }
 
