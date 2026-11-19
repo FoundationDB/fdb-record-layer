@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.apple.foundationdb.record.test.TestKeySpace;
 import com.apple.foundationdb.test.TestExecutors;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.ParameterizedTestUtils;
 import com.apple.test.Tags;
 import com.google.auto.service.AutoService;
@@ -62,12 +63,13 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executor;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -98,8 +100,13 @@ class UniqueIndexConcurrencyTest extends FDBRecordStoreConcurrentTestBase {
     private static final String UNIQUE_INDEX_NAME = "MySimpleRecord$num_value_unique";
     private static final String UNSYNCHRONIZED_UNIQUE_VALUE = "unsynchronized_unique_value";
     private static final String UNSYNCHRONIZED_INDEX_NAME = "unsynchronized_num_value_unique";
+    private static final String CONTROLLED_VIOLATIONS_UNIQUE_VALUE = "controlled_violations_unique_value";
+    private static final String CONTROLLED_VIOLATIONS_INDEX_NAME = "controlled_violations_num_value_unique";
     private static final RecordMetaData UNIQUE_META_DATA = RecordMetaData.build(TestRecords1Proto.getDescriptor());
-    private static final RecordMetaData UNSYNCHRONIZED_META_DATA = unsynchronizedMetaData();
+    private static final RecordMetaData UNSYNCHRONIZED_META_DATA =
+            metaDataWithUniqueIndex(UNSYNCHRONIZED_INDEX_NAME, UNSYNCHRONIZED_UNIQUE_VALUE);
+    private static final RecordMetaData CONTROLLED_VIOLATIONS_META_DATA =
+            metaDataWithUniqueIndex(CONTROLLED_VIOLATIONS_INDEX_NAME, CONTROLLED_VIOLATIONS_UNIQUE_VALUE);
 
     /**
      * Writers block on a barrier so that they start together, which is fine here as the pool is unbounded.
@@ -335,6 +342,7 @@ class UniqueIndexConcurrencyTest extends FDBRecordStoreConcurrentTestBase {
         //       recorded from an asynchronous callback that can outlive the save, and removing the moved record's old
         //       entry (removeUniquenessViolationsAsync) clears every violation for the value once it counts one left,
         //       which can wipe the ones that were recorded in the meantime.
+        //       This is reproduced deterministically by movingRecordClearsViolationsOfDuplicates.
         final List<Integer> recordsNeedingViolation = indexState == IndexState.WRITE_ONLY && concurrentInsert
                                                       ? List.of(newId1, newId2)
                                                       : List.of();
@@ -349,6 +357,71 @@ class UniqueIndexConcurrencyTest extends FDBRecordStoreConcurrentTestBase {
                 maintainerType == MaintainerType.Unsynchronized && storeRunner == ConcurrentStoreRunner.OneTransaction
                         && concurrentInsert,
                 successful, minCommits, maxCommits, recordsNeedingViolation, expectedRecords);
+    }
+
+    /**
+     * Reproduces, deterministically, a move of a record clearing the violations of two records that are duplicates.
+     *
+     * <p>While the index is write-only, two records are inserted with a value, which a third record is then moved off,
+     * all in one transaction. The inserts record their violations from a callback that does not have to be done when
+     * the save is, so it can be done after a later save. Removing the moved record's old index entry removes its
+     * violations, and scans the ones that are left for that value: if there is only one, they are all cleared,
+     * but only once the scan has a result. A violation that is recorded in between is cleared too, even though the two
+     * records are still duplicates.
+     *
+     * <p>The maintainer holds back every violation, so that the test decides when it is recorded.
+     *
+     * @param recordedBetweenScanAndClear whether the violations of the second insert are recorded after the removal has
+     * scanned the violations that are left, but before it clears them, which loses them. If not, they are recorded
+     * after the removal, and survive.
+     */
+    @ParameterizedTest
+    @BooleanSource("recordedBetweenScanAndClear")
+    void movingRecordClearsViolationsOfDuplicates(boolean recordedBetweenScanAndClear) {
+        // TODO: This is a bug in removeUniquenessViolationsAsync, which this reproduces. Remove this once it is fixed.
+        Assumptions.assumeThat(recordedBetweenScanAndClear)
+                .as("known bug: removing a record's violations clears ones that were recorded since it scanned them")
+                .isFalse();
+        ControlledViolationsIndexMaintainer.reset();
+        final int seedId = 10;
+        final int newId1 = 12;
+        final int newId2 = 14;
+        final int value = 17;
+        final Supplier<FDBRecordStore> storeSupplier = () -> openStore(CONTROLLED_VIOLATIONS_META_DATA, false);
+
+        final FDBRecordStore seedStore = storeSupplier.get();
+        try (FDBRecordContext context = seedStore.getContext()) {
+            context.asyncToSync(FDBStoreTimer.Waits.WAIT_INDEX_OPERATION,
+                    seedStore.markIndexWriteOnly(CONTROLLED_VIOLATIONS_INDEX_NAME));
+            context.asyncToSync(FDBStoreTimer.Waits.WAIT_SAVE_RECORD, saveRecord(seedStore, seedId, value));
+            commit(context);
+        }
+
+        final FDBRecordStore store = storeSupplier.get();
+        try (FDBRecordContext context = store.getContext()) {
+            // The first insert sees the seed record, so there are two violations, which are recorded.
+            store.saveRecord(record(newId1, value));
+            ControlledViolationsIndexMaintainer.awaitHeldViolations(2).forEach(Runnable::run);
+            // The second insert sees the seed record and the first insert, so there are four violations, which are not
+            // recorded yet.
+            store.saveRecord(record(newId2, value));
+            final List<Runnable> lateViolations = ControlledViolationsIndexMaintainer.awaitHeldViolations(4);
+            if (recordedBetweenScanAndClear) {
+                ControlledViolationsIndexMaintainer.afterRemovalScanIssued = () -> lateViolations.forEach(Runnable::run);
+            }
+            // Moving the seed record removes its index entry, and so its violations.
+            store.saveRecord(record(seedId, value + 3));
+            if (!recordedBetweenScanAndClear) {
+                lateViolations.forEach(Runnable::run);
+            }
+            commit(context);
+        }
+
+        // The two inserted records are in the store, and both have the value: they are duplicates.
+        assertStoreContents(storeSupplier, CONTROLLED_VIOLATIONS_INDEX_NAME, 3);
+        assertThat(countRecordsWithoutViolation(storeSupplier, CONTROLLED_VIOLATIONS_INDEX_NAME, List.of(newId1, newId2)))
+                .as("duplicate records without a recorded uniqueness violation")
+                .isZero();
     }
 
     /**
@@ -478,12 +551,12 @@ class UniqueIndexConcurrencyTest extends FDBRecordStoreConcurrentTestBase {
     }
 
     @Nonnull
-    private static RecordMetaData unsynchronizedMetaData() {
+    private static RecordMetaData metaDataWithUniqueIndex(@Nonnull String indexName, @Nonnull String indexType) {
         final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
                 .setRecords(TestRecords1Proto.getDescriptor());
         metaDataBuilder.removeIndex(UNIQUE_INDEX_NAME);
-        metaDataBuilder.addIndex("MySimpleRecord", new Index(UNSYNCHRONIZED_INDEX_NAME, field("num_value_unique"),
-                UNSYNCHRONIZED_UNIQUE_VALUE, IndexOptions.UNIQUE_OPTIONS));
+        metaDataBuilder.addIndex("MySimpleRecord", new Index(indexName, field("num_value_unique"),
+                indexType, IndexOptions.UNIQUE_OPTIONS));
         return metaDataBuilder.getRecordMetaData();
     }
 
@@ -547,14 +620,15 @@ class UniqueIndexConcurrencyTest extends FDBRecordStoreConcurrentTestBase {
     }
 
     /**
-     * Factory for {@link UnsynchronizedUniqueValueIndexMaintainer}.
+     * Factory for the index maintainers that the tests use to control what the unique index does:
+     * {@link UnsynchronizedUniqueValueIndexMaintainer} and {@link ControlledViolationsIndexMaintainer}.
      */
     @AutoService(IndexMaintainerFactory.class)
-    public static class UnsynchronizedUniqueValueIndexMaintainerFactory implements IndexMaintainerFactory {
+    public static class TestUniqueValueIndexMaintainerFactory implements IndexMaintainerFactory {
         @Nonnull
         @Override
         public Iterable<String> getIndexTypes() {
-            return Collections.singletonList(UNSYNCHRONIZED_UNIQUE_VALUE);
+            return List.of(UNSYNCHRONIZED_UNIQUE_VALUE, CONTROLLED_VIOLATIONS_UNIQUE_VALUE);
         }
 
         @Nonnull
@@ -566,7 +640,63 @@ class UniqueIndexConcurrencyTest extends FDBRecordStoreConcurrentTestBase {
         @Nonnull
         @Override
         public IndexMaintainer getIndexMaintainer(@Nonnull IndexMaintainerState state) {
-            return new UnsynchronizedUniqueValueIndexMaintainer(state);
+            if (UNSYNCHRONIZED_UNIQUE_VALUE.equals(state.index.getType())) {
+                return new UnsynchronizedUniqueValueIndexMaintainer(state);
+            }
+            return new ControlledViolationsIndexMaintainer(state);
+        }
+    }
+
+    /**
+     * A {@link ValueIndexMaintainer} that holds back the uniqueness violations that it is asked to record, so that a
+     * test chooses when they are recorded. It can also do something right after a removal of violations has scanned the
+     * ones that are left, which is before the scan has a result.
+     */
+    private static class ControlledViolationsIndexMaintainer extends ValueIndexMaintainer {
+        private static final BlockingQueue<Runnable> HELD_VIOLATIONS = new LinkedBlockingQueue<>();
+        private static volatile Runnable afterRemovalScanIssued = () -> { };
+
+        ControlledViolationsIndexMaintainer(@Nonnull IndexMaintainerState state) {
+            super(state);
+        }
+
+        static void reset() {
+            HELD_VIOLATIONS.clear();
+            afterRemovalScanIssued = () -> { };
+        }
+
+        /**
+         * Wait for the maintainer to be asked to record the given number of violations.
+         *
+         * @return what records each of them, which has not been run
+         */
+        @Nonnull
+        static List<Runnable> awaitHeldViolations(int count) {
+            final List<Runnable> violations = new ArrayList<>();
+            try {
+                for (int i = 0; i < count; i++) {
+                    final Runnable violation = HELD_VIOLATIONS.poll(30, TimeUnit.SECONDS);
+                    assertThat(violation).as("violation %d of %d that was held back", i + 1, count).isNotNull();
+                    violations.add(violation);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("interrupted waiting for violations", e);
+            }
+            return violations;
+        }
+
+        @Override
+        protected void addUniquenessViolation(@Nonnull Tuple valueKey, @Nonnull Tuple primaryKey, @Nullable Tuple existingKey) {
+            HELD_VIOLATIONS.add(() -> super.addUniquenessViolation(valueKey, primaryKey, existingKey));
+        }
+
+        @Nonnull
+        @Override
+        protected CompletableFuture<Void> removeUniquenessViolationsAsync(@Nonnull Tuple valueKey, @Nonnull Tuple primaryKey) {
+            final CompletableFuture<Void> removal = super.removeUniquenessViolationsAsync(valueKey, primaryKey);
+            afterRemovalScanIssued.run();
+            return removal;
         }
     }
 
