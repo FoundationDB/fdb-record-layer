@@ -27,7 +27,10 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -56,6 +59,7 @@ public class InMemoryTransactionManager implements TransactionManager {
     private static final class TestTransaction implements Transaction {
         private final long txnId;
         private final TransactionManager txnManager;
+        private final Map<String, Object> localVariables = new LinkedHashMap<>();
 
         private TestTransaction(long txnId, TransactionManager txnManager) {
             this.txnId = txnId;
@@ -86,6 +90,17 @@ public class InMemoryTransactionManager implements TransactionManager {
         @Override
         public void unsetBoundSchemaTemplate() {
             throw new UnsupportedOperationException("method is not implemented");
+        }
+
+        @Override
+        public void setLocalVariable(@Nonnull String name, @Nullable Object value) {
+            localVariables.put(name, value);
+        }
+
+        @Nonnull
+        @Override
+        public Map<String, Object> getLocalVariables() {
+            return Collections.unmodifiableMap(localVariables);
         }
 
         @Override
