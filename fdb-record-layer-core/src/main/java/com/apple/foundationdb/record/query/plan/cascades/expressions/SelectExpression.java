@@ -350,11 +350,8 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
         }
         final var mergedParameterBindingMap = mergedParameterBindingMapOptional.get();
 
-        //
-        // A child match that requires an existential can only absorbed by an existential quantifier, through which just the existence of a row is
-        // observed, absorbs that. Through a for-each quantifier, this match requires an existential as well, so it is
-        // carried up until one absorbs it. A data access cannot be planned from a match that still requires it.
-        //
+        // A child match that requires an existential can only absorbed by an existential quantifier, else it is
+        // carried upwards.
         final boolean requiresExistential =
                 partialMatchMap.entrySet()
                         .stream()
