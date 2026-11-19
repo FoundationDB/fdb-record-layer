@@ -59,7 +59,9 @@ Arguments: `$ARGUMENTS`
    same with the production class name from the bug. Check whether BRANCH already exists
    locally or on FORK. If anything is found, show it and ask how to proceed.
 3. **Create the branch.** Require a clean working tree (`git status --porcelain` empty; if
-   not, stop and ask). Remember the current branch as START_BRANCH. `git fetch FORK`, then
+   not, stop and ask). Remember where you started as START: the current branch name, or, if
+   HEAD is detached (as in a dedicated auto-qa checkout), the commit `git rev-parse HEAD`.
+   `git fetch FORK`, then
    `git switch -c fix-AQA-<n> UPSTREAM/main --no-track`.
 4. **Add the regression test properly.** Read the bug test from SEARCH
    (`git show UPSTREAM/SEARCH:<companion path>`), with the helpers it needs. Add it to the
@@ -113,7 +115,7 @@ Arguments: `$ARGUMENTS`
    Verification: <tests run and results; checkstyle/spotbugs>
    Review findings not addressed: <...> | none
    Compatibility notes: <...> | none
-   To go back: git switch <START_BRANCH>
+   To go back: git switch <START> (or git switch --detach <START> for a commit)
    ```
    Then wait. Do nothing else unless the user asks.
 10. **Only when the user asks:**
@@ -125,6 +127,11 @@ Arguments: `$ARGUMENTS`
       release note), and a description with the problem, the root cause, the fix, the
       regression test, any compatibility notes, and "Found by /auto-qa as AQA-<n> (see the
       draft PR 'Auto QA: tests that expose known bugs')". Do not mark it ready for review.
+    - **after the PR is created** (or after a push, if the user asked only to push): check
+      that the working tree is clean, then switch back to START (`git switch <START>`, or
+      `git switch --detach <START>` if it was a commit), so that a dedicated auto-qa
+      checkout is ready for the next `/auto-qa` run. Keep BRANCH, locally and on FORK, for
+      later updates to the PR, and tell the user which branch to switch to for that.
     After the PR merges, `/auto-qa check-fixed` marks AQA-<n> as `fixed upstream` with this PR
     and removes its test from CAUGHT; nothing else needs to be updated by hand.
 
@@ -150,6 +157,7 @@ WHAT IT DOES
   6. Stops with the change uncommitted for your review.
 
   It commits, pushes fix-AQA-<n> to your fork (origin), or opens a draft PR
-  (label "bug fix") only when you ask. Interactive only: never from run.sh or cron.
+  (label "bug fix") only when you ask, then switches back to where it started.
+  Interactive only: never from run.sh or cron.
   After the PR merges, /auto-qa check-fixed marks the bug fixed automatically.
 ```

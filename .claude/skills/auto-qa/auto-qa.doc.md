@@ -171,7 +171,10 @@ never edit production code. The fixer runs interactively only (never from `run.s
    every changed production class (and related yamsql files for SQL-reachable code), runs
    checkstyle and SpotBugs, and reviews the diff with the `code-reviewer` skill.
 6. It stops with the change uncommitted for the user's review. It commits, pushes `fix-AQA-<n>`
-   to the fork, or opens a draft PR (label `bug fix`) only when asked.
+   to the fork, or opens a draft PR (label `bug fix`) only when asked. After the PR is created,
+   it switches the checkout back to where it started (a branch, or a detached commit in a
+   dedicated auto-qa checkout), so the next `/auto-qa` run can start right away; `fix-AQA-<n>`
+   stays available for updates to the PR.
 
 It never modifies the auto-qa branches or state files. After the PR merges, the next
 `/auto-qa check-fixed` (or full run) marks the bug `fixed upstream` with that PR and removes its
