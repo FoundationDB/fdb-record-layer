@@ -20,8 +20,10 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.values.translation;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
+import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -32,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -45,6 +48,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 /**
@@ -52,7 +56,8 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
  * as a field value with a fused and with an unfused field path, so the number of combinations of the variants of the
  * fields of a record is exponential in the number of its fields. The matching has to find the matches without
  * enumerating these combinations. The query values are over {@code q}, the candidate values are over {@code base}, and
- * the alias map relates the two, as in the matching of a candidate.
+ * the alias map relates the two, as in the matching of a candidate. Two more tests check which value equivalences the
+ * computation accepts.
  */
 class MaxMatchMapTest {
     private static final CorrelationIdentifier BASE = CorrelationIdentifier.of("base");
@@ -147,6 +152,60 @@ class MaxMatchMapTest {
 
         final var maxMatchMap = compute(queryValue, candidateValue);
         assertThat(Iterables.getOnlyElement(maxMatchMap.getMap().values())).isSameAs(candidateValue);
+    }
+
+    /**
+     * The planner composes the equivalence of an alias map with the equivalence of constants. Both relate leaves only,
+     * so the computation accepts the composition.
+     */
+    @Test
+    void computeAliasAndConstantEquivalenceMatchesRecord() {
+        final var headerType = headerType(4);
+        final var recordType = recordType(headerType);
+        final var header = FieldValue.ofFieldName(QuantifiedObjectValue.of(BASE, recordType), "header");
+        final var candidateValue =
+                candidateWithHeader(recordType, record(headerType, unfusedFields(header, headerType)));
+        final var valueEquivalence = ValueEquivalence.fromAliasMap(AliasMap.ofAliases(QUERY, BASE))
+                .then(ValueEquivalence.constantEquivalenceWithEvaluationContext(EvaluationContext.empty()));
+
+        final var maxMatchMap = MaxMatchMap.compute(query(recordType, "header"), candidateValue,
+                ImmutableSet.of(BASE, QUERY), valueEquivalence);
+        assertThat(maxMatchMap.translateQueryValueMaybe(TARGET).map(Object::toString)).contains("(v.header AS x)");
+    }
+
+    /**
+     * The computation does not know this equivalence, so the equivalence can relate values that are not leaves. The
+     * witnesses do not ask an equivalence about all such values, so the computation rejects the equivalence.
+     */
+    @Test
+    void computeUnknownEquivalenceFails() {
+        final var unknownEquivalence = new ValueEquivalence() {
+            @Nonnull
+            @Override
+            public ConstrainedBoolean isDefinedEqual(@Nonnull final Value left, @Nonnull final Value right) {
+                return ConstrainedBoolean.falseValue();
+            }
+
+            @Nonnull
+            @Override
+            public ConstrainedBoolean isDefinedEqual(@Nonnull final CorrelationIdentifier left,
+                                                     @Nonnull final CorrelationIdentifier right) {
+                return ConstrainedBoolean.falseValue();
+            }
+
+            @Nonnull
+            @Override
+            protected Optional<ValueEquivalence> computeInverseMaybe() {
+                return Optional.of(this);
+            }
+        };
+        final var recordType = recordType(headerType(4));
+        final var queryValue = query(recordType, "a");
+        final var candidateValue = QuantifiedObjectValue.of(BASE, recordType);
+
+        assertThatThrownBy(() -> MaxMatchMap.compute(queryValue, candidateValue, ImmutableSet.of(BASE, QUERY),
+                unknownEquivalence))
+                .isInstanceOf(VerifyException.class);
     }
 
     /**
