@@ -38,6 +38,15 @@ You may only modify:
 Never modify TEST_FILE, production code, build files, or anything else. Never run git
 commands that change the repository (commit, checkout, reset, stash, rebase, push).
 
+### Environment and permissions
+- Never try to disable the sandbox, bypass a permission check, or change any permission or
+  settings file. If a command is denied, do not retry it another way: stop that approach and
+  report the denied command under PROBLEMS.
+- Run Gradle only as `./gradlew ...` from the checkout's root directory. Do not write helper
+  scripts, wrappers, or scratch files outside the checkout (for example under `/tmp`); they
+  can run without the network or permissions the build needs. Scratch files inside the
+  checkout must be deleted before you finish.
+
 ### JUnit companion classes
 - Name: `FooTest.java` -> `FooAutoQATest.java`, `Foo.java` -> `FooAutoQATest.java`. Same
   package and source set as TEST_FILE.
@@ -45,7 +54,8 @@ commands that change the repository (commit, checkout, reset, stash, rebase, pus
   would run them all again. Extend the same base class the original extends (e.g.
   `FDBRecordStoreTestBase`), use the same tags and extensions, and copy any private helpers
   you need. If TEST_FILE has no @Test methods (an abstract helper base), extending it is
-  fine.- Every Java file must have the standard license header: copy it from TEST_FILE, change the
+  fine.
+- Every Java file must have the standard license header: copy it from TEST_FILE, change the
   file name, and set the copyright line to `Copyright 2015-<current year>`. End the file with
   a newline.
 
@@ -57,6 +67,12 @@ commands that change the repository (commit, checkout, reset, stash, rebase, pus
   entry. You may use it temporarily to fill in plans/metrics, but never to fill in expected
   results: that would make the test agree with buggy behavior.
 - A failure that only happens against older versions (mixed-mode) is not a bug in main.
+- Running: `./gradlew :yaml-tests:test --tests 'YamlIntegrationTests.<entry>'` runs all
+  configurations, including mixed mode, which needs an external server. If that task fails
+  before any test runs (for example "Failed to start the external server"), use
+  `./gradlew :yaml-tests:quickTest --tests 'YamlIntegrationTests.<entry>'` (embedded mode
+  only) instead, and say under PROBLEMS that only embedded mode was tested. Use the same
+  command in the run_command of any candidate bug.
 
 ## Procedure
 
@@ -81,7 +97,8 @@ commands that change the repository (commit, checkout, reset, stash, rebase, pus
 
 5. **Run only your new tests**, e.g.
    `./gradlew :<module>:test --tests '<fully.qualified.FooAutoQATest>'`
-   or for yamsql `./gradlew :yaml-tests:test --tests 'YamlIntegrationTests.<entry>'`.
+   or for yamsql `./gradlew :yaml-tests:test --tests 'YamlIntegrationTests.<entry>'`
+   (or `:yaml-tests:quickTest`, see "yamsql companion files").
 
 6. **For each failing test:**
    a. First assume the test is wrong. Fix it and rerun.

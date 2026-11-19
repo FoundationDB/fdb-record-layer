@@ -123,6 +123,12 @@ package and source set:
   happens against older versions in mixed mode is not a bug in `main`.
 - Workers may modify only their companion file, its yamsql registration and its notes file. They
   never touch production code, build files or git state.
+- Workers and verifiers never try to disable the sandbox or change permissions, run Gradle only
+  as `./gradlew` from the checkout, and keep scratch files inside the checkout. A denied command
+  is reported, not worked around, and the run's report lists it under Problems.
+- yamsql companions are run with `:yaml-tests:test` (all configurations, including mixed mode).
+  When the external server for mixed mode is not available, workers fall back to
+  `:yaml-tests:quickTest` (embedded mode only) and say so.
 
 ## One iteration (overview)
 

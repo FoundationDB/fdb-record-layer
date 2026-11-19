@@ -187,6 +187,9 @@ checkout, Gradle build folders, FDB, and YamlIntegrationTests.java). Give each:
 
 After each worker, check with `git status` that it only touched its COMPANION_FILE, its
 NOTES_FILE, and (for yamsql) `YamlIntegrationTests.java`. Revert anything else and report it.
+If a worker or verifier reports a denied command, or any attempt to disable the sandbox or
+change permissions, list it under "Problems" in the report so the user sees it, and remove
+any files it left outside the checkout.
 
 ## D. Verify the candidates
 

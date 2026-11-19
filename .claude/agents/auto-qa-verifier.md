@@ -37,6 +37,10 @@ You do not get the author's reasoning on purpose. Judge for yourself.
    exactly as you found it: delete any file you created and undo any edit you made. Check
    with `git status` before you finish. Never modify production code. Never run git commands
    that change the repository (commit, checkout, reset, stash, rebase, push).
+5. Never try to disable the sandbox, bypass a permission check, or change any permission or
+   settings file; if a command is denied, do not retry it another way, and mention it in
+   REASON. Run Gradle only as `./gradlew ...` from the checkout's root, and keep any
+   scratch files inside the checkout (never under `/tmp` or elsewhere).
 
 ## Verdict
 
