@@ -37,6 +37,7 @@ options:
 #                        `store`, `chain` (an array inside another's elements), `kit` (a struct and a scalar array)
 #   other definitions    `crate` (on a view, CREATE INDEX ... ON), `board` (DESC, NULLS LAST), `ledger` (a value
 #                        column, a composite primary key, ARRAY NOT NULL)
+#   data                 `depot` (NULL arrays and NULL key columns, and the index after UPDATE and DELETE)
 #   rejected             `unsupported-index-definitions`
 schema_template:
   CREATE TYPE AS STRUCT "review" ("reviewer" STRING, "rating" BIGINT)
@@ -181,6 +182,13 @@ schema_template:
     SELECT B."x", A."k", C."y", D."z"
       FROM "chain" AS A, A."p" AS B, B."q" AS C, A."r" AS D
      ORDER BY B."x", A."k", C."y", D."z"
+
+  CREATE TYPE AS STRUCT "stock" ("code" STRING, "qty" BIGINT)
+  CREATE TABLE "depot" ("depot_no" BIGINT, "region" STRING, "stocks" "stock" ARRAY, PRIMARY KEY ("depot_no"))
+  CREATE INDEX "depot_code_region_qty" AS
+    SELECT S."code", "depot"."region", S."qty"
+      FROM "depot", "depot"."stocks" AS S
+     ORDER BY S."code", "depot"."region", S."qty"
 ---
 setup:
   steps:
@@ -238,13 +246,21 @@ setup:
                     (2, 20, [('a', 3, 300)])
     - query: INSERT INTO "kit"
              VALUES (1, [('drill', 50), ('saw', 30)], ['new', 'sale']),
-                    (2, [('drill', 40)], ['old'])
+                    (2, [('drill', 40)], ['old']),
+                    (3, [('drill', 20)], ['old', 'old']),
+                    (4, [('saw', 10)], [])
     - query: INSERT INTO "tri"
              VALUES (1, [(1, 10), (2, 20)], [(5, 50)], [(7, 70), (8, 80)]),
                     (2, [(1, 11)], [(6, 60)], [(7, 71)])
     - query: INSERT INTO "chain"
              VALUES (1, [(1, 10, [(5, 50), (6, 60)]), (2, 20, [])], [(7, 70)]),
                     (2, [(3, 30, [(5, 51)])], [(8, 80), (9, 90)])
+    - query: INSERT INTO "depot"
+             VALUES (1, 'east', [('a', 1), ('b', 2)]),
+                    (2, NULL, [('a', 3)]),
+                    (3, 'west', NULL),
+                    (4, 'west', []),
+                    (5, 'south', [('b', 6)])
 ---
 test_block:
   tests:
@@ -362,6 +378,23 @@ test_block:
                 WHERE SQ."reviewer" = 'Alice' AND "restaurant"."region" = 'north' AND SQ."rating" > 4
       - explain: "COVERING(mv_split [EQUALS promote(@c32 AS STRING), EQUALS promote(@c38 AS STRING), [GREATER_THAN promote(@c44 AS LONG)]] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region, _.unnesting_0.rating AS rating)"
       - result: [{reviewer: 'Alice', region: 'north', rating: 5}]
+    -
+      # An IN list on the leading key column, which becomes a scan of the index per value.
+      - query: SELECT SQ."reviewer", "restaurant"."region", SQ."rating"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+                WHERE SQ."reviewer" IN ('Alice', 'Carol')
+      - explain: "[IN arrayDistinct(@c32)] | INJOIN q0 -> { COVERING(mv_split [EQUALS q0._0] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.region AS region, _.unnesting_0.rating AS rating) }"
+      - unorderedResult: [
+          {reviewer: 'Alice', region: 'north', rating: 4},
+          {reviewer: 'Alice', region: 'north', rating: 5},
+          {reviewer: 'Carol', region: 'south', rating: 4}]
+    -
+      # An ORDER BY on a column that is not a prefix of the key. The index is ordered by `reviewer` first, and no other
+      # plan provides the order.
+      - query: SELECT SQ."reviewer"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+                ORDER BY "restaurant"."region"
+      - error: "0AF02"
 ---
 # Identifiers a protobuf field cannot be named after. Every name on the path to the unnesting -- the table, the array,
 # and the columns of its elements -- needs escaping, and the index only matches if the candidate and the query agree on
@@ -527,6 +560,128 @@ test_block:
       - explain: "ISCAN(mv_deep_array [EQUALS promote(@c40 AS STRING)]) | MAP (_.parent.meta.owner AS owner, _.unnesting_0.label AS label, _.unnesting_0.weight AS weight)"
       - result: [{owner: 'ann', label: 'hammer', weight: 7}]
 ---
+# Predicates the scan does not absorb, which are reapplied on top of it. A match against an index on an unnested record
+# type spans several for-each quantifiers -- the parent row and each unnesting -- and the predicate is reapplied over the
+# synthetic record the scan flows, before the fetch if the index covers its columns.
+test_block:
+  name: residual-predicates
+  tests:
+    -
+      # A range on a key column after one the query does not bind. The index still provides the order. The query returns
+      # every field of the element, which becomes the element itself, so the plan fetches it after the filter even
+      # though the index stores both fields.
+      - query: SELECT SQ."reviewer", SQ."rating"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+                WHERE SQ."rating" > 3
+                ORDER BY SQ."reviewer"
+      - explain: "COVERING(mv_split <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | FILTER _.unnesting_0.rating GREATER_THAN promote(@c28 AS LONG) | FETCH | MAP _.unnesting_0"
+      - result: [
+          {reviewer: 'Alice', rating: 4},
+          {reviewer: 'Alice', rating: 5},
+          {reviewer: 'Carol', rating: 4}]
+    -
+      # The same query without the ORDER BY.
+      - query: SELECT SQ."reviewer", SQ."rating"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+                WHERE SQ."rating" > 3
+      - explain: "COVERING(mv_split <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | FILTER _.unnesting_0.rating GREATER_THAN promote(@c28 AS LONG) | FETCH | MAP _.unnesting_0"
+      - unorderedResult: [
+          {reviewer: 'Alice', rating: 5},
+          {reviewer: 'Carol', rating: 4},
+          {reviewer: 'Alice', rating: 4}]
+    -
+      # The equality on the leading column binds the scan, but the range on `rating` cannot, as `region` sits between
+      # them.
+      - query: SELECT SQ."reviewer", SQ."rating"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+                WHERE SQ."reviewer" = 'Alice' AND SQ."rating" > 4
+      - explain: "COVERING(mv_split [EQUALS promote(@c28 AS STRING)] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | FILTER _.unnesting_0.rating GREATER_THAN promote(@c34 AS LONG) | FETCH | MAP _.unnesting_0"
+      - result: [{reviewer: 'Alice', rating: 5}]
+    -
+      # A predicate inside the subquery that unnests, rather than on top of it.
+      - query: SELECT SQ."reviewer", SQ."rating"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews" WHERE "rating" > 3) AS SQ
+                ORDER BY SQ."reviewer"
+      - explain: "COVERING(mv_split <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | FILTER _.unnesting_0.rating GREATER_THAN promote(@c23 AS LONG) | FETCH | MAP _.unnesting_0"
+      - result: [
+          {reviewer: 'Alice', rating: 4},
+          {reviewer: 'Alice', rating: 5},
+          {reviewer: 'Carol', rating: 4}]
+    -
+      # A predicate on a column of the parent row that the index does not store, so it is reapplied after the fetch.
+      - query: SELECT "venue"."city", SQ."day"
+                 FROM "venue", (SELECT "day", "seats" FROM "venue"."slots") AS SQ
+                WHERE SQ."day" >= 'mon' AND "venue"."city" = 'SF'
+                ORDER BY SQ."day"
+      - explain: "ISCAN(mv_pk_in_key [[GREATER_THAN_OR_EQUALS promote(@c29 AS STRING)]]) | FILTER _.parent.city EQUALS promote(@c35 AS STRING) | MAP (_.parent.city AS city, _.unnesting_0.day AS day)"
+      - result: [{city: 'SF', day: 'mon'}, {city: 'SF', day: 'tue'}]
+    -
+      # The same predicate next to an equality on the leading column, without an ORDER BY.
+      - query: SELECT "venue"."city", SQ."day"
+                 FROM "venue", (SELECT "day", "seats" FROM "venue"."slots") AS SQ
+                WHERE SQ."day" = 'mon' AND "venue"."city" = 'SF'
+      - explain: "ISCAN(mv_pk_in_key [EQUALS promote(@c28 AS STRING)]) | FILTER _.parent.city EQUALS promote(@c34 AS STRING) | MAP (_.parent.city AS city, _.unnesting_0.day AS day)"
+      - result: [{city: 'SF', day: 'mon'}]
+    -
+      # Several unnestings: an equality on the second unnesting, behind `city` of the parent row, which the query does
+      # not bind.
+      - query: SELECT S."place", R."rider_name"
+                 FROM "trip", (SELECT "place", "mins" FROM "trip"."stops") AS S,
+                      (SELECT "rider_name" FROM "trip"."riders") AS R
+                WHERE R."rider_name" = 'bob'
+                ORDER BY S."place"
+      - explain: "COVERING(trip_place_city_rider_mins <,> -> [__positions: [unnesting_0: KEY:[6, 0], unnesting_1: KEY:[7, 0]], parent: [city: KEY:[1], trip_no: KEY:[5, 1]], unnesting_0: [mins: KEY:[3], place: KEY:[0]], unnesting_1: [rider_name: KEY:[2]]]) | FILTER _.unnesting_1.rider_name EQUALS promote(@c39 AS STRING) | MAP (_.unnesting_0.place AS place, _.unnesting_1.rider_name AS rider_name)"
+      - result: [{place: 'park', rider_name: 'bob'}, {place: 'pier', rider_name: 'bob'}]
+    -
+      # A predicate that compares a column of the unnesting with one of the parent row, both of which the index
+      # stores: `rest_no` is part of the primary key of the synthetic record. Dave's rating of 2 at restaurant 3 is the
+      # only one that is not greater than the number of its restaurant.
+      - query: SELECT SQ."reviewer", "restaurant"."rest_no", SQ."rating"
+                 FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
+                WHERE SQ."rating" > "restaurant"."rest_no"
+                ORDER BY SQ."reviewer"
+      - explain: "COVERING(mv_split <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [region: KEY:[1], rest_no: KEY:[4, 1]], unnesting_0: [rating: KEY:[2], reviewer: KEY:[0]]]) | FILTER _.unnesting_0.rating GREATER_THAN _.parent.rest_no | MAP (_.unnesting_0.reviewer AS reviewer, _.parent.rest_no AS rest_no, _.unnesting_0.rating AS rating)"
+      - result: [
+          {reviewer: 'Alice', rest_no: 3, rating: 4},
+          {reviewer: 'Alice', rest_no: 1, rating: 5},
+          {reviewer: 'Bob', rest_no: 1, rating: 3},
+          {reviewer: 'Carol', rest_no: 2, rating: 4}]
+    -
+      # The same comparison against a column of the parent row that the index does not store, so it is reapplied after
+      # the fetch. Only shop 1's owner sorts before 'apple'.
+      - query: SELECT "shop"."shop_no", SQ."qty"
+                 FROM "shop", (SELECT "sku", "qty" FROM "shop"."lines") AS SQ
+                WHERE SQ."sku" = 'apple' AND SQ."sku" > "shop"."owner"
+      - explain: "ISCAN(shop_sku_city_qty [EQUALS promote(@c28 AS STRING)]) | FILTER _.unnesting_0.sku GREATER_THAN _.parent.owner | MAP (_.parent.shop_no AS shop_no, _.unnesting_0.qty AS qty)"
+      - unorderedResult: [{shop_no: 1, qty: 2}, {shop_no: 1, qty: 2}]
+---
+# An EXISTS over a struct array that an index on the unnested type unnests. The index has an entry per element, while the
+# EXISTS only asks whether there is one, so the index must not answer the query: it would return a row once per element,
+# and reapplying the EXISTS on top of it would read the array off the synthetic record rather than off the parent row.
+test_block:
+  name: exists-over-struct-unnestings
+  tests:
+    -
+      - query: SELECT "restaurant"."rest_no"
+                 FROM "restaurant"
+                WHERE EXISTS (SELECT 1 FROM "restaurant"."reviews" AS R)
+      - explain: "SCAN([IS restaurant]) | FLATMAP q0 -> { TF explode(q0.reviews) | MAP (@c10 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.rest_no AS rest_no) }"
+      - unorderedResult: [{rest_no: 1}, {rest_no: 2}, {rest_no: 3}]
+    -
+      # Restaurant 3 has a review by Alice next to one by Dave.
+      - query: SELECT "restaurant"."rest_no"
+                 FROM "restaurant"
+                WHERE EXISTS (SELECT 1 FROM "restaurant"."reviews" AS R WHERE R."reviewer" = 'Alice')
+      - explain: "SCAN([IS restaurant]) | FLATMAP q0 -> { TF explode(q0.reviews) | FILTER _._0.reviewer EQUALS promote(@c22 AS STRING) | MAP (@c10 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.rest_no AS rest_no) }"
+      - unorderedResult: [{rest_no: 1}, {rest_no: 3}]
+    -
+      # Booth 1 has two lines for apples. `booth` has no index of its own, only the one on the unnested type.
+      - query: SELECT "booth"."booth_no"
+                 FROM "booth"
+                WHERE EXISTS (SELECT 1 FROM "booth"."lines" AS L WHERE L."sku" = 'apple')
+      - explain: "SCAN([IS booth]) | FLATMAP q0 -> { TF explode(q0.lines) | FILTER _._0.sku EQUALS promote(@c22 AS STRING) | MAP (@c10 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.booth_no AS booth_no) }"
+      - unorderedResult: [{booth_no: 1}, {booth_no: 2}]
+---
 # Aggregates over an unnesting whose index is a plain (non-aggregate) index.
 test_block:
   name: aggregations
@@ -569,6 +724,8 @@ test_block:
           {reviewer: 'Carol', total: 4, best: 4},
           {reviewer: 'Dave', total: 2, best: 2}]
     -
+      # Grouping on a column of the parent row. The aggregate needs its input ordered by `region`, which neither the
+      # index, ordered by `reviewer` first, nor a scan of `restaurant`, ordered by its primary key, provides.
       - query: SELECT "restaurant"."region" AS "region", COUNT(*) AS "n"
                  FROM "restaurant", (SELECT "reviewer", "rating" FROM "restaurant"."reviews") AS SQ
              GROUP BY "restaurant"."region"
@@ -580,8 +737,10 @@ test_block:
                 WHERE SQ."reviewer" = 'Alice'
       - explain: "ISCAN(mv_split [EQUALS promote(@c29 AS STRING)]) | MAP (_.parent AS _0, _.unnesting_0 AS _1) | AGG (sum_l(_._1.rating) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS total)"
       - result: [{total: 9}]
+# TODO: the PartiQL spelling without AT flows the element of the explode together with its ordinal, which the index on
+#  the unnested type cannot match, and the GROUP BY needs the order of the index, so this query cannot be planned. Once
+#  it can, every column read is in the index, so it should be a covering scan (Issue #4720).
 #    -
-#      # TODO Issue #4720: every column read is in the index, so this should be a covering scan.
 #      - query: SELECT "a"."name"."last" AS "last", MAX("a"."score") AS "best"
 #                 FROM "book", "book"."authors" AS "a"
 #             GROUP BY "a"."name"."last"
@@ -602,7 +761,7 @@ test_block:
 # On the other hand, an index on the synthetic record type serves both legs together, so it applies only to a query
 # that unnests.
 #
-# The cost model, hence, play a decisive role - prefer plan with fewer residual predicates, and only on a tie the plan
+# The cost model, hence, plays a decisive role - prefer plan with fewer residual predicates, and only on a tie the plan
 # with fewer fetches.
 test_block:
   name: stored-table-index-vs-synthetic-type-index
@@ -976,10 +1135,11 @@ test_block:
 ---
 test_block:
   name: struct-and-scalar-unnestings
-  # The scalar array stays a fan-out of the key rather than a constituent: an index entry exists per label, but its label
-  # is not a field of the synthetic record the entry points to. As with a fan-out index on a stored type, the index
-  # answers queries that only join `labels` or bind `lbl` by an equality, but not queries that return `lbl`, and the
-  # fan-out ends its order unless `lbl` is bound by an equality.
+  # The scalar array stays a fan-out of the key rather than a constituent: the index has an entry per gadget and distinct
+  # label of its kit, and the label is not a field of the synthetic record the entry points to. A query that joins
+  # `labels` observes every label, so the index cannot answer it, even with an equality on `lbl`. Only a query that has
+  # `labels` underneath an EXISTS, which does not observe how many times a label occurs, can use it, and the fan-out ends
+  # the order of the index unless `lbl` is bound by an equality there. The index cannot return `lbl` either.
   # TODO: return and order by the element of a fanned-out scalar array (https://github.com/FoundationDB/fdb-record-layer/issues/4871).
   tests:
     -
@@ -990,53 +1150,56 @@ test_block:
                 ORDER BY G."gname", "lbl", G."price"
       - error: "0AF02"
     -
-      # The same query without the ORDER BY: one row per gadget and label of a kit.
+      # The same query without the ORDER BY: one row per gadget and label of a kit, so kit 3's drill twice, as the kit
+      # has the label 'old' twice, and none for kit 4, which has no labels.
       - query: SELECT G."gname", "lbl", G."price"
                  FROM "kit" AS K, K."gadgets" AS G, K."labels" AS "lbl"
       - explain: "SCAN([IS kit]) | FLATMAP q0 -> { TF explode(q0.gadgets) | FLATMAP q1 -> { TF explode(q0.labels) AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0._0.gname AS gname, q3._1._0 AS lbl, q3._0._0.price AS price) }"
       - unorderedResult: [
           {gname: 'drill', lbl: 'new', price: 50},
-          {gname: 'drill', lbl: 'old', price: 40},
           {gname: 'drill', lbl: 'sale', price: 50},
           {gname: 'saw', lbl: 'new', price: 30},
-          {gname: 'saw', lbl: 'sale', price: 30}]
+          {gname: 'saw', lbl: 'sale', price: 30},
+          {gname: 'drill', lbl: 'old', price: 40},
+          {gname: 'drill', lbl: 'old', price: 20},
+          {gname: 'drill', lbl: 'old', price: 20}]
     -
       - query: SELECT G."gname", "lbl", G."price"
                  FROM "kit" AS K, K."gadgets" AS G, K."labels" AS "lbl"
                 WHERE G."gname" = 'drill' AND "lbl" = 'old'
       - explain: "SCAN([IS kit]) | FLATMAP q0 -> { TF explode(q0.labels) | FILTER _._0 EQUALS @c35 | FLATMAP q1 -> { TF explode(q0.gadgets) | FILTER _._0.gname EQUALS promote(@c31 AS STRING) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0._0.gname AS gname, q3._1._0 AS lbl, q3._0._0.price AS price) }"
-      - result: [
-          {gname: 'drill', lbl: 'old', price: 40}]
+      - unorderedResult: [
+          {gname: 'drill', lbl: 'old', price: 40},
+          {gname: 'drill', lbl: 'old', price: 20},
+          {gname: 'drill', lbl: 'old', price: 20}]
     -
-      # Only the struct array. The index has an entry per gadget and label, so it cannot answer this query.
+      # Only the struct array. The index has an entry per gadget and distinct label, and none for kit 4, which has no
+      # labels, so it cannot answer this query.
       - query: SELECT G."gname", G."price"
                  FROM "kit" AS K, K."gadgets" AS G
       - explain: "SCAN([IS kit]) | FLATMAP q0 -> { TF explode(q0.gadgets) AS q1 RETURN (q1._0.gname AS gname, q1._0.price AS price) }"
       - unorderedResult: [
           {gname: 'drill', price: 50},
           {gname: 'saw', price: 30},
-          {gname: 'drill', price: 40}]
+          {gname: 'drill', price: 40},
+          {gname: 'drill', price: 20},
+          {gname: 'saw', price: 10}]
     -
-      # The scalar array is only joined: one row per gadget and label, in the order of the index.
+      # The scalar array is only joined, which still yields one row per gadget and label. The scalar array is fanned
+      # out on top of the synthetic type, so the index has one entry per distinct label of a gadget, while the query
+      # observes every label. The index cannot answer the query, and no other plan provides the order.
       - query: SELECT G."gname", G."price"
                  FROM "kit" AS K, K."gadgets" AS G, K."labels" AS "lbl"
                 ORDER BY G."gname"
-      - explain: "ISCAN(kit_mixed <,>) | MAP _.unnesting_0"
-      - result: [
-          {gname: 'drill', price: 50},
-          {gname: 'drill', price: 40},
-          {gname: 'drill', price: 50},
-          {gname: 'saw', price: 30},
-          {gname: 'saw', price: 30}]
+      - error: "0AF02"
     -
-      # An equality on the scalar array lets the order of the index continue past it.
+      # An equality on the scalar array does not help either: the query still observes how many times the label
+      # occurs, which the index does not record.
       - query: SELECT G."gname", G."price"
                  FROM "kit" AS K, K."gadgets" AS G, K."labels" AS "lbl"
                 WHERE G."gname" = 'drill' AND "lbl" = 'old'
                 ORDER BY G."price"
-      - explain: "ISCAN(kit_mixed [EQUALS promote(@c29 AS STRING), EQUALS @c33]) | MAP _.unnesting_0"
-      - result: [
-          {gname: 'drill', price: 40}]
+      - error: "0AF02"
     -
       # The same query returning the element of the scalar array, which the index does not provide.
       - query: SELECT G."gname", "lbl", G."price"
@@ -1048,9 +1211,69 @@ test_block:
       - query: SELECT G."gname", G."price"
                  FROM "kit" AS K, K."gadgets" AS G, K."labels" AS "lbl"
                 WHERE G."gname" = 'drill'
-      - explain: "ISCAN(kit_mixed [EQUALS promote(@c29 AS STRING)]) | MAP _.unnesting_0"
+      - explain: "SCAN([IS kit]) | FLATMAP q0 -> { TF explode(q0.gadgets) | FILTER _._0.gname EQUALS promote(@c29 AS STRING) | FLATMAP q1 -> { TF explode(q0.labels) AS q2 RETURN q1 } AS q1 RETURN (q1._0.gname AS gname, q1._0.price AS price) }"
       - unorderedResult: [
           {gname: 'drill', price: 50},
+          {gname: 'drill', price: 50},
+          {gname: 'drill', price: 40},
+          {gname: 'drill', price: 20},
+          {gname: 'drill', price: 20}]
+    -
+      # The scalar array only underneath an EXISTS, which does not observe how many times a label occurs: the gadgets
+      # of the kits that have any label, in the order of the index.
+      # TODO (`EXISTS` query over a fan-out index may incorrectly return the parent record multiple times: https://github.com/FoundationDB/fdb-record-layer/issues/4304)
+      # The result is wrong: the EXISTS is matched to the fan-out of labels in kit_mixed, which has an entry per
+      # gadget and distinct label of its kit. The plan does not remove the duplicate entries of a gadget by primary
+      # key, so it returns kit 1's gadgets once per label ('new' and 'sale'), 6 rows instead of 4. Kit 3's drill comes
+      # back once, as the index has a single entry for the label 'old' that the kit has twice, and kit 4's saw not at
+      # all, as the kit has no labels. The correct result is [{drill, 50}, {drill, 40}, {drill, 20}, {saw, 30}].
+      - query: SELECT G."gname", G."price"
+                 FROM "kit" AS K, K."gadgets" AS G
+                WHERE EXISTS (SELECT 1 FROM K."labels" AS "lbl")
+                ORDER BY G."gname"
+      - explain: "ISCAN(kit_mixed <,>) | MAP _.unnesting_0"
+      - result: [
+          {gname: 'drill', price: 50},
+          {gname: 'drill', price: 20},
+          {gname: 'drill', price: 40},
+          {gname: 'drill', price: 50},
+          {gname: 'saw', price: 30},
+          {gname: 'saw', price: 30}]
+    -
+      # The EXISTS only asks whether the kit has the label 'old', which the fan-out of labels in kit_mixed can answer:
+      # the index has one entry per gadget and distinct label of its kit. The equality binds `lbl`, so a gadget matches
+      # at most one entry, and the result has no duplicates even though the plan does not remove them by primary key
+      # (unlike the EXISTS queries without an equality on the label). Kit 3 has the label twice, and its drill still
+      # comes back once. With `gname` and `lbl` both bound by equalities, the index is ordered by `price` next, so the
+      # ORDER BY needs no sort.
+      - query: SELECT G."gname", G."price"
+                 FROM "kit" AS K, K."gadgets" AS G
+                WHERE G."gname" = 'drill' AND EXISTS (SELECT 1 FROM K."labels" AS "lbl" WHERE "lbl" = 'old')
+                ORDER BY G."price"
+      - explain: "ISCAN(kit_mixed [EQUALS promote(@c23 AS STRING), EQUALS @c38]) | MAP _.unnesting_0"
+      - result: [
+          {gname: 'drill', price: 20},
+          {gname: 'drill', price: 40}]
+    -
+      # Kit 4 has a saw but no labels, so it has no entries in the index, and only kit 1's saw has the label 'new'.
+      - query: SELECT G."gname", G."price"
+                 FROM "kit" AS K, K."gadgets" AS G
+                WHERE G."gname" = 'saw' AND EXISTS (SELECT 1 FROM K."labels" AS "lbl" WHERE "lbl" = 'new')
+      - explain: "ISCAN(kit_mixed [EQUALS promote(@c23 AS STRING), EQUALS @c38]) | MAP _.unnesting_0"
+      - result: [
+          {gname: 'saw', price: 30}]
+    -
+      # TODO (`EXISTS` query over a fan-out index may incorrectly return the parent record multiple times: https://github.com/FoundationDB/fdb-record-layer/issues/4304)
+      # The result is wrong, for the same reason as the EXISTS query without an equality above: it returns kit 1's drill
+      # once per label ('new' and 'sale'), 4 rows instead of 3. The correct result is [{drill, 50}, {drill, 40},
+      # {drill, 20}].
+      - query: SELECT G."gname", G."price"
+                 FROM "kit" AS K, K."gadgets" AS G
+                WHERE G."gname" = 'drill' AND EXISTS (SELECT 1 FROM K."labels" AS "lbl")
+      - explain: "ISCAN(kit_mixed [EQUALS promote(@c23 AS STRING)]) | MAP _.unnesting_0"
+      - unorderedResult: [
+          {gname: 'drill', price: 50},
+          {gname: 'drill', price: 20},
           {gname: 'drill', price: 40},
           {gname: 'drill', price: 50}]
 ---
@@ -1127,18 +1350,18 @@ test_block:
           {place: 'park', rider_name: 'bob', age: 40},
           {place: 'park', rider_name: 'cat', age: 25}]
     -
-      # The same column, in the order of a key prefix that spans the first unnesting and the parent row.
-      - query: SELECT S."place", "trip"."city", R."age"
+      # The same column, in the order of a key prefix that spans both unnestings and the parent row.
+      - query: SELECT S."place", "trip"."city", R."rider_name", R."age"
                  FROM "trip", (SELECT "place", "mins" FROM "trip"."stops") AS S,
                       (SELECT "rider_name", "age" FROM "trip"."riders") AS R
-                ORDER BY S."place", "trip"."city"
-      - explain: "ISCAN(trip_place_city_rider_mins <,>) | MAP (_.unnesting_0.place AS place, _.parent.city AS city, _.unnesting_1.age AS age)"
+                ORDER BY S."place", "trip"."city", R."rider_name"
+      - explain: "ISCAN(trip_place_city_rider_mins <,>) | MAP (_.unnesting_0.place AS place, _.parent.city AS city, _.unnesting_1.rider_name AS rider_name, _.unnesting_1.age AS age)"
       - result: [
-          {place: 'park', city: 'LA', age: 25},
-          {place: 'park', city: 'SF', age: 30},
-          {place: 'park', city: 'SF', age: 40},
-          {place: 'pier', city: 'SF', age: 30},
-          {place: 'pier', city: 'SF', age: 40}]
+          {place: 'park', city: 'LA', rider_name: 'cat', age: 25},
+          {place: 'park', city: 'SF', rider_name: 'ann', age: 30},
+          {place: 'park', city: 'SF', rider_name: 'bob', age: 40},
+          {place: 'pier', city: 'SF', rider_name: 'ann', age: 30},
+          {place: 'pier', city: 'SF', rider_name: 'bob', age: 40}]
     -
       # The second unnesting of the same array is keyed by `role` only; the name of the partner is fetched.
       - query: SELECT X."member_name", Y."member_name" AS "partner", Y."role"
@@ -1167,6 +1390,85 @@ test_block:
       - unorderedResult: [
           {x: 1, y: 5, z: 7, z2: 70},
           {x: 1, y: 6, z: 7, z2: 70}]
+---
+# NULLs in the data. Depot 2 has no region, depot 3 has no stocks at all (a NULL array), and depot 4 an empty array, so
+# neither of the last two has an entry in the index.
+test_block:
+  name: nulls
+  tests:
+    -
+      # A NULL region sorts before the others.
+      - query: SELECT S."code", "depot"."region", S."qty"
+                 FROM "depot", "depot"."stocks" AS S
+                ORDER BY S."code", "depot"."region", S."qty"
+      - explain: "COVERING(depot_code_region_qty <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [depot_no: KEY:[4, 1], region: KEY:[1]], unnesting_0: [code: KEY:[0], qty: KEY:[2]]]) | MAP (_.unnesting_0.code AS code, _.parent.region AS region, _.unnesting_0.qty AS qty)"
+      - result: [
+          {code: 'a', region: !null _, qty: 3},
+          {code: 'a', region: 'east', qty: 1},
+          {code: 'b', region: 'east', qty: 2},
+          {code: 'b', region: 'south', qty: 6}]
+    -
+      # IS NULL on a key column of the parent row.
+      - query: SELECT S."code", "depot"."region", S."qty"
+                 FROM "depot", "depot"."stocks" AS S
+                WHERE S."code" = 'a' AND "depot"."region" IS NULL
+      - explain: "COVERING(depot_code_region_qty [EQUALS promote(@c25 AS STRING), IS_NULL] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [depot_no: KEY:[4, 1], region: KEY:[1]], unnesting_0: [code: KEY:[0], qty: KEY:[2]]]) | MAP (_.unnesting_0.code AS code, _.parent.region AS region, _.unnesting_0.qty AS qty)"
+      - result: [{code: 'a', region: !null _, qty: 3}]
+    -
+      # Both depots in the west have no stocks, one a NULL array and one an empty one.
+      - query: SELECT "depot"."depot_no", S."code"
+                 FROM "depot", "depot"."stocks" AS S
+                WHERE "depot"."region" = 'west'
+      - explain: "COVERING(depot_code_region_qty <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [depot_no: KEY:[4, 1], region: KEY:[1]], unnesting_0: [code: KEY:[0], qty: KEY:[2]]]) | FILTER _.parent.region EQUALS promote(@c21 AS STRING) | MAP (_.parent.depot_no AS depot_no, _.unnesting_0.code AS code)"
+      - result: []
+    -
+      - query: SELECT "depot"."depot_no", S."code"
+                 FROM "depot", "depot"."stocks" AS S
+      - explain: "COVERING(depot_code_region_qty <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [depot_no: KEY:[4, 1], region: KEY:[1]], unnesting_0: [code: KEY:[0], qty: KEY:[2]]]) | MAP (_.parent.depot_no AS depot_no, _.unnesting_0.code AS code)"
+      - unorderedResult: [
+          {depot_no: 1, code: 'a'},
+          {depot_no: 1, code: 'b'},
+          {depot_no: 2, code: 'a'},
+          {depot_no: 5, code: 'b'}]
+---
+setup:
+  steps:
+    # Removes the first element of depot 1, which moves `b` to the first position, and appends `c`.
+    - query: UPDATE "depot" SET "stocks" = [('b', 2), ('c', 5)] WHERE "depot_no" = 1
+    # Changes a key column of the parent row from NULL to a value.
+    - query: UPDATE "depot" SET "region" = 'north' WHERE "depot_no" = 2
+    # Replaces a NULL array.
+    - query: UPDATE "depot" SET "stocks" = [('a', 7)] WHERE "depot_no" = 3
+    - query: DELETE FROM "depot" WHERE "depot_no" = 5
+---
+# The index after the updates and the delete above.
+test_block:
+  name: index-maintenance
+  tests:
+    -
+      - query: SELECT S."code", "depot"."region", S."qty"
+                 FROM "depot", "depot"."stocks" AS S
+                ORDER BY S."code", "depot"."region", S."qty"
+      - explain: "COVERING(depot_code_region_qty <,> -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [depot_no: KEY:[4, 1], region: KEY:[1]], unnesting_0: [code: KEY:[0], qty: KEY:[2]]]) | MAP (_.unnesting_0.code AS code, _.parent.region AS region, _.unnesting_0.qty AS qty)"
+      - result: [
+          {code: 'a', region: 'north', qty: 3},
+          {code: 'a', region: 'west', qty: 7},
+          {code: 'b', region: 'east', qty: 2},
+          {code: 'c', region: 'east', qty: 5}]
+    -
+      # The entry of depot 2 under a NULL region is gone.
+      - query: SELECT S."code", "depot"."region", S."qty"
+                 FROM "depot", "depot"."stocks" AS S
+                WHERE S."code" = 'a' AND "depot"."region" IS NULL
+      - explain: "COVERING(depot_code_region_qty [EQUALS promote(@c25 AS STRING), IS_NULL] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [depot_no: KEY:[4, 1], region: KEY:[1]], unnesting_0: [code: KEY:[0], qty: KEY:[2]]]) | MAP (_.unnesting_0.code AS code, _.parent.region AS region, _.unnesting_0.qty AS qty)"
+      - result: []
+    -
+      # Depot 1's `b` moved to another position, and depot 5 is deleted.
+      - query: SELECT "depot"."depot_no", S."code", S."qty"
+                 FROM "depot", "depot"."stocks" AS S
+                WHERE S."code" = 'b'
+      - explain: "COVERING(depot_code_region_qty [EQUALS promote(@c25 AS STRING)] -> [__positions: [unnesting_0: KEY:[5, 0]], parent: [depot_no: KEY:[4, 1], region: KEY:[1]], unnesting_0: [code: KEY:[0], qty: KEY:[2]]]) | MAP (_.parent.depot_no AS depot_no, _.unnesting_0.code AS code, _.unnesting_0.qty AS qty)"
+      - result: [{depot_no: 1, code: 'b', qty: 2}]
 ---
 setup:
   connect: 0
