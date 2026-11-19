@@ -158,3 +158,70 @@
 - details: the MetadataQueryPlan embeds the database URI, but QueryCacheKey has no database and utility statements are
   cached, so the first database to run DESCRIBE SCHEMA decides the answer for all databases on the same template.
   SHOW DATABASES likely has the same problem (not tested).
+
+## AQA-20: Cascades planner crashes on an INNER JOIN after a LEFT JOIN on the null-supplying side
+- status: open
+- found: 2026-11-19
+- test: yaml-tests/src/test/resources/join-tests-outer-auto-qa.yamsql (YamlIntegrationTests.joinTestsOuterAutoQa, block left-then-inner-join-auto-qa)
+- spec: docs/sphinx/source/reference/sql_commands/DQL/JOIN.rst (INNER and LEFT OUTER JOIN supported); an unsupported shape should get a user-facing error
+- details: `FROM l LEFT JOIN r ON l.k = r.k JOIN r r2 ON r2.id = r.id` fails during planning with Guava
+  IllegalArgumentException "Node ... is not an element of this graph" in Traversal.pruneUnreferencedRefs /
+  removeExpression (CascadesPlanner ExploreGroup). Confirmed for this shape; cross-join-tests.yamsql has a passing
+  LEFT JOIN + CROSS JOIN, so not every combination fails. Embedded mode only (external server unavailable here).
+
+## AQA-21: Equal KeySpacePaths with Integer and Long values have different hash codes
+- status: open
+- found: 2026-11-19
+- test: fdb-record-layer-core/src/test/java/com/apple/foundationdb/record/provider/foundationdb/keyspace/KeySpacePathAutoQATest.java#equalPathsWithNegativeIntegerAndLongHaveEqualHashCodes
+- spec: Object#hashCode contract; KeySpacePath equals javadoc
+- details: areEqual compares LONG values by longValue(), valueHashCode uses Objects.hashCode; Integer.hashCode(-1) = -1
+  but Long.hashCode(-1L) = 0. Only negative values (or values beyond int range) differ. Same family as AQA-8/AQA-9.
+
+## AQA-22: KeySpacePath.deleteAllData and hasData also cover a NUL-suffixed sibling value
+- status: open
+- found: 2026-11-19
+- test: fdb-record-layer-core/src/test/java/com/apple/foundationdb/record/provider/foundationdb/keyspace/KeySpacePathAutoQATest.java#deleteAllDataDoesNotDeleteSiblingWithNulSuffix, #hasDataIgnoresSiblingWithNulSuffix
+- spec: KeySpacePath.deleteAllDataAsync javadoc ("Delete all data from this path"); hasDataAsync javadoc
+- details: KeySpacePathImpl (~221-240) uses [pack(), strinc(pack())), not a tuple subspace range. "a" packs to
+  02 61 00 and "a\u0000b" to 02 61 00 FF 62 00, so deleting path "a" deletes the sibling's data (data loss).
+
+## AQA-23: PredicateWithValueAndRanges.eval returns NULL for an IS NULL range on a NULL value
+- status: open
+- found: 2026-11-19
+- test: fdb-record-layer-core/src/test/java/com/apple/foundationdb/record/query/plan/cascades/predicates/QueryPredicateAutoQATest.java#predicateWithValueAndRangesIsNullRangeOnNullValueIsTrue
+- spec: SQL three-valued logic; ConstantFoldingPredicateWithRangesRule javadoc ("NULL IS NULL -> TRUE")
+- details: eval (~613) returns null for a null value before checking the ranges; its residual predicate returns TRUE.
+  Reached through QueryPlanConstraint.compileTimeEval; likely effect is an unneeded plan-cache miss.
+
+## AQA-24: AndPredicate.semanticEquals under an alias map is not symmetric
+- status: open
+- found: 2026-11-19
+- test: fdb-record-layer-core/src/test/java/com/apple/foundationdb/record/query/plan/cascades/predicates/QueryPredicateAutoQATest.java#andSemanticEqualsUnderAliasMapRequiresAllChildrenOfOtherMatched
+- spec: Correlated#semanticEquals javadoc (equivalence, and equals => equal hash codes)
+- details: ValueEquivalence.semanticEquals(Set, Set) (~100-123) checks equal sizes and that each left element finds a
+  match, not a bijection. Needs a non-one-to-one equivalence; shared by RangeConstraints and PredicateWithValueAndRanges.
+
+## AQA-25: RecordMetaData.toProto drops the record types of multi-type indexes on synthetic types
+- status: open
+- found: 2026-11-19
+- test: fdb-record-layer-core/src/test/java/com/apple/foundationdb/record/metadata/RecordMetaDataBuilderAutoQATest.java#toProtoRoundTripPreservesMultiTypeIndexOnSyntheticTypes
+- spec: RecordMetaData.toProto and RecordMetaDataBuilder.setRecords(MetaData) javadoc (serialize / deserialize)
+- details: toProto (~742-749) walks only syntheticRecordType.getIndexes(), not getMultiTypeIndexes(); the index is
+  saved without record types, reloads as a universal index, and the reloaded meta-data fails validation.
+
+## AQA-26: RecordMetaDataBuilder.removeIndex leaves the index on synthetic record types
+- status: open
+- found: 2026-11-19
+- test: fdb-record-layer-core/src/test/java/com/apple/foundationdb/record/metadata/RecordMetaDataBuilderAutoQATest.java#removeIndexOnSyntheticTypeRemovesItFromType
+- spec: MetaDataValidator.validateCurrentAndFormerIndexes (index and former index must not share a subspace key)
+- details: removeIndex (~1213-1224) cleans recordTypes and universalIndexes but not syntheticRecordTypes. The store
+  keeps maintaining the index in a former index's subspace, and toProto would NPE (~748).
+
+## AQA-27: A failed multi-row INSERT keeps its earlier rows inside an explicit transaction
+- status: open
+- found: 2026-11-19
+- test: fdb-relational-core/src/test/java/com/apple/foundationdb/relational/recordlayer/InsertAutoQATest.java#sqlMultiRowInsertWithDuplicateKeyInExplicitTransactionLeavesNoRows
+- spec: ISO/IEC 9075-2 SQL-statement atomicity (a failed statement has no effect on SQL-data)
+- details: AbstractEmbeddedStatement.executeInternal / countUpdates roll back only when canCommit() (auto-commit). With
+  autoCommit=false, `VALUES (60,'a'),(60,'b')` fails with 23505 but row 60 'a' is committed by a later commit().
+  Callers following the documented example (rollback on error) are not affected.

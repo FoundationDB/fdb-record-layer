@@ -18,3 +18,8 @@
 | fdb-record-layer-core/src/test/java/com/apple/foundationdb/record/query/plan/cascades/values/ValueTranslationTest.java | 2026-11-18 | 56547041b | 5 |
 | fdb-relational-core/src/test/java/com/apple/foundationdb/relational/recordlayer/ddl/DdlRecordLayerSchemaTemplateTest.java | 2026-11-18 | 56547041b | 4 |
 | fdb-relational-core/src/test/java/com/apple/foundationdb/relational/recordlayer/query/cache/RelationalPlanCacheTests.java | 2026-11-18 | 56547041b | 4 |
+| yaml-tests/src/test/resources/join-tests-outer.yamsql | 2026-11-19 | 71430039d | 10 |
+| fdb-record-layer-core/src/test/java/com/apple/foundationdb/record/provider/foundationdb/keyspace/KeySpacePathTest.java | 2026-11-19 | 71430039d | 4 |
+| fdb-record-layer-core/src/test/java/com/apple/foundationdb/record/query/plan/cascades/predicates/QueryPredicateTest.java | 2026-11-19 | 71430039d | 5 |
+| fdb-record-layer-core/src/test/java/com/apple/foundationdb/record/metadata/RecordMetaDataBuilderTest.java | 2026-11-19 | 71430039d | 3 |
+| fdb-relational-core/src/test/java/com/apple/foundationdb/relational/recordlayer/InsertTest.java | 2026-11-19 | 71430039d | 5 |
