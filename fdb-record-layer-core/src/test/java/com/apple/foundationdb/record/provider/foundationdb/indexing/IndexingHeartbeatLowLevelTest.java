@@ -470,19 +470,25 @@ class IndexingHeartbeatLowLevelTest {
     }
 
     @Test
-    void checkAnyOngoingOnlineIndexBuildsStaleHeartbeatReturnsFalse() throws InterruptedException {
+    void checkAnyOngoingOnlineIndexBuildsStaleHeartbeatReturnsFalse() {
         // A heartbeat older than the given lease length must not count as an active indexing session
         Index index = new Index("simple$num_value_2", field("num_value_2"), IndexTypes.VALUE);
         openSimpleMetaData(allIndexesHook(List.of(index)));
+        final long oneHourAgo = System.currentTimeMillis() - TimeUnit.HOURS.toMillis(1);
         try (FDBRecordContext context = openContext()) {
-            new IndexingHeartbeat(UUID.randomUUID(), "stale", 10, false).updateHeartbeat(recordStore, index);
+            byte[] key = IndexingSubspaces.indexHeartbeatSubspaceBytes(recordStore, index, UUID.randomUUID());
+            byte[] value = IndexBuildProto.IndexBuildHeartbeat.newBuilder()
+                    .setInfo("stale")
+                    .setCreateTimeMilliseconds(oneHourAgo)
+                    .setHeartbeatTimeMilliseconds(oneHourAgo)
+                    .build().toByteArray();
+            recordStore.ensureContextActive().set(key, value);
             context.commit();
         }
 
-        Thread.sleep(500);
         try (FDBRecordContext context = openContext()) {
-            Assertions.assertThat(OnlineIndexer.checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index, 100).join()).isFalse();
-            Assertions.assertThat(OnlineIndexer.checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index, TimeUnit.MINUTES.toMillis(10)).join()).isTrue();
+            Assertions.assertThat(OnlineIndexer.checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index, TimeUnit.MINUTES.toMillis(10)).join()).isFalse();
+            Assertions.assertThat(OnlineIndexer.checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index, TimeUnit.HOURS.toMillis(2)).join()).isTrue();
             context.commit();
         }
     }
