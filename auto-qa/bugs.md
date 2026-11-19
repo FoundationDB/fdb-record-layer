@@ -225,3 +225,29 @@
 - details: AbstractEmbeddedStatement.executeInternal / countUpdates roll back only when canCommit() (auto-commit). With
   autoCommit=false, `VALUES (60,'a'),(60,'b')` fails with 23505 but row 60 'a' is committed by a later commit().
   Callers following the documented example (rollback on error) are not affected.
+
+## AQA-28: markReadable and markReadableIfBuilt erase a WRITE_ONLY_WITH_QUEUE index's pending updates
+- status: open
+- found: 2026-11-19
+- test: fdb-record-layer-core/src/test/java/com/apple/foundationdb/record/provider/foundationdb/OnlineIndexerSimpleAutoQATest.java#markReadableIfBuiltWithPendingQueueKeepsQueuedUpdates, #markReadableWithPendingQueueKeepsQueuedUpdates
+- spec: IndexState.WRITE_ONLY_WITH_QUEUE javadoc; FDBRecordStore.markIndexReadable javadoc ("check ... the index is actually built and ready"); OnlineIndexer.markReadable javadoc
+- details: IndexingBase drains/asserts the queue only for common.getQueuedIndexes(), filled only by cacheQueuedIndexes
+  during buildIndex. A new indexer's markReadable / markReadableIfBuilt marks the index READABLE, and
+  eraseAllIndexingDataButTheLockAndRangeSet then clears the queue: queued user updates are lost (stale index).
+
+## AQA-29: OnlineIndexScrubber counts the issues of a retried transaction twice
+- status: open
+- found: 2026-11-19
+- test: fdb-record-layer-core/src/test/java/com/apple/foundationdb/record/provider/foundationdb/OnlineIndexScrubberAutoQATest.java#scrubMissingIndexEntriesCommitRetryCountsEachIssueOnce
+- spec: IndexScrubbing comment "report these issues only after their transaction was completed successfully"; scrubMissingIndexEntries javadoc ("@return found missing index entries count")
+- details: indexScrubRangeOnly reports issues in whenComplete of the body that IndexingThrottle.buildCommitRetryAsync runs
+  inside runner.runAsync, before the commit. A commit conflict retries the body, so one missing entry is
+  returned as 2 and INDEX_SCRUBBER_MISSING_ENTRIES is incremented twice. scanCounter may be over-counted too (not tested).
+
+## AQA-30: Core PendingWritesQueue.getQueueCursor ignores the skip in ScanProperties
+- status: open
+- found: 2026-11-19
+- test: fdb-record-layer-core/src/test/java/com/apple/foundationdb/record/provider/foundationdb/OnlineIndexerPendingWriteQueueAutoQATest.java#getQueueCursorWithSkipSkipsLeadingEntries
+- spec: PendingWritesQueue.getQueueCursor comment ("the caller's row/time/byte/skip limits are honored at the entry level") and @param javadoc (only isolation is overridden)
+- details: the inner KeyValueCursor clears skip and the unsplitter never applies it (FDBRecordStore adds an explicit
+  .skip() after its unsplitter). Same defect as AQA-12 in the Lucene PendingWriteQueue.
