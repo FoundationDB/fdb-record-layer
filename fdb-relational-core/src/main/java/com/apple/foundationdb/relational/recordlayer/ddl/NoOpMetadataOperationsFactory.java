@@ -30,6 +30,7 @@ import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URI;
 
 @API(API.Status.EXPERIMENTAL)
@@ -86,6 +87,12 @@ public final class NoOpMetadataOperationsFactory implements MetadataOperationsFa
     @Nonnull
     @Override
     public ConstantAction getDropSchemaTemplateConstantAction(@Nonnull String templateId, boolean throwIfDoesNotExist, @Nonnull Options options) {
+        return NoOpConstantAction.INSTANCE;
+    }
+
+    @Nonnull
+    @Override
+    public ConstantAction getSetLocalVariableConstantAction(@Nonnull String name, @Nullable Object value) {
         return NoOpConstantAction.INSTANCE;
     }
 
