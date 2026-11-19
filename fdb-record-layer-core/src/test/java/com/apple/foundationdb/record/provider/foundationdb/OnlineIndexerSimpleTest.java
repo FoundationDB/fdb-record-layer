@@ -24,6 +24,7 @@ import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
 import com.apple.foundationdb.record.TestHelpers;
@@ -1047,5 +1048,20 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             indexBuilder.buildIndex();
         }
         assertReadable(index);
+    }
+
+    @Test
+    void allowTakeoverContinueEmptyCollectionAllowsNoConversion() {
+        // An empty (non-EnumSet) collection must be accepted, and allow no conversion
+        final OnlineIndexer.IndexingPolicy policy = OnlineIndexer.IndexingPolicy.newBuilder()
+                .allowTakeoverContinue(List.of())
+                .build();
+        final IndexBuildProto.IndexBuildIndexingStamp oldStamp = IndexBuildProto.IndexBuildIndexingStamp.newBuilder()
+                .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS)
+                .build();
+        final IndexBuildProto.IndexBuildIndexingStamp newStamp = IndexBuildProto.IndexBuildIndexingStamp.newBuilder()
+                .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS)
+                .build();
+        assertFalse(policy.shouldAllowTypeConversionContinue(newStamp, oldStamp));
     }
 }

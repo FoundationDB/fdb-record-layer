@@ -1592,7 +1592,13 @@ public class OnlineIndexer implements AutoCloseable {
              * @return this builder
              */
             public Builder allowTakeoverContinue(@Nullable Collection<TakeoverTypes> allowedSet) {
-                this.allowedTakeoverSet = allowedSet == null ? null : EnumSet.copyOf(allowedSet);
+                if (allowedSet == null) {
+                    this.allowedTakeoverSet = null;
+                } else {
+                    // EnumSet.copyOf(Collection) rejects an empty collection unless it is an EnumSet
+                    this.allowedTakeoverSet = EnumSet.noneOf(TakeoverTypes.class);
+                    this.allowedTakeoverSet.addAll(allowedSet);
+                }
                 return this;
             }
 
