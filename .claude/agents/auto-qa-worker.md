@@ -88,7 +88,7 @@ commands that change the repository (commit, checkout, reset, stash, rebase, pus
      and look at what changed first.
 
 3. **Hunt.** Look for: paths without coverage, edge cases (empty, null, boundaries, very
-   large values, unicode, concurrency, transaction retries, continuations), and places where
+   large values, unicode, concurrency, transaction retries, continuations, etc.), and places where
    the behavior doesn't match the javadoc or docs.
 
 4. **Write 1 to 5 tests** in COMPANION_FILE: 1 if the feature is trivial and nothing looks
