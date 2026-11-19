@@ -987,13 +987,12 @@ public interface Compensation {
                         matchedToRealizedTranslationMapFunction);
             }
 
-            final var matchedForEachAlias = getMatchedForEachAlias();
+            final var matchedForEachAlias = getMatchedForEachAliasToCompensateOver();
             final var matchedToRealizedTranslationMap = matchedToRealizedTranslationMapFunction.apply(matchedForEachAlias);
 
             final var compensatedPredicates = new LinkedIdentitySet<QueryPredicate>();
             final var injectCompensationFunctions = predicateCompensationMap.values();
             for (final var predicateCompensationFunction : injectCompensationFunctions) {
-                // TODO construct a translation map using matchedForEachAlias as target
                 compensatedPredicates.addAll(
                         predicateCompensationFunction.applyCompensationForPredicate(matchedToRealizedTranslationMap));
             }
@@ -1071,11 +1070,6 @@ public interface Compensation {
 
                 return completeExpansionBuilder.build().buildSimpleSelectOverQuantifier(newBaseQuantifier);
             }
-        }
-
-        @Nonnull
-        private CorrelationIdentifier getMatchedForEachAlias() {
-            return Iterables.getOnlyElement(getMatchedForEachAliases());
         }
 
         /**

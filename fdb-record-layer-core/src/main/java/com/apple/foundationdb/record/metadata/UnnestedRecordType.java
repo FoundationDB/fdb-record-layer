@@ -414,9 +414,12 @@ public class UnnestedRecordType extends SyntheticRecordType<UnnestedRecordType.N
     @Nonnull
     private static Quantifier.ForEach constituentQuantifier(@Nonnull final Value ownerElementValue,
                                                             @Nonnull final KeyExpression nestingExpression) {
+        Value collectionValue = ownerElementValue;
+        for (final String fieldName : arrayFieldPath(nestingExpression)) {
+            collectionValue = FieldValue.ofFieldNameAndFuseIfPossible(collectionValue, fieldName);
+        }
         final Quantifier.ForEach explodeQuantifier =
-                Quantifier.forEach(Reference.initialOf(new TableFunctionExpression(new ExplodeValue(
-                        FieldValue.ofFieldNames(ownerElementValue, arrayFieldPath(nestingExpression)), true))));
+                Quantifier.forEach(Reference.initialOf(new TableFunctionExpression(new ExplodeValue(collectionValue, true))));
         return Quantifier.forEach(Reference.initialOf(GraphExpansion.ofQuantifier(explodeQuantifier)
                 .seal()
                 .buildSimpleSelectOverQuantifier(explodeQuantifier)));
