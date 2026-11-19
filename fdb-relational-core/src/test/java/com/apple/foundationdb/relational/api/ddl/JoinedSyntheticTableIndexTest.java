@@ -52,6 +52,7 @@ import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -624,15 +625,60 @@ public class JoinedSyntheticTableIndexTest {
     }
 
     /**
-     * Two indexes over joins in one template each get a synthetic table of their own, named after the index and carrying
-     * only that index — even when both join the same tables.
+     * Two indexes over the same join share the synthetic table the first one adds, named after it and carrying both.
      */
     @Test
-    void severalJoinedIndexesGetSeparateSyntheticTables() throws Exception {
+    void severalJoinedIndexesOverTheSameJoinShareASyntheticTable() throws Exception {
         final String indexDdl = "CREATE INDEX i1 AS SELECT a.x, b.y FROM T1 AS a, T2 AS b WHERE a.k = b.k "
                 + "order by a.x, b.y "
                 + "CREATE INDEX i2 AS SELECT b.y, a.x FROM T1 AS a, T2 AS b WHERE a.k = b.k "
                 + "order by b.y, a.x ";
+        shouldWorkWithInjectedFactory(TWO_TABLE_SCHEMA + indexDdl, assertingFactory(template -> {
+            final var joinedTable = soleJoinedTable(template, "i1");
+            assertConstituents(joinedTable, "T1", "T2");
+            assertThat(joinedTable.getIndexes().stream().map(RecordLayerIndex::getName).collect(Collectors.toList()))
+                    .isEqualTo(List.of("i1", "i2"));
+            assertThat(keysByIndex(joinedTable).get("i2"))
+                    .isEqualTo(Key.Expressions.concat(aliasColumn(joined(1), "y"), aliasColumn(joined(0), "x")));
+
+            final var recordLayerTemplate = Assert.castUnchecked(template, RecordLayerSchemaTemplate.class);
+            final var recordMetaData = Assertions.assertDoesNotThrow(recordLayerTemplate::toRecordMetadata);
+            assertThat(recordMetaData.getSyntheticRecordTypes().keySet()).isEqualTo(Set.of("__joined_i1"));
+            final var tableIndexMapping = Assertions.assertDoesNotThrow(template::getTableIndexMapping);
+            assertThat(Set.copyOf(tableIndexMapping.get("T1"))).isEqualTo(Set.of("i1", "i2"));
+            assertThat(Set.copyOf(tableIndexMapping.get("T2"))).isEqualTo(Set.of("i1", "i2"));
+        }));
+    }
+
+    /**
+     * A join naming its tables in another order, under other correlation names, with its equality written the other way
+     * round, still joins the same records, so it shares the synthetic table. Its key reads each table through the
+     * constituent the existing synthetic table gave it.
+     */
+    @Test
+    void joinNamingItsTablesInAnotherOrderSharesASyntheticTable() throws Exception {
+        final String indexDdl = "CREATE INDEX i1 AS SELECT a.x, b.y FROM T1 AS a, T2 AS b WHERE a.k = b.k "
+                + "order by a.x, b.y "
+                + "CREATE INDEX i2 AS SELECT q.y, p.x FROM T2 AS q, T1 AS p WHERE q.k = p.k "
+                + "order by q.y, p.x ";
+        shouldWorkWithInjectedFactory(TWO_TABLE_SCHEMA + indexDdl, assertingFactory(template -> {
+            final var joinedTable = soleJoinedTable(template, "i1");
+            assertConstituents(joinedTable, "T1", "T2");
+            assertThat(joinedTable.getJoinConditions()).isEqualTo(List.of(joinCondition(joined(0), "k", joined(1), "k")));
+            final var keysByIndex = keysByIndex(joinedTable);
+            assertThat(keysByIndex.keySet()).isEqualTo(Set.of("i1", "i2"));
+            assertThat(keysByIndex.get("i2"))
+                    .isEqualTo(Key.Expressions.concat(aliasColumn(joined(1), "y"), aliasColumn(joined(0), "x")));
+        }));
+    }
+
+    /** Joins relating the same tables through different columns join different records, so they do not share. */
+    @Test
+    void joinsOnDifferentColumnsKeepSeparateSyntheticTables() throws Exception {
+        final String indexDdl = "CREATE INDEX i1 AS SELECT a.x, b.y FROM T1 AS a, T2 AS b WHERE a.k = b.k "
+                + "order by a.x, b.y "
+                + "CREATE INDEX i2 AS SELECT a.x, b.y FROM T1 AS a, T2 AS b WHERE a.x = b.k "
+                + "order by a.x, b.y ";
         shouldWorkWithInjectedFactory(TWO_TABLE_SCHEMA + indexDdl, assertingFactory(template -> {
             final var recordLayerTemplate = Assert.castUnchecked(template, RecordLayerSchemaTemplate.class);
             final var joinedTables = recordLayerTemplate.getJoinedSyntheticTables();
@@ -641,16 +687,18 @@ public class JoinedSyntheticTableIndexTest {
             for (final var joinedTable : joinedTables) {
                 final var index = Iterables.getOnlyElement(joinedTable.getIndexes());
                 assertThat("__joined_" + index.getName()).isEqualTo(joinedTable.getName());
-                assertConstituents(joinedTable, "T1", "T2");
             }
-
             final var recordMetaData = Assertions.assertDoesNotThrow(recordLayerTemplate::toRecordMetadata);
             assertThat(recordMetaData.getSyntheticRecordTypes().keySet())
                     .isEqualTo(Set.of("__joined_i1", "__joined_i2"));
-            final var tableIndexMapping = Assertions.assertDoesNotThrow(template::getTableIndexMapping);
-            assertThat(Set.copyOf(tableIndexMapping.get("T1"))).isEqualTo(Set.of("i1", "i2"));
-            assertThat(Set.copyOf(tableIndexMapping.get("T2"))).isEqualTo(Set.of("i1", "i2"));
         }));
+    }
+
+    /** The key expression of each index on {@code joinedTable}, by index name. */
+    @Nonnull
+    private static Map<String, KeyExpression> keysByIndex(@Nonnull final RecordLayerJoinedSyntheticTable joinedTable) {
+        return joinedTable.getIndexes().stream()
+                .collect(Collectors.toMap(RecordLayerIndex::getName, RecordLayerIndex::getKeyExpression));
     }
 
     @Test

@@ -21,22 +21,34 @@
 package com.apple.foundationdb.relational.recordlayer.metadata;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.util.Assert;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * A synthetic record type that unnests one or more struct array fields of a stored record type. Each
@@ -65,6 +77,12 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
     @Nonnull
     private final List<NestedConstituent> constituents;
 
+    @Nonnull
+    private final Supplier<Fingerprint<RecordLayerUnnestedSyntheticTable>> fingerprint;
+
+    @Nonnull
+    private final Supplier<ConstituentTree> constituentTree;
+
     private RecordLayerUnnestedSyntheticTable(@Nonnull final String alias,
                                               @Nonnull final String parentTableName,
                                               @Nonnull final String parentTableStorageName,
@@ -76,6 +94,8 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
         this.parentTableName = parentTableName;
         this.parentTableStorageName = parentTableStorageName;
         this.constituents = ImmutableList.copyOf(constituents);
+        this.fingerprint = Suppliers.memoize(() -> generateFingerprint(parentTableStorageName, alias, this.constituents));
+        this.constituentTree = Suppliers.memoize(() -> new ConstituentTree(alias, this.constituents));
     }
 
     @Nonnull
@@ -99,6 +119,68 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
         return Set.of(parentTableName);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>See {@link #generateFingerprint}.
+     */
+    @Nonnull
+    @Override
+    public Fingerprint<RecordLayerUnnestedSyntheticTable> getFingerprint() {
+        return fingerprint.get();
+    }
+
+    /**
+     * How an unnested table of the given constituents corresponds to existing unnested tables of the same fingerprint,
+     * without building it.
+     *
+     * @param parentAlias the alias of the parent constituent
+     * @param constituents the nested constituents
+     * @return for an existing unnested table of the same fingerprint, for each of the given aliases the alias of the
+     * constituent it corresponds to, or empty if the existing table does not produce the same synthetic records
+     */
+    @Nonnull
+    public static Function<RecordLayerUnnestedSyntheticTable, Optional<Map<String, String>>> matcher(
+            @Nonnull final String parentAlias, @Nonnull final List<NestedConstituent> constituents) {
+        final var tree = new ConstituentTree(parentAlias, constituents);
+        return existing -> tree.matchOnto(existing.constituentTree.get());
+    }
+
+    /**
+     * The fingerprint of an unnested table of the given constituents.
+     *
+     * @param parentTableStorageName the storage name of the stored table the constituents are unnested from
+     * @param parentAlias the alias of the parent constituent
+     * @param constituents the nested constituents
+     * @return the fingerprint
+     */
+    @Nonnull
+    public static Fingerprint<RecordLayerUnnestedSyntheticTable> generateFingerprint(
+            @Nonnull final String parentTableStorageName, @Nonnull final String parentAlias,
+            @Nonnull final List<NestedConstituent> constituents) {
+        final Map<String, List<NestedConstituent>> childrenByAlias = new HashMap<>();
+        for (final var constituent : constituents) {
+            childrenByAlias.computeIfAbsent(constituent.getParentAlias(), ignored -> new ArrayList<>()).add(constituent);
+        }
+        return new UnnestedFingerprint(parentTableStorageName, nestingsOf(parentAlias, childrenByAlias));
+    }
+
+    @Nonnull
+    private static ImmutableMultiset<UnnestedFingerprint.Nesting> nestingsOf(
+            @Nonnull final String alias, @Nonnull final Map<String, List<NestedConstituent>> childrenByAlias) {
+        return childrenByAlias.getOrDefault(alias, List.of()).stream()
+                .map(child -> new UnnestedFingerprint.Nesting(child.getNestingExpression(),
+                        nestingsOf(child.getAlias(), childrenByAlias)))
+                .collect(ImmutableMultiset.toImmutableMultiset());
+    }
+
+    @Nonnull
+    @Override
+    public RecordLayerUnnestedSyntheticTable withIndex(@Nonnull final RecordLayerIndex index) {
+        return new RecordLayerUnnestedSyntheticTable(alias, parentTableName, parentTableStorageName, constituents,
+                indexesWith(index), type);
+    }
+
     @Override
     public boolean equals(final Object o) {
         return o instanceof RecordLayerUnnestedSyntheticTable that
@@ -112,6 +194,142 @@ public final class RecordLayerUnnestedSyntheticTable extends RecordLayerSyntheti
     @Override
     public int hashCode() {
         return Objects.hash(super.hashCode(), alias, parentTableName, parentTableStorageName, constituents);
+    }
+
+    /**
+     * The constituents of an unnested table as a tree rooted at the parent, each constituent depending on the one it is
+     * unnested from. A correspondence is sought the way the planner matches quantifiers, the parent first and every
+     * constituent after the one it is unnested from: a constituent corresponds to one reached by the same nesting
+     * expression from the counterpart of its own parent.
+     */
+    private static final class ConstituentTree {
+
+        /**
+         * The parent's alias, then those of the nested constituents in registration order.
+         */
+        @Nonnull
+        private final ImmutableSet<CorrelationIdentifier> aliases;
+
+        @Nonnull
+        private final Map<CorrelationIdentifier, CorrelationIdentifier> parentByAlias;
+
+        @Nonnull
+        private final Map<CorrelationIdentifier, KeyExpression> nestingByAlias;
+
+        private ConstituentTree(@Nonnull final String parentAlias, @Nonnull final List<NestedConstituent> constituents) {
+            final var aliasesBuilder = ImmutableSet.<CorrelationIdentifier>builder().add(CorrelationIdentifier.of(parentAlias));
+            final var parents = ImmutableMap.<CorrelationIdentifier, CorrelationIdentifier>builder();
+            final var nestings = ImmutableMap.<CorrelationIdentifier, KeyExpression>builder();
+            for (final var constituent : constituents) {
+                final var alias = CorrelationIdentifier.of(constituent.getAlias());
+                aliasesBuilder.add(alias);
+                parents.put(alias, CorrelationIdentifier.of(constituent.getParentAlias()));
+                nestings.put(alias, constituent.getNestingExpression());
+            }
+            this.aliases = aliasesBuilder.build();
+            this.parentByAlias = parents.build();
+            this.nestingByAlias = nestings.build();
+        }
+
+        @Nonnull
+        private Set<CorrelationIdentifier> dependsOn(@Nonnull final CorrelationIdentifier alias) {
+            final var parent = parentByAlias.get(alias);
+            return parent == null ? ImmutableSet.of() : ImmutableSet.of(parent);
+        }
+
+        /**
+         * Matches this tree onto another one of the same fingerprint.
+         *
+         * @param other a tree of an unnested table of the same fingerprint
+         * @return for each alias of this tree, the alias of the constituent of {@code other} it corresponds to, or empty
+         * if there is no such correspondence
+         */
+        @Nonnull
+        private Optional<Map<String, String>> matchOnto(@Nonnull final ConstituentTree other) {
+            // The match predicate is handed the bindings of the constituents an alias depends on, so its parent's
+            // counterpart is known by the time it is matched. The parent is the only constituent without a nesting
+            // expression, so it can only correspond to the other parent.
+            final Iterable<AliasMap> bijections = AliasMap.emptyMap().findCompleteMatches(
+                    aliases, this::dependsOn, other.aliases, other::dependsOn,
+                    (alias, otherAlias, boundParents) -> {
+                        final var nesting = nestingByAlias.get(alias);
+                        if (!Objects.equals(nesting, other.nestingByAlias.get(otherAlias))) {
+                            return false;
+                        }
+                        return nesting == null
+                                || Objects.equals(other.parentByAlias.get(otherAlias),
+                                        boundParents.getTarget(parentByAlias.get(alias)));
+                    });
+            return Streams.stream(bijections)
+                    .findFirst()
+                    .map(bijection -> bijection.entrySet().stream()
+                            .collect(ImmutableMap.toImmutableMap(entry -> entry.getKey().getId(),
+                                    entry -> entry.getValue().getId())));
+        }
+    }
+
+    /**
+     * What two unnested tables share exactly if they produce the same synthetic records up to a renaming of their
+     * constituents: the stored table they unnest, and the tree of constituents rooted at it without their aliases. Each
+     * constituent is its nesting expression together with the constituents unnested from it, as a multiset, so the
+     * order the constituents were registered in does not matter either.
+     *
+     * @param parentTableStorageName the storage name of the stored table the constituents are unnested from
+     * @param nestings the constituents unnested from the stored record
+     */
+    @API(API.Status.EXPERIMENTAL)
+    public record UnnestedFingerprint(@Nonnull String parentTableStorageName, @Nonnull ImmutableMultiset<Nesting> nestings)
+            implements Fingerprint<RecordLayerUnnestedSyntheticTable> {
+        @Nonnull
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Unnested-Fingerprint");
+
+        @Nonnull
+        @Override
+        public Class<RecordLayerUnnestedSyntheticTable> getTableClass() {
+            return RecordLayerUnnestedSyntheticTable.class;
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            return o instanceof UnnestedFingerprint that
+                    && parentTableStorageName.equals(that.parentTableStorageName)
+                    && nestings.equals(that.nestings);
+        }
+
+        /**
+         * Spelled out, as the hash code of a record is left to the implementation, while those of the base hash's name,
+         * a string and a multiset are specified.
+         */
+        @Override
+        public int hashCode() {
+            return Objects.hash(BASE_HASH, parentTableStorageName, nestings);
+        }
+
+        /**
+         * A constituent without its alias: how it is reached from the constituent it is unnested from, and the
+         * constituents unnested from it in turn.
+         *
+         * @param nestingExpression the constituent's nesting expression
+         * @param nestings the constituents unnested from it
+         */
+        @API(API.Status.EXPERIMENTAL)
+        public record Nesting(@Nonnull KeyExpression nestingExpression, @Nonnull ImmutableMultiset<Nesting> nestings) {
+            @Override
+            public boolean equals(final Object o) {
+                return o instanceof Nesting that
+                        && nestingExpression.equals(that.nestingExpression)
+                        && nestings.equals(that.nestings);
+            }
+
+            /**
+             * Spelled out, as the hash code of a record is left to the implementation, while that of a key expression
+             * is derived from its field names and fan types.
+             */
+            @Override
+            public int hashCode() {
+                return Objects.hash(nestingExpression, nestings);
+            }
+        }
     }
 
     /**

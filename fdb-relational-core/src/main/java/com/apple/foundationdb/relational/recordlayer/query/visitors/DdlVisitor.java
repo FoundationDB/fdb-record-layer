@@ -40,6 +40,7 @@ import com.apple.foundationdb.relational.api.metadata.StoredQuery;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerColumn;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerIndex;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerTable;
@@ -55,7 +56,6 @@ import com.apple.foundationdb.relational.recordlayer.query.QueryParser;
 import com.apple.foundationdb.relational.recordlayer.query.SemanticAnalyzer;
 import com.apple.foundationdb.relational.recordlayer.query.ddl.ExtremumEverStorage;
 import com.apple.foundationdb.relational.recordlayer.query.ddl.IndexGenerationOptions;
-import com.apple.foundationdb.relational.recordlayer.query.ddl.IndexGenerationResult;
 import com.apple.foundationdb.relational.recordlayer.query.ddl.IndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.ddl.MaterializedViewIndexGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.ddl.OnSourceIndexGenerator;
@@ -273,7 +273,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
-    public IndexGenerationResult visitIndexAsSelectDefinition(@Nonnull RelationalParser.IndexAsSelectDefinitionContext indexDefinitionContext) {
+    public RecordLayerIndex.Builder visitIndexAsSelectDefinition(@Nonnull RelationalParser.IndexAsSelectDefinitionContext indexDefinitionContext) {
         final var indexId = visitUid(indexDefinitionContext.indexName);
 
         final var ddlCatalog = metadataBuilder.build();
@@ -293,7 +293,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
-    public IndexGenerationResult visitIndexOnSourceDefinition(@Nonnull final RelationalParser.IndexOnSourceDefinitionContext indexDefinitionContext) {
+    public RecordLayerIndex.Builder visitIndexOnSourceDefinition(@Nonnull final RelationalParser.IndexOnSourceDefinitionContext indexDefinitionContext) {
         final var ddlCatalog = metadataBuilder.build();
         getDelegate().replaceSchemaTemplate(ddlCatalog);
         getDelegate().pushPlanFragment();
@@ -331,7 +331,7 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     @Override
-    public IndexGenerationResult visitVectorIndexDefinition(final RelationalParser.VectorIndexDefinitionContext indexDefinitionContext) {
+    public RecordLayerIndex.Builder visitVectorIndexDefinition(final RelationalParser.VectorIndexDefinitionContext indexDefinitionContext) {
         final var ddlCatalog = metadataBuilder.build();
         getDelegate().replaceSchemaTemplate(ddlCatalog);
         getDelegate().pushPlanFragment();
@@ -378,9 +378,9 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
         }
 
         getDelegate().popPlanFragment();
-        final var result = indexGeneratorBuilder.build().generate();
-        result.indexBuilder().setIndexType(IndexTypes.VECTOR);
-        return result;
+        final var indexBuilder = indexGeneratorBuilder.build().generate();
+        indexBuilder.setIndexType(IndexTypes.VECTOR);
+        return indexBuilder;
     }
 
     @Nonnull
@@ -565,8 +565,12 @@ public final class DdlVisitor extends DelegatingVisitor<BaseVisitor> {
             metadataBuilder.addView(view);
         });
         indexClauses.build().forEach(clause ->
-                Assert.castUnchecked(visit(clause), IndexGenerationResult.class).registerOn(metadataBuilder));
-        return ProceduralPlan.of(metadataOperationsFactory.getSaveSchemaTemplateConstantAction(metadataBuilder.build(), Options.NONE));
+                metadataBuilder.addIndex(Assert.castUnchecked(visit(clause), RecordLayerIndex.Builder.class).build()));
+        final var schemaTemplate = metadataBuilder.build();
+        // A synthetic table is only ever added for the index defined on it, right before that index is.
+        Assert.thatUnchecked(schemaTemplate.getSyntheticTables().stream().noneMatch(table -> table.getIndexes().isEmpty()),
+                ErrorCode.INTERNAL_ERROR, "synthetic table without an index");
+        return ProceduralPlan.of(metadataOperationsFactory.getSaveSchemaTemplateConstantAction(schemaTemplate, Options.NONE));
     }
 
     @Nonnull
