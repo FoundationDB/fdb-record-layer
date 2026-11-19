@@ -1295,7 +1295,7 @@ public class KeySpaceDirectoryTest {
     }
 
     @Test
-    public void testListConstantValueIgnoresSiblingValueWithNulSuffix() {
+    void testListConstantValueIgnoresSiblingValueWithNulSuffix() {
         // listing a constant STRING subdirectory "x" finds nothing when only its sibling "x\u0000y", whose
         // packed key starts with the packed key of "x", holds data
         Long rootValue = random.nextLong();
