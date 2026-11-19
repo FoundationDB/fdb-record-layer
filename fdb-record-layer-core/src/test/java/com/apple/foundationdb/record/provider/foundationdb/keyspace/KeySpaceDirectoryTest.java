@@ -1295,6 +1295,28 @@ public class KeySpaceDirectoryTest {
     }
 
     @Test
+    public void testListConstantValueIgnoresSiblingValueWithNulSuffix() {
+        // listing a constant STRING subdirectory "x" finds nothing when only its sibling "x\u0000y", whose
+        // packed key starts with the packed key of "x", holds data
+        Long rootValue = random.nextLong();
+        KeySpace root = new KeySpace(
+                new KeySpaceDirectory("a", KeyType.LONG, rootValue)
+                        .addSubdirectory(new KeySpaceDirectory("x", KeyType.STRING, "x"))
+                        .addSubdirectory(new KeySpaceDirectory("xnul", KeyType.STRING, "x\u0000y")));
+
+        final FDBDatabase database = dbExtension.getDatabase();
+        try (FDBRecordContext context = database.openContext()) {
+            context.ensureActive().set(Tuple.from(rootValue, "x\u0000y", 1L).pack(), Tuple.from(1L).pack());
+            context.commit();
+        }
+
+        try (FDBRecordContext context = database.openContext()) {
+            assertEquals(1, root.path("a").listSubdirectory(context, "xnul").size());
+            assertEquals(0, root.path("a").listSubdirectory(context, "x").size());
+        }
+    }
+
+    @Test
     public void testListDirectoryLayer() {
         KeySpace root = new KeySpace(
                 new KeySpaceDirectory("a", KeyType.LONG, random.nextLong())

@@ -36,7 +36,9 @@ import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for {@link KeySpacePath}.
@@ -152,6 +154,62 @@ class KeySpacePathTest {
             // Attempting to resolve invalid tuple bytes should error
             // The exception is thrown synchronously from Tuple.fromBytes, not wrapped in ExecutionException
             assertThrows(IllegalArgumentException.class, () -> branchPath.toResolvedPathAsync(context, invalidBytes));
+        }
+    }
+
+    @Test
+    void testDeleteAllDataDoesNotDeleteSiblingValueWithNulSuffix() {
+        // deleting the path for "a" deletes the data at and under that path, but not the data of the
+        // sibling path for "a\u0000b", whose packed key starts with the packed key of "a"
+        final FDBDatabase database = dbExtension.getDatabase();
+        final KeySpace keySpace = createKeySpace(false, false);
+        final KeySpacePath path = keySpace.path("test_root").add("branch").add("leaf", "a");
+        final KeySpacePath sibling = keySpace.path("test_root").add("branch").add("leaf", "a\u0000b");
+
+        try (FDBRecordContext context = database.openContext()) {
+            context.ensureActive().set(path.toSubspace(context).pack(), Tuple.from("self").pack());
+            context.ensureActive().set(path.toSubspace(context).pack(Tuple.from(1L)), Tuple.from("child").pack());
+            context.ensureActive().set(sibling.toSubspace(context).pack(Tuple.from(1L)), Tuple.from("sibling").pack());
+
+            path.deleteAllData(context);
+
+            assertFalse(path.hasData(context));
+            assertTrue(sibling.hasData(context));
+        }
+    }
+
+    @Test
+    void testDeleteAllDataDeletesPathKeyWithoutChildren() {
+        // a value stored at exactly the path's own key, with nothing under it, counts as data of the path and is
+        // deleted by deleteAllData
+        final FDBDatabase database = dbExtension.getDatabase();
+        final KeySpace keySpace = createKeySpace(false, false);
+        final KeySpacePath path = keySpace.path("test_root").add("branch").add("leaf", "a");
+
+        try (FDBRecordContext context = database.openContext()) {
+            context.ensureActive().set(path.toSubspace(context).pack(), Tuple.from("self").pack());
+            assertTrue(path.hasData(context));
+
+            path.deleteAllData(context);
+
+            assertFalse(path.hasData(context));
+            assertEquals(null, context.ensureActive().get(path.toSubspace(context).pack()).join());
+        }
+    }
+
+    @Test
+    void testHasDataIgnoresSiblingValueWithNulSuffix() {
+        // the path for "a" has no data when only the sibling path for "a\u0000b" holds data
+        final FDBDatabase database = dbExtension.getDatabase();
+        final KeySpace keySpace = createKeySpace(false, false);
+        final KeySpacePath path = keySpace.path("test_root").add("branch").add("leaf", "a");
+        final KeySpacePath sibling = keySpace.path("test_root").add("branch").add("leaf", "a\u0000b");
+
+        try (FDBRecordContext context = database.openContext()) {
+            context.ensureActive().set(sibling.toSubspace(context).pack(Tuple.from(1L)), Tuple.from("sibling").pack());
+
+            assertTrue(sibling.hasData(context));
+            assertFalse(path.hasData(context));
         }
     }
 
