@@ -50,6 +50,7 @@ import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Message;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -101,19 +102,20 @@ class UniqueIndexConcurrencyTest extends FDBRecordStoreConcurrentTestBase {
     private static final String UNIQUE_INDEX_NAME = "MySimpleRecord$num_value_unique";
     private static final String UNSYNCHRONIZED_UNIQUE_VALUE = "unsynchronized_unique_value";
     private static final String UNSYNCHRONIZED_INDEX_NAME = "unsynchronized_num_value_unique";
-    private static final Consumer<RecordMetaDataBuilder> NO_HOOK = metaDataBuilder -> { };
-    private static final Consumer<RecordMetaDataBuilder> UNSYNCHRONIZED_HOOK = metaDataBuilder -> {
-        metaDataBuilder.removeIndex(UNIQUE_INDEX_NAME);
-        metaDataBuilder.addIndex("MySimpleRecord", new Index(UNSYNCHRONIZED_INDEX_NAME, field("num_value_unique"),
-                UNSYNCHRONIZED_UNIQUE_VALUE, IndexOptions.UNIQUE_OPTIONS));
-    };
+    private static final RecordMetaData UNIQUE_META_DATA = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+    private static final RecordMetaData UNSYNCHRONIZED_META_DATA = unsynchronizedMetaData();
 
     /**
      * Writers block on a barrier so that they start together, which is fine here as the pool is unbounded.
      */
     private static final Executor WRITER_POOL = TestExecutors.defaultThreadPool();
 
-    private final KeySpacePath path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+    private KeySpacePath path;
+
+    @BeforeEach
+    void setUp() {
+        path = pathManager.createPath(TestKeySpace.RECORD_STORE);
+    }
 
     /**
      * Many writers save pairs of records that share a value in the same transaction at the same time.
@@ -124,7 +126,7 @@ class UniqueIndexConcurrencyTest extends FDBRecordStoreConcurrentTestBase {
     @ParameterizedTest
     @BooleanSource("disableConcurrencyManagement")
     void sameTransactionConcurrentInsertsAlwaysFail(boolean disableConcurrencyManagement) {
-        final UniqueStore store = new UniqueStore(NO_HOOK, UNIQUE_INDEX_NAME, disableConcurrencyManagement);
+        final UniqueStore store = new UniqueStore(UNIQUE_META_DATA, UNIQUE_INDEX_NAME, disableConcurrencyManagement);
         int escapes = 0;
         for (int iteration = 0; iteration < ITERATIONS; iteration++) {
             if (store.commitPairs(iteration)) {
@@ -150,7 +152,7 @@ class UniqueIndexConcurrencyTest extends FDBRecordStoreConcurrentTestBase {
     @ParameterizedTest
     @BooleanSource("disableConcurrencyManagement")
     void sameTransactionConcurrentInsertsWhileWriteOnlyRecordEveryViolation(boolean disableConcurrencyManagement) {
-        final UniqueStore store = new UniqueStore(NO_HOOK, UNIQUE_INDEX_NAME, disableConcurrencyManagement);
+        final UniqueStore store = new UniqueStore(UNIQUE_META_DATA, UNIQUE_INDEX_NAME, disableConcurrencyManagement);
         assertThat(store.countMissedViolationsWhileWriteOnly())
                 .as("duplicate pairs without a recorded violation out of %d", ITERATIONS * VALUES_PER_TRANSACTION)
                 .isZero();
@@ -168,7 +170,7 @@ class UniqueIndexConcurrencyTest extends FDBRecordStoreConcurrentTestBase {
     @BooleanSource("disableConcurrencyManagement")
     void sameTransactionConcurrentInsertsWithoutSynchronization(boolean disableConcurrencyManagement) {
         UnsynchronizedUniqueValueIndexMaintainer.MAX_IN_FLIGHT.set(0);
-        final UniqueStore store = new UniqueStore(UNSYNCHRONIZED_HOOK, UNSYNCHRONIZED_INDEX_NAME,
+        final UniqueStore store = new UniqueStore(UNSYNCHRONIZED_META_DATA, UNSYNCHRONIZED_INDEX_NAME,
                 disableConcurrencyManagement);
         final int missed = store.countMissedViolationsWhileWriteOnly();
         LOGGER.info(KeyValueLogMessage.of("concurrent inserts without synchronization",
@@ -192,7 +194,7 @@ class UniqueIndexConcurrencyTest extends FDBRecordStoreConcurrentTestBase {
     @ParameterizedTest
     @BooleanSource({"competingInsert", "disableConcurrencyManagement"})
     void sameTransactionConcurrentUpdates(boolean competingInsert, boolean disableConcurrencyManagement) {
-        final UniqueStore store = new UniqueStore(NO_HOOK, UNIQUE_INDEX_NAME, disableConcurrencyManagement);
+        final UniqueStore store = new UniqueStore(UNIQUE_META_DATA, UNIQUE_INDEX_NAME, disableConcurrencyManagement);
         final int writers = competingInsert ? 3 : 2;
         int committed = 0;
         for (int iteration = 0; iteration < ITERATIONS; iteration++) {
@@ -222,7 +224,7 @@ class UniqueIndexConcurrencyTest extends FDBRecordStoreConcurrentTestBase {
      */
     @Test
     void crossTransactionConcurrentInsertsAtMostOneCommits() {
-        final UniqueStore store = new UniqueStore(NO_HOOK, UNIQUE_INDEX_NAME, false);
+        final UniqueStore store = new UniqueStore(UNIQUE_META_DATA, UNIQUE_INDEX_NAME, false);
         // Create the store up front, so that the writers do not race to create it.
         store.inTransaction(createdStore -> { });
         for (int value = 0; value < ITERATIONS; value++) {
@@ -253,10 +255,12 @@ class UniqueIndexConcurrencyTest extends FDBRecordStoreConcurrentTestBase {
     }
 
     @Nonnull
-    private static RecordMetaData buildMetaData(@Nonnull Consumer<RecordMetaDataBuilder> hook) {
+    private static RecordMetaData unsynchronizedMetaData() {
         final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
                 .setRecords(TestRecords1Proto.getDescriptor());
-        hook.accept(metaDataBuilder);
+        metaDataBuilder.removeIndex(UNIQUE_INDEX_NAME);
+        metaDataBuilder.addIndex("MySimpleRecord", new Index(UNSYNCHRONIZED_INDEX_NAME, field("num_value_unique"),
+                UNSYNCHRONIZED_UNIQUE_VALUE, IndexOptions.UNIQUE_OPTIONS));
         return metaDataBuilder.getRecordMetaData();
     }
 
@@ -329,26 +333,26 @@ class UniqueIndexConcurrencyTest extends FDBRecordStoreConcurrentTestBase {
 
     /**
      * A store with a unique index on {@code num_value_unique}, which every test operation opens in its own
-     * transaction. This keeps the meta-data hook, the index name, and whether to disable the concurrency manager
+     * transaction. This keeps the meta-data, the index name, and whether to disable the concurrency manager
      * in one place, instead of passing them to every operation.
      */
     private final class UniqueStore {
         @Nonnull
-        private final Consumer<RecordMetaDataBuilder> hook;
+        private final RecordMetaData metaData;
         @Nonnull
         private final String indexName;
         private final boolean disableConcurrencyManagement;
 
-        UniqueStore(@Nonnull Consumer<RecordMetaDataBuilder> hook, @Nonnull String indexName,
+        UniqueStore(@Nonnull RecordMetaData metaData, @Nonnull String indexName,
                     boolean disableConcurrencyManagement) {
-            this.hook = hook;
+            this.metaData = metaData;
             this.indexName = indexName;
             this.disableConcurrencyManagement = disableConcurrencyManagement;
         }
 
         @Nonnull
         private FDBRecordStore open(@Nonnull FDBRecordContext context) {
-            return getStoreBuilder(context, buildMetaData(hook), path)
+            return getStoreBuilder(context, metaData, path)
                     .setDisableConcurrencyManagement(disableConcurrencyManagement)
                     .createOrOpen();
         }
