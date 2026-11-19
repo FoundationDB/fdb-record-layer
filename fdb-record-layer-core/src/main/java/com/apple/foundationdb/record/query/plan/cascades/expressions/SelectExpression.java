@@ -419,8 +419,7 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
 
         // Existential of a query only observes if the result is produced. Matching it to for-each is only sound if the
         // candidate's subgraph does not observe how many times an element occurs either, which is what a child match
-        // that requires an existential (over a distinct explode) records. A non-distinct explode, such as the one of
-        // an unnesting of a synthetic record type, would return the query's row once per element.
+        // that requires an existential (over a distinct explode) records.
         for (final var quantifier : getQuantifiers()) {
             if (!(quantifier instanceof Quantifier.Existential)) {
                 continue;
