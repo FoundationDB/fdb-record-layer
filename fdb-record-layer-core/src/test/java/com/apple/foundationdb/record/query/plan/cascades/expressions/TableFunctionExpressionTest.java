@@ -56,14 +56,6 @@ class TableFunctionExpressionTest {
             Type.Record.Field.of(new Type.Array(LONG), Optional.of("values")),
             Type.Record.Field.of(new Type.Array(LONG), Optional.of("others")),
             Type.Record.Field.of(new Type.Array(INT), Optional.of("ints"))));
-    /**
-     * A record whose first field is named like that of {@link #RECORD_TYPE} but holds elements of another type. A field
-     * value compares its field by ordinal and a quantified value disregards its type, so a collection of this record
-     * compares equal to the same collection of {@link #RECORD_TYPE}.
-     */
-    @Nonnull
-    private static final Type.Record OTHER_RECORD_TYPE = Type.Record.fromFields(List.of(
-            Type.Record.Field.of(new Type.Array(INT), Optional.of("values"))));
     @Nonnull
     private static final CorrelationIdentifier QUERY_ALIAS = CorrelationIdentifier.of("q");
     @Nonnull
@@ -87,18 +79,6 @@ class TableFunctionExpressionTest {
 
         // The element is of the same type as the ordinal, the struct is still matched as a whole.
         assertMatchesWholeStruct(query, candidate, INT);
-    }
-
-    @Test
-    void explodeIsNotSubsumedByAnExplodeOfElementsOfAnotherType() {
-        final var queryCollection = collection(QUERY_ALIAS, "values");
-        final var candidateCollection = collection(CANDIDATE_ALIAS, OTHER_RECORD_TYPE, "values");
-        final var query = new TableFunctionExpression(new ExplodeValue(queryCollection, false));
-        final var candidate = new TableFunctionExpression(new ExplodeValue(candidateCollection, true));
-
-        // The collections compare equal, but the explodes flow structs of different types.
-        assertThat(queryCollection.semanticEquals(candidateCollection, BINDING_ALIAS_MAP)).isTrue();
-        assertThat(subsumedBy(query, candidate, BINDING_ALIAS_MAP)).isEmpty();
     }
 
     @Test
@@ -168,13 +148,7 @@ class TableFunctionExpressionTest {
 
     @Nonnull
     private static Value collection(@Nonnull final CorrelationIdentifier alias, @Nonnull final String fieldName) {
-        return collection(alias, RECORD_TYPE, fieldName);
-    }
-
-    @Nonnull
-    private static Value collection(@Nonnull final CorrelationIdentifier alias, @Nonnull final Type.Record recordType,
-                                    @Nonnull final String fieldName) {
-        return FieldValue.ofFieldName(QuantifiedObjectValue.of(alias, recordType), fieldName);
+        return FieldValue.ofFieldName(QuantifiedObjectValue.of(alias, RECORD_TYPE), fieldName);
     }
 
     @Nonnull

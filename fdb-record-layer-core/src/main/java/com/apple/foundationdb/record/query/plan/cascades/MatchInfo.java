@@ -69,6 +69,16 @@ public interface MatchInfo {
     @Nonnull
     RegularMatchInfo getRegularMatchInfo();
 
+    /**
+     * {@return whether the match is only sound under an existential quantifier that has not absorbed it yet}
+     * The match then has a distinct explode underneath, whose candidate produces every distinct row of the query
+     * once rather than every row. Such a match is not complete, as only the existence of a row is observed through
+     * an existential quantifier.
+     */
+    default boolean requiresExistential() {
+        return false;
+    }
+
     @Nonnull
     Map<QueryPredicate, PredicateMapping> collectPulledUpPredicateMappings(@Nonnull RelationalExpression candidateExpression,
                                                                            @Nonnull Set<QueryPredicate> interestingPredicates);
@@ -178,6 +188,11 @@ public interface MatchInfo {
         @Nonnull
         private final QueryPlanConstraint additionalPlanConstraint;
 
+        /**
+         * Whether the match is only sound under an existential quantifier.
+         */
+        private final boolean requiresExistential;
+
         private RegularMatchInfo(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
                                  @Nonnull final AliasMap bindingAliasMap,
                                  @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
@@ -186,7 +201,8 @@ public interface MatchInfo {
                                  @Nonnull final MaxMatchMap maxMatchMap,
                                  @Nonnull final GroupByMappings groupByMappings,
                                  @Nullable final List<Value> rollUpToGroupingValues,
-                                 @Nonnull final QueryPlanConstraint additionalPlanConstraint) {
+                                 @Nonnull final QueryPlanConstraint additionalPlanConstraint,
+                                 final boolean requiresExistential) {
             this.parameterBindingMap = ImmutableMap.copyOf(parameterBindingMap);
             this.bindingAliasMap = bindingAliasMap;
             this.partialMatchMap = partialMatchMap.toImmutable();
@@ -203,6 +219,7 @@ public interface MatchInfo {
             this.rollUpToGroupingValues = rollUpToGroupingValues == null
                                           ? null : ImmutableList.copyOf(rollUpToGroupingValues);
             this.additionalPlanConstraint = additionalPlanConstraint;
+            this.requiresExistential = requiresExistential;
         }
 
         @Nonnull
@@ -289,6 +306,11 @@ public interface MatchInfo {
         }
 
         @Override
+        public boolean requiresExistential() {
+            return requiresExistential;
+        }
+
+        @Override
         public boolean isAdjusted() {
             return false;
         }
@@ -322,8 +344,17 @@ public interface MatchInfo {
                                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                                           @Nonnull final MaxMatchMap maxMatchMap) {
             return tryMerge(bindingAliasMap, partialMatchMap, ImmutableMap.of(), PredicateMap.empty(),
+                    maxMatchMap, GroupByMappings.empty(), null, maxMatchMap.getQueryPlanConstraint());
+        }
+
+        @Nonnull
+        public static Optional<MatchInfo> tryFromMatchMap(@Nonnull final AliasMap bindingAliasMap,
+                                                          @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
+                                                          @Nonnull final MaxMatchMap maxMatchMap,
+                                                          final boolean requiresExistential) {
+            return tryMerge(bindingAliasMap, partialMatchMap, ImmutableMap.of(), PredicateMap.empty(),
                     maxMatchMap, GroupByMappings.empty(), null,
-                    maxMatchMap.getQueryPlanConstraint());
+                    maxMatchMap.getQueryPlanConstraint(), requiresExistential);
         }
 
         @Nonnull
@@ -335,6 +366,28 @@ public interface MatchInfo {
                                                    @Nonnull final GroupByMappings additionalGroupByMappings,
                                                    @Nullable final List<Value> rollUpToGroupingValues,
                                                    @Nonnull final QueryPlanConstraint additionalPlanConstraint) {
+            // bail out if any of the partial match requires an existential
+            if (partialMatchMap.values()
+                    .stream()
+                    .anyMatch(partialMatch -> Objects.requireNonNull(partialMatch.get()).getMatchInfo()
+                            .requiresExistential())) {
+                return Optional.empty();
+            }
+            return tryMerge(bindingAliasMap, partialMatchMap, parameterBindingMap, predicateMap, maxMatchMap,
+                    additionalGroupByMappings, rollUpToGroupingValues, additionalPlanConstraint, false);
+        }
+
+        @Nonnull
+        @SuppressWarnings("checkstyle:ParameterNumber")
+        public static Optional<MatchInfo> tryMerge(@Nonnull final AliasMap bindingAliasMap,
+                                                   @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
+                                                   @Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
+                                                   @Nonnull final PredicateMultiMap predicateMap,
+                                                   @Nonnull final MaxMatchMap maxMatchMap,
+                                                   @Nonnull final GroupByMappings additionalGroupByMappings,
+                                                   @Nullable final List<Value> rollUpToGroupingValues,
+                                                   @Nonnull final QueryPlanConstraint additionalPlanConstraint,
+                                                   final boolean requiresExistential) {
             final var parameterMapsBuilder = ImmutableList.<Map<CorrelationIdentifier, ComparisonRange>>builder();
             final var matchInfos = PartialMatch.matchInfosFromMap(partialMatchMap);
 
@@ -397,7 +450,8 @@ public interface MatchInfo {
                             maxMatchMap,
                             matchedAggregateValueMap,
                             resolvedRollUpToGroupingValues,
-                            additionalPlanConstraint));
+                            additionalPlanConstraint,
+                            requiresExistential));
         }
 
         public static Optional<Map<CorrelationIdentifier, ComparisonRange>> tryMergeParameterBindings(final Collection<Map<CorrelationIdentifier, ComparisonRange>> parameterBindingMaps) {
@@ -642,6 +696,11 @@ public interface MatchInfo {
         @Override
         public RegularMatchInfo getRegularMatchInfo() {
             return underlying.getRegularMatchInfo();
+        }
+
+        @Override
+        public boolean requiresExistential() {
+            return underlying.requiresExistential();
         }
 
         @Nonnull

@@ -72,6 +72,14 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
         this.queriedRecordTypes = ImmutableList.copyOf(queriedRecordTypes);
     }
 
+    /**
+     * {@inheritDoc} A value index stores one entry per distinct element of a record.
+     */
+    @Override
+    protected boolean isFanOutDistinct() {
+        return true;
+    }
+
     @Nonnull
     @Override
     public MatchCandidate expand(@Nonnull final Set<String> availableRecordTypeNames,

@@ -137,7 +137,12 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
     @Override
     public void onMatch(@Nonnull final CascadesRuleCall call) {
         final var bindings = call.getBindings();
-        final var completeMatches = bindings.getAll(getCompleteMatchMatcher());
+        // Drop complete matches that still requires an existential
+        final var completeMatches =
+                bindings.getAll(getCompleteMatchMatcher())
+                        .stream()
+                        .filter(completeMatch -> !completeMatch.getMatchInfo().requiresExistential())
+                        .collect(ImmutableList.toImmutableList());
         if (completeMatches.isEmpty()) {
             return;
         }

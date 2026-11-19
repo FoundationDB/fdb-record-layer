@@ -349,7 +349,18 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
             return ImmutableList.of();
         }
         final var mergedParameterBindingMap = mergedParameterBindingMapOptional.get();
-        
+
+        //
+        // A child match that requires an existential can only absorbed by an existential quantifier, through which just the existence of a row is
+        // observed, absorbs that. Through a for-each quantifier, this match requires an existential as well, so it is
+        // carried up until one absorbs it. A data access cannot be planned from a match that still requires it.
+        //
+        final boolean requiresExistential =
+                partialMatchMap.entrySet()
+                        .stream()
+                        .anyMatch(entry -> !(entry.getKey().get() instanceof Quantifier.Existential) &&
+                                Objects.requireNonNull(entry.getValue().get()).getMatchInfo().requiresExistential());
+
         final var matchedCorrelatedToBuilder = ImmutableSet.<CorrelationIdentifier>builder();
         // Loop through all child matches and reject a match if the children matches were unable to match all
         // for-each quantifiers. Also keep track of all aliases the matched quantifiers are correlated to.
@@ -485,7 +496,7 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
                                 Quantifiers.aliases(candidateExpression.getQuantifiers()), bindingValueEquivalence);
                 return RegularMatchInfo.tryMerge(bindingAliasMap, partialMatchMap, mergedParameterBindingMap,
                                 PredicateMap.empty(), maxMatchMap, GroupByMappings.empty(), null,
-                                maxMatchMap.getQueryPlanConstraint())
+                                maxMatchMap.getQueryPlanConstraint(), requiresExistential)
                         .map(ImmutableList::of)
                                 .orElse(ImmutableList.of());
             } else {
@@ -605,7 +616,7 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
                                             return RegularMatchInfo.tryMerge(bindingAliasMap, partialMatchMap,
                                                     allParameterBindingMap, predicateMap,
                                                     maxMatchMap, GroupByMappings.empty(), null,
-                                                    maxMatchMap.getQueryPlanConstraint());
+                                                    maxMatchMap.getQueryPlanConstraint(), requiresExistential);
                                         })
                                         .map(ImmutableList::of)
                                         .orElse(ImmutableList.of());
