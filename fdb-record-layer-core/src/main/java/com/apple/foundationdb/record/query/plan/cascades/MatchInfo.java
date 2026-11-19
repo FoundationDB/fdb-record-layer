@@ -75,9 +75,7 @@ public interface MatchInfo {
      * once rather than every row. Such a match is not complete, as only the existence of a row is observed through
      * an existential quantifier.
      */
-    default boolean requiresExistential() {
-        return false;
-    }
+    boolean requiresExistential();
 
     @Nonnull
     Map<QueryPredicate, PredicateMapping> collectPulledUpPredicateMappings(@Nonnull RelationalExpression candidateExpression,

@@ -28,7 +28,9 @@ import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RangeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -119,6 +121,25 @@ class TableFunctionExpressionTest {
                 AliasMap.emptyMap())).isEmpty();
     }
 
+    @Test
+    void rangeIsSubsumedByAnEqualRange() {
+        // A streaming value other than an explode only implies a semantically equal one.
+        final var matchInfos = ImmutableList.copyOf(subsumedBy(range(10L), range(10L), BINDING_ALIAS_MAP));
+        assertThat(matchInfos).hasSize(1);
+        assertThat(Iterables.getOnlyElement(matchInfos).requiresExistential()).isFalse();
+    }
+
+    @Test
+    void rangeIsNotSubsumedByAnotherRange() {
+        assertThat(subsumedBy(range(10L), range(20L), BINDING_ALIAS_MAP)).isEmpty();
+    }
+
+    @Test
+    void explodeAndRangeDoNotSubsumeEachOther() {
+        assertThat(subsumedBy(explode(QUERY_ALIAS, "values", false), range(10L), BINDING_ALIAS_MAP)).isEmpty();
+        assertThat(subsumedBy(range(10L), explode(CANDIDATE_ALIAS, "values", false), BINDING_ALIAS_MAP)).isEmpty();
+    }
+
     /**
      * Asserts that the query explode is subsumed by the candidate explode with a single match whose max match map
      * maps the struct the query flows to the struct the candidate flows.
@@ -144,6 +165,12 @@ class TableFunctionExpressionTest {
                                                    @Nonnull final String fieldName,
                                                    final boolean preserveOrder) {
         return new TableFunctionExpression(new ExplodeValue(collection(alias, fieldName), preserveOrder));
+    }
+
+    @Nonnull
+    private static TableFunctionExpression range(final long endExclusive) {
+        return new TableFunctionExpression(new RangeValue(LiteralValue.ofScalar(endExclusive),
+                LiteralValue.ofScalar(0L), LiteralValue.ofScalar(1L)));
     }
 
     @Nonnull
