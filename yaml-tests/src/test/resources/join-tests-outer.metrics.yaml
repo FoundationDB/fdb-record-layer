@@ -314,13 +314,13 @@ left-outer-join:
     explain: ISCAN(emp$fname <,>) | FLATMAP q0 -> { SCAN([IS dept, [LESS_THAN promote(@c23
         AS LONG)]]) | FILTER q0.dept_id EQUALS _.id | ON EMPTY NULL AS q1 RETURN (q0.fname
         AS fname, q1.name AS name) }
-    task_count: 588
-    task_total_time_ms: 9
-    transform_count: 148
-    transform_time_ms: 5
+    task_count: 577
+    task_total_time_ms: 7
+    transform_count: 147
+    transform_time_ms: 3
     transform_yield_count: 55
     insert_time_ms: 0
-    insert_new_count: 74
+    insert_new_count: 73
     insert_reused_count: 2
 -   query: EXPLAIN SELECT "e"."fname" FROM "emp" "e" LEFT JOIN "dept" "d" ON "e"."dept_id"
         = "d"."id" WHERE "e"."id" > 1 AND "d"."id" IS NULL;
