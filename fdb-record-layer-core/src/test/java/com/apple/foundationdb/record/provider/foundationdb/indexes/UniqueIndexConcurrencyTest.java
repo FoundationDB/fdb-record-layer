@@ -60,6 +60,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -68,6 +70,7 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.IntFunction;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -201,12 +204,31 @@ class UniqueIndexConcurrencyTest extends FDBRecordStoreConcurrentTestBase {
     }
 
     static Stream<Arguments> uniquenessConcurrencyTest() {
-        return ParameterizedTestUtils.cartesianProduct(
-                        IntStream.range(0, ITERATIONS).boxed(),
-                        Stream.of(MaintainerType.values()),
-                        Stream.of(ConcurrentStoreRunner.values()),
-                        Stream.of(IndexState.READABLE, IndexState.WRITE_ONLY),
-                        ParameterizedTestUtils.booleans("disableConcurrencyManagement"))
+        return concurrencyArguments();
+    }
+
+    static Stream<Arguments> uniquenessConcurrencyUpdateTest() {
+        return concurrencyArguments(ParameterizedTestUtils.booleans("concurrentInsert"));
+    }
+
+    /**
+     * The arguments that all of the tests share: every repetition, with each maintainer, way of sharing transactions,
+     * index state, and whether the concurrency manager is disabled, except for the combinations that have nothing to
+     * check.
+     *
+     * @param extraDimensions further dimensions to combine, which come after the shared ones
+     * @return the arguments of {@code iterationIndex, maintainerType, storeRunner, indexState,
+     * disableConcurrencyManagement}, followed by those of the extra dimensions
+     */
+    private static Stream<Arguments> concurrencyArguments(@Nonnull Stream<?>... extraDimensions) {
+        final List<Stream<?>> dimensions = new ArrayList<>();
+        dimensions.add(IntStream.range(0, ITERATIONS).boxed());
+        dimensions.add(Stream.of(MaintainerType.values()));
+        dimensions.add(Stream.of(ConcurrentStoreRunner.values()));
+        dimensions.add(Stream.of(IndexState.READABLE, IndexState.WRITE_ONLY));
+        dimensions.add(ParameterizedTestUtils.booleans("disableConcurrencyManagement"));
+        dimensions.addAll(Arrays.asList(extraDimensions));
+        return ParameterizedTestUtils.cartesianProduct(dimensions.toArray(Stream<?>[]::new))
                 // While the index is write-only, uniqueness is not enforced when committing, so separate transactions
                 // can all commit the same value. There is nothing to check about that.
                 .filter(arguments -> !(arguments.get()[2] == ConcurrentStoreRunner.MultipleTransactions
@@ -235,51 +257,23 @@ class UniqueIndexConcurrencyTest extends FDBRecordStoreConcurrentTestBase {
     @MethodSource
     void uniquenessConcurrencyTest(int iterationIndex, MaintainerType maintainerType, ConcurrentStoreRunner storeRunner,
                                    IndexState indexState, boolean disableConcurrencyManagement) {
-        final Supplier<FDBRecordStore> storeSupplier = () -> openStore(maintainerType.getMetaData(), disableConcurrencyManagement);
-        // Create the store up front, so that the writers do not race to create it.
-        updateIndexState(maintainerType, indexState, storeSupplier);
+        final Supplier<FDBRecordStore> storeSupplier = createStore(maintainerType, indexState, disableConcurrencyManagement,
+                ignored -> { });
 
         final int writers = 2;
         final int successful = fdb.asyncToSync(timer, FDBStoreTimer.Waits.WAIT_COMMIT,
                 storeRunner.runConcurrently(storeSupplier, writers, (store, recNo) -> saveRecord(store, recNo, 17)));
 
         // The commit does not fail while the index is write-only, as the violations are recorded instead.
-        final int expectedCommits = indexState == IndexState.WRITE_ONLY ? 1 : storeRunner.getExpectedSuccessfulCommits();
-        final int recordsWithoutViolation;
-        recordsWithoutViolation = indexState == IndexState.WRITE_ONLY ? countRecordsWithoutViolation(storeSupplier, maintainerType.getIndexName(), IntStream.range(0, writers).boxed().toList()) : 0;
-        if (maintainerType == MaintainerType.Unsynchronized && storeRunner == ConcurrentStoreRunner.OneTransaction) {
-            // A lost check shows up as the transaction committing, or as a record without a recorded violation. That
-            // is not deterministic, so skip when it happens instead of failing: the number of skipped runs is how
-            // often the race was hit.
-            Assumptions.assumeThat(successful).isEqualTo(expectedCommits);
-            Assumptions.assumeThat(recordsWithoutViolation).isZero();
-        }
-        assertThat(successful)
-                .as("transactions that committed the same unique value")
-                .isEqualTo(expectedCommits);
-        assertThat(recordsWithoutViolation)
-                .as("records without a recorded uniqueness violation")
-                .isZero();
-
+        final boolean writeOnly = indexState == IndexState.WRITE_ONLY;
+        final int expectedCommits = writeOnly ? 1 : storeRunner.getExpectedSuccessfulCommits();
         // Whatever was committed, and nothing else, is in the store and in the index. Commits that failed leave nothing.
-        final int expectedRecords = indexState == IndexState.WRITE_ONLY ? writers : expectedCommits;
-        assertStoreContents(storeSupplier, maintainerType.getIndexName(), expectedRecords);
+        final int expectedRecords = writeOnly ? writers : expectedCommits;
+        final List<Integer> recordsNeedingViolation = writeOnly ? IntStream.range(0, writers).boxed().toList() : List.of();
+        final boolean raceMayBeLost = maintainerType == MaintainerType.Unsynchronized && storeRunner == ConcurrentStoreRunner.OneTransaction;
+        assertUniquenessEnforced(storeSupplier, maintainerType, raceMayBeLost, successful, expectedCommits, expectedCommits,
+                recordsNeedingViolation, expectedRecords);
     }
-
-    static Stream<Arguments> uniquenessConcurrencyUpdateTest() {
-        return ParameterizedTestUtils.cartesianProduct(
-                        IntStream.range(0, ITERATIONS).boxed(),
-                        Stream.of(MaintainerType.values()),
-                        Stream.of(ConcurrentStoreRunner.values()),
-                        Stream.of(IndexState.READABLE, IndexState.WRITE_ONLY),
-                        ParameterizedTestUtils.booleans("disableConcurrencyManagement"),
-                        ParameterizedTestUtils.booleans("concurrentInsert"))
-                // While the index is write-only, uniqueness is not enforced when committing, so separate transactions
-                // can all commit the same value. There is nothing to check about that.
-                .filter(arguments -> !(arguments.get()[2] == ConcurrentStoreRunner.MultipleTransactions
-                                               && arguments.get()[3] == IndexState.WRITE_ONLY));
-    }
-
 
     /**
      * A record that holds a unique value is moved to another value while new records are inserted with the value
@@ -300,20 +294,12 @@ class UniqueIndexConcurrencyTest extends FDBRecordStoreConcurrentTestBase {
     @MethodSource
     void uniquenessConcurrencyUpdateTest(int iterationIndex, MaintainerType maintainerType, ConcurrentStoreRunner storeRunner,
                                          IndexState indexState, boolean disableConcurrencyManagement, boolean concurrentInsert) {
-        final Supplier<FDBRecordStore> storeSupplier = () -> openStore(maintainerType.getMetaData(), disableConcurrencyManagement);
-        // Create the store up front, so that the writers do not race to create it.
-        updateIndexState(maintainerType, indexState, storeSupplier);
         int seedId = 10;
         int newId1 = 12;
         int newId2 = 14;
         final int value = 17;
-        final FDBRecordStore seedStore = storeSupplier.get();
-        try {
-            fdb.asyncToSync(timer, FDBStoreTimer.Waits.WAIT_SAVE_RECORD, saveRecord(seedStore, seedId, value));
-            commit(seedStore.getContext());
-        } finally {
-            seedStore.getContext().close();
-        }
+        final Supplier<FDBRecordStore> storeSupplier = createStore(maintainerType, indexState, disableConcurrencyManagement,
+                seedStore -> fdb.asyncToSync(timer, FDBStoreTimer.Waits.WAIT_SAVE_RECORD, saveRecord(seedStore, seedId, value)));
 
         final int successful = fdb.asyncToSync(timer, FDBStoreTimer.Waits.WAIT_COMMIT,
                 storeRunner.runConcurrently(storeSupplier, concurrentInsert ? 3 : 2,
@@ -349,24 +335,9 @@ class UniqueIndexConcurrencyTest extends FDBRecordStoreConcurrentTestBase {
         //       recorded from an asynchronous callback that can outlive the save, and removing the moved record's old
         //       entry (removeUniquenessViolationsAsync) clears every violation for the value once it counts one left,
         //       which can wipe the ones that were recorded in the meantime.
-        final int recordsWithoutViolation = indexState == IndexState.WRITE_ONLY && concurrentInsert
-                                            ? countRecordsWithoutViolation(storeSupplier, maintainerType.getIndexName(),
-                                                    List.of(newId1, newId2))
-                                            : 0;
-        if (maintainerType == MaintainerType.Unsynchronized && storeRunner == ConcurrentStoreRunner.OneTransaction
-                && concurrentInsert) {
-            // A lost check shows up as the transaction committing, or as an inserted record without a recorded
-            // violation. That is not deterministic, so skip when it happens instead of failing: the number of skipped
-            // runs is how often the race was hit.
-            Assumptions.assumeThat(successful).isBetween(minCommits, maxCommits);
-            Assumptions.assumeThat(recordsWithoutViolation).isZero();
-        }
-        assertThat(successful)
-                .as("transactions that committed")
-                .isBetween(minCommits, maxCommits);
-        assertThat(recordsWithoutViolation)
-                .as("inserted records, with the same value, without a recorded uniqueness violation")
-                .isZero();
+        final List<Integer> recordsNeedingViolation = indexState == IndexState.WRITE_ONLY && concurrentInsert
+                                                      ? List.of(newId1, newId2)
+                                                      : List.of();
 
         // Whatever was committed, and nothing else, is in the store and in the index: the seed record, and the inserted
         // records that committed. A single transaction that failed leaves only the seed record.
@@ -374,18 +345,70 @@ class UniqueIndexConcurrencyTest extends FDBRecordStoreConcurrentTestBase {
         final int expectedRecords = storeRunner == ConcurrentStoreRunner.OneTransaction
                                     ? 1 + (successful == 0 ? 0 : insertedRecords)
                                     : successful;
-        assertStoreContents(storeSupplier, maintainerType.getIndexName(), expectedRecords);
+        assertUniquenessEnforced(storeSupplier, maintainerType,
+                maintainerType == MaintainerType.Unsynchronized && storeRunner == ConcurrentStoreRunner.OneTransaction
+                        && concurrentInsert,
+                successful, minCommits, maxCommits, recordsNeedingViolation, expectedRecords);
     }
 
-    public void updateIndexState(final MaintainerType maintainerType, final IndexState indexState, final Supplier<FDBRecordStore> storeSupplier) {
+    /**
+     * Create the store, with the unique index in the given state.
+     *
+     * @return how to open the store in a new transaction
+     */
+    @Nonnull
+    private Supplier<FDBRecordStore> createStore(@Nonnull MaintainerType maintainerType, @Nonnull IndexState indexState,
+                                                 boolean disableConcurrencyManagement, @Nonnull Consumer<FDBRecordStore> seed) {
+        final Supplier<FDBRecordStore> storeSupplier = () -> openStore(maintainerType.getMetaData(), disableConcurrencyManagement);
+        // Create the store up front, so that the writers do not race to create it.
         final FDBRecordStore createdStore = storeSupplier.get();
         try (FDBRecordContext context = createdStore.getContext()) {
             if (indexState == IndexState.WRITE_ONLY) {
                 context.asyncToSync(FDBStoreTimer.Waits.WAIT_INDEX_OPERATION,
                         createdStore.markIndexWriteOnly(maintainerType.getIndexName()));
             }
+            seed.accept(createdStore);
             commit(context);
         }
+        return storeSupplier;
+    }
+
+    /**
+     * Assert what the writers must have produced, which is that they did not commit a duplicate.
+     *
+     * @param storeSupplier opens the store in a new transaction
+     * @param maintainerType the index maintainer of the unique index
+     * @param raceMayBeLost whether the writers can fail to see each other, as with the unsynchronized maintainer. That
+     * is not deterministic, so the test is skipped, rather than failed, when it happens: the number of skipped runs
+     * is how often the race was hit
+     * @param successful how many transactions committed
+     * @param minCommits the fewest transactions that may have committed
+     * @param maxCommits the most transactions that may have committed
+     * @param recordsNeedingViolation the records that must have a violation recorded, because they are duplicates of
+     * each other in a write-only index
+     * @param expectedRecords how many records should be in the store
+     */
+    private static void assertUniquenessEnforced(@Nonnull Supplier<FDBRecordStore> storeSupplier,
+                                                 @Nonnull MaintainerType maintainerType, boolean raceMayBeLost,
+                                                 int successful, int minCommits, int maxCommits,
+                                                 @Nonnull List<Integer> recordsNeedingViolation, int expectedRecords) {
+        final int recordsWithoutViolation = recordsNeedingViolation.isEmpty()
+                                            ? 0
+                                            : countRecordsWithoutViolation(storeSupplier, maintainerType.getIndexName(),
+                                                    recordsNeedingViolation);
+        if (raceMayBeLost) {
+            // A lost check shows up as a transaction committing that should not have, or as a record without a
+            // recorded violation.
+            Assumptions.assumeThat(successful).isBetween(minCommits, maxCommits);
+            Assumptions.assumeThat(recordsWithoutViolation).isZero();
+        }
+        assertThat(successful)
+                .as("transactions that committed")
+                .isBetween(minCommits, maxCommits);
+        assertThat(recordsWithoutViolation)
+                .as("records without a recorded uniqueness violation")
+                .isZero();
+        assertStoreContents(storeSupplier, maintainerType.getIndexName(), expectedRecords);
     }
 
     /**
