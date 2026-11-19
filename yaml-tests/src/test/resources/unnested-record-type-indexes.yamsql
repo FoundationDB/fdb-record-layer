@@ -1143,15 +1143,13 @@ test_block:
   # TODO: return and order by the element of a fanned-out scalar array (https://github.com/FoundationDB/fdb-record-layer/issues/4871).
   tests:
     -
-      # A struct array and a scalar array. Only the struct array becomes a nested constituent; the scalar array is
-      # fanned out under the parent. The query needs the order of the index, which no other plan provides.
+      # Exploded struct array and a scalar array. "kit_mixed" can't be used since it has DISTINCT EXPLODE.
       - query: SELECT G."gname", "lbl", G."price"
                  FROM "kit" AS K, K."gadgets" AS G, K."labels" AS "lbl"
                 ORDER BY G."gname", "lbl", G."price"
       - error: "0AF02"
     -
-      # The same query without the ORDER BY: one row per gadget and label of a kit, so kit 3's drill twice, as the kit
-      # has the label 'old' twice, and none for kit 4, which has no labels.
+      # The same query without the ORDER BY. Relaxed ordering - can use primary scan.
       - query: SELECT G."gname", "lbl", G."price"
                  FROM "kit" AS K, K."gadgets" AS G, K."labels" AS "lbl"
       - explain: "SCAN([IS kit]) | FLATMAP q0 -> { TF explode(q0.gadgets) | FLATMAP q1 -> { TF explode(q0.labels) AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0._0.gname AS gname, q3._1._0 AS lbl, q3._0._0.price AS price) }"
@@ -1164,6 +1162,7 @@ test_block:
           {gname: 'drill', lbl: 'old', price: 20},
           {gname: 'drill', lbl: 'old', price: 20}]
     -
+      # Exploded struct array and a scalar array. "kit_mixed" can't be used since it has DISTINCT EXPLODE.
       - query: SELECT G."gname", "lbl", G."price"
                  FROM "kit" AS K, K."gadgets" AS G, K."labels" AS "lbl"
                 WHERE G."gname" = 'drill' AND "lbl" = 'old'
@@ -1173,8 +1172,7 @@ test_block:
           {gname: 'drill', lbl: 'old', price: 20},
           {gname: 'drill', lbl: 'old', price: 20}]
     -
-      # Only the struct array. The index has an entry per gadget and distinct label, and none for kit 4, which has no
-      # labels, so it cannot answer this query.
+      # Only the struct array. "kit_mixed" explodes both, hence can't be used.
       - query: SELECT G."gname", G."price"
                  FROM "kit" AS K, K."gadgets" AS G
       - explain: "SCAN([IS kit]) | FLATMAP q0 -> { TF explode(q0.gadgets) AS q1 RETURN (q1._0.gname AS gname, q1._0.price AS price) }"
@@ -1185,20 +1183,10 @@ test_block:
           {gname: 'drill', price: 20},
           {gname: 'saw', price: 10}]
     -
-      # The scalar array is only joined, which still yields one row per gadget and label. The scalar array is fanned
-      # out on top of the synthetic type, so the index has one entry per distinct label of a gadget, while the query
-      # observes every label. The index cannot answer the query, and no other plan provides the order.
+      # Exploded struct array and a scalar array. "kit_mixed" can't be used since it has DISTINCT EXPLODE.
       - query: SELECT G."gname", G."price"
                  FROM "kit" AS K, K."gadgets" AS G, K."labels" AS "lbl"
                 ORDER BY G."gname"
-      - error: "0AF02"
-    -
-      # An equality on the scalar array does not help either: the query still observes how many times the label
-      # occurs, which the index does not record.
-      - query: SELECT G."gname", G."price"
-                 FROM "kit" AS K, K."gadgets" AS G, K."labels" AS "lbl"
-                WHERE G."gname" = 'drill' AND "lbl" = 'old'
-                ORDER BY G."price"
       - error: "0AF02"
     -
       # The same query returning the element of the scalar array, which the index does not provide.
@@ -1219,14 +1207,10 @@ test_block:
           {gname: 'drill', price: 20},
           {gname: 'drill', price: 20}]
     -
-      # The scalar array only underneath an EXISTS, which does not observe how many times a label occurs: the gadgets
-      # of the kits that have any label, in the order of the index.
+      # The scalar array under EXISTS.
+      # Wrong results:
       # TODO (`EXISTS` query over a fan-out index may incorrectly return the parent record multiple times: https://github.com/FoundationDB/fdb-record-layer/issues/4304)
-      # The result is wrong: the EXISTS is matched to the fan-out of labels in kit_mixed, which has an entry per
-      # gadget and distinct label of its kit. The plan does not remove the duplicate entries of a gadget by primary
-      # key, so it returns kit 1's gadgets once per label ('new' and 'sale'), 6 rows instead of 4. Kit 3's drill comes
-      # back once, as the index has a single entry for the label 'old' that the kit has twice, and kit 4's saw not at
-      # all, as the kit has no labels. The correct result is [{drill, 50}, {drill, 40}, {drill, 20}, {saw, 30}].
+      # The plan does not remove the duplicate entries of a gadget by primary key.
       - query: SELECT G."gname", G."price"
                  FROM "kit" AS K, K."gadgets" AS G
                 WHERE EXISTS (SELECT 1 FROM K."labels" AS "lbl")
@@ -1240,12 +1224,9 @@ test_block:
           {gname: 'saw', price: 30},
           {gname: 'saw', price: 30}]
     -
-      # The EXISTS only asks whether the kit has the label 'old', which the fan-out of labels in kit_mixed can answer:
+      # EXISTS only asks whether the kit has a label, which the fan-out of labels in kit_mixed can answer:
       # the index has one entry per gadget and distinct label of its kit. The equality binds `lbl`, so a gadget matches
       # at most one entry, and the result has no duplicates even though the plan does not remove them by primary key
-      # (unlike the EXISTS queries without an equality on the label). Kit 3 has the label twice, and its drill still
-      # comes back once. With `gname` and `lbl` both bound by equalities, the index is ordered by `price` next, so the
-      # ORDER BY needs no sort.
       - query: SELECT G."gname", G."price"
                  FROM "kit" AS K, K."gadgets" AS G
                 WHERE G."gname" = 'drill' AND EXISTS (SELECT 1 FROM K."labels" AS "lbl" WHERE "lbl" = 'old')
@@ -1263,10 +1244,8 @@ test_block:
       - result: [
           {gname: 'saw', price: 30}]
     -
+      # Wrong results:
       # TODO (`EXISTS` query over a fan-out index may incorrectly return the parent record multiple times: https://github.com/FoundationDB/fdb-record-layer/issues/4304)
-      # The result is wrong, for the same reason as the EXISTS query without an equality above: it returns kit 1's drill
-      # once per label ('new' and 'sale'), 4 rows instead of 3. The correct result is [{drill, 50}, {drill, 40},
-      # {drill, 20}].
       - query: SELECT G."gname", G."price"
                  FROM "kit" AS K, K."gadgets" AS G
                 WHERE G."gname" = 'drill' AND EXISTS (SELECT 1 FROM K."labels" AS "lbl")
@@ -1333,9 +1312,7 @@ test_block:
           {x: 3, k: 2, y: 5, z: 8},
           {x: 3, k: 2, y: 5, z: 9}]
 ---
-# Indexes with several unnestings, queried for a column that only the synthetic record holds, so the index entries are
-# fetched rather than covering the query.
-test_block:
+# Indexes with several unnestings, queried for a column not in index, so fetch is required.
   name: index-scan-with-fetch-several-unnestings
   tests:
     -
@@ -1391,8 +1368,6 @@ test_block:
           {x: 1, y: 5, z: 7, z2: 70},
           {x: 1, y: 6, z: 7, z2: 70}]
 ---
-# NULLs in the data. Depot 2 has no region, depot 3 has no stocks at all (a NULL array), and depot 4 an empty array, so
-# neither of the last two has an entry in the index.
 test_block:
   name: nulls
   tests:
