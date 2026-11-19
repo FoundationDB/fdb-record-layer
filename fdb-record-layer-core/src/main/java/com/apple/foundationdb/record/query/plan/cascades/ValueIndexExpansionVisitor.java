@@ -107,9 +107,11 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
      * <p>The key's values are written over {@code baseQuantifier}, which does not survive into the merged graph, so
      * each is re-expressed over the record the base expansion assembles and simplified:
      * {@code base.unnesting_0.reviewer} over {@code (parent AS parent, explode._0 AS unnesting_0, ...)} becomes
-     * {@code explode._0.reviewer}, the very value a query navigating the same unnesting flows. The same holds for the
-     * graphs the key's quantifiers range over: the explode of a scalar array fanned out in the key, such as
-     * {@code explode(base.parent.labels)}, becomes {@code explode(parent.labels)}, the explode a query writes.
+     * {@code explode._0.reviewer}, the very value a query navigating the same unnesting flows; likewise
+     * {@code base.customer.name} over {@code (c AS customer, o AS orders)} becomes {@code c.name}, the very value a
+     * query performing the same join flows. The same holds for the graphs the key's quantifiers range over: the
+     * explode of a scalar array fanned out in the key, such as {@code explode(base.parent.labels)}, becomes
+     * {@code explode(parent.labels)}, the explode a query writes.
      *
      * <p>Predicates and placeholders are translated separately because a placeholder is held in both lists and
      * {@link GraphExpansion#seal()} pairs them up by value; translating one alone would leave a parameter whose
