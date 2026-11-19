@@ -1313,6 +1313,7 @@ test_block:
           {x: 3, k: 2, y: 5, z: 9}]
 ---
 # Indexes with several unnestings, queried for a column not in index, so fetch is required.
+test_block:
   name: index-scan-with-fetch-several-unnestings
   tests:
     -
