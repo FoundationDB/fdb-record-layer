@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.cascades.values.translation;
 
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
@@ -45,6 +44,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import org.slf4j.Logger;
@@ -53,7 +53,6 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashSet;
@@ -401,22 +400,18 @@ public class MaxMatchMap {
             //
             // Call the recursive part of the matching logic.
             //
-            final var resultsMap =
+            final var bestMatches =
                     recurseQueryResultValue(queryValue, candidateValue, rangedOverAliases,
                             valueEquivalence, unmatchedHandlerFunction, new IdentityHashMap<>(), -1,
                             new ArrayDeque<>(), Integer.MAX_VALUE, new HashSet<>());
 
             //
-            // Pick a match which has the minimum max depth among all the matches.
+            // Use the match which has the minimum max depth among all the matches, if there is a match at all.
             //
-            int currentMaxDepth = Integer.MAX_VALUE;
-            for (final var resultEntry : resultsMap.entrySet()) {
-                final var result = resultEntry.getValue();
-                if (result.getMaxDepth() < currentMaxDepth) {
-                    bestMaxMatchMap = new MaxMatchMap(result.getValueMap(), resultEntry.getKey(), candidateValue,
-                            rangedOverAliases, result.getQueryPlanConstraint(), valueEquivalence);
-                    currentMaxDepth = result.getMaxDepth();
-                }
+            final var bestMatchResult = bestMatches.getMatchResult();
+            if (bestMatchResult.isMatched()) {
+                bestMaxMatchMap = new MaxMatchMap(bestMatchResult.getValueMap(), bestMatches.getValue(),
+                        candidateValue, rangedOverAliases, bestMatchResult.getQueryPlanConstraint(), valueEquivalence);
             }
 
             if (bestMaxMatchMap == null) {
@@ -473,12 +468,10 @@ public class MaxMatchMap {
      * Recursion logic to match {@code queryValue} to {@code candidateValue}. Without any optimization,
      * we recursively carry out the following steps.
      * <ul>
-     *     <li> Recurse into the children of the {@code queryValue}. The result will be a map from values to
-     *          {@link MatchResult} for each child of {@link #queryValue}. The keys are variants of the child
-     *          value that are paired up with the matching result that contains the actual correspondences to be used
-     *          in the eventual {@link MaxMatchMap} that is being computed. Form the cross-product of all these
-     *          entries to create variants for this level. Each variant maintains its own matches. Add these variants
-     *          to our own results.
+     *     <li> Recurse into the children of the {@code queryValue}. The result for each child is its best variant,
+     *          the variant with the minimum max depth, together with the {@link MatchResult} that contains the actual
+     *          correspondences to be used in the eventual {@link MaxMatchMap} that is being computed. Combine the best
+     *          variants of all children to create the best combination for this level.
      *     </li>
      *     <li> Apply a set of simplifications on the current root of the query value to further generate new variants
      *          that can be matched and recurse for each variant. Add the results of that recursion to the our results.
@@ -508,11 +501,17 @@ public class MaxMatchMap {
      *         We memoize the results of a recursion if possible in order to potentially reuse them later.
      *     </li>
      * </ul>
-     * Unfortunately, this matching problem is not always local meaning that if we don't find a match between the
-     * generated variants and the candidate value, we cannot just dismiss these variants as there might be some
-     * parent value that through the help of one these variants may become a better match. That can only happen,
-     * however, if any parent is already partially matching some reachable subtree on the candidate side. If, on the
-     * other hand, that is not the case, the problem becomes local, and we can prune variants as we like.
+     * Unfortunately, this matching problem is not always local meaning that the best variant of a subtree is not
+     * always the variant that a parent value needs: a parent that potentially matches some reachable subtree on the
+     * candidate side matches it as a whole only if each of its children is equal to the child of that candidate
+     * subtree at the same position, and that can be a variant of the child other than its best one. The candidate
+     * subtrees that potentially match a parent, descended to the position of the current value, are the
+     * <em>targets</em> of the current value. For each target, the current value keeps a <em>witness</em>, a variant
+     * that is equal to the target. A witness is not checked with {@link Value#semanticEquals}: it is built from the
+     * witnesses of the children for the children of the target, and the matchers have already checked that the
+     * current value is {@link Value#equalsWithoutChildren} equal to the target. So for each candidate subtree that
+     * potentially matches the current value or a parent, this method builds a single combination instead of the
+     * cross product of all variants of the children.
      *
      * <p>The logic in this method determines whether the problem is local or not and reacts accordingly. Since that
      * is not particularly straightforward, the code is quite dense and very probably can be iterated upon.
@@ -528,22 +527,23 @@ public class MaxMatchMap {
      * @param maxDepthBound the maximum depth we consider whe searching for matches or {@link Integer#MAX_VALUE} if
      *        there is no maximum depth.
      * @param expandedValues a set of values we already have expanded and should not attempt to expand again.
-     * @return a map from variants ({@link Value}s) to {@link MatchResult}s).
+     * @return the best variant of {@code currentQueryValue} with its {@link MatchResult}, and the witnesses for the
+     *         targets of {@code currentQueryValue}
      */
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    private static Map<Value, MatchResult> recurseQueryResultValue(@Nonnull final Value currentQueryValue,
-                                                                   @Nonnull final Value candidateValue,
-                                                                   @Nonnull final Set<CorrelationIdentifier> rangedOverAliases,
-                                                                   @Nonnull final ValueEquivalence valueEquivalence,
-                                                                   @Nonnull final Function<Value, Optional<Value>> unmatchedHandlerFunction,
-                                                                   @Nonnull final IdentityHashMap<Value, Map<Value, MatchResult>> knownValueMap,
-                                                                   final int descendOrdinal,
-                                                                   @Nonnull final Deque<IncrementalValueMatcher> matchers,
-                                                                   final int maxDepthBound,
-                                                                   @Nonnull final Set<Value> expandedValues) {
+    private static BestMatches recurseQueryResultValue(@Nonnull final Value currentQueryValue,
+                                                       @Nonnull final Value candidateValue,
+                                                       @Nonnull final Set<CorrelationIdentifier> rangedOverAliases,
+                                                       @Nonnull final ValueEquivalence valueEquivalence,
+                                                       @Nonnull final Function<Value, Optional<Value>> unmatchedHandlerFunction,
+                                                       @Nonnull final IdentityHashMap<Value, BestMatches> knownValueMap,
+                                                       final int descendOrdinal,
+                                                       @Nonnull final Deque<IncrementalValueMatcher> matchers,
+                                                       final int maxDepthBound,
+                                                       @Nonnull final Set<Value> expandedValues) {
         if (maxDepthBound == 0) {
-            return ImmutableMap.of(currentQueryValue, MatchResult.notMatched());
+            return BestMatches.notMatched(currentQueryValue);
         }
 
         //
@@ -570,10 +570,12 @@ public class MaxMatchMap {
         }
 
         //
-        // If any parents have any potential matches, we need to generate all possible expansions for this subtree as
-        // we need to exhaustively find the case where the entire subtree rooted in one of the parents matches. If no
-        // such potential matches exist, we know that a match in this frame immediately also is the maximum match.
+        // The candidate subtrees that potentially match a parent, descended to the position of the current value, are
+        // the targets of the current value. A parent can only match one of them as a whole if the current value has a
+        // witness for it, a variant that is equal to it.
         //
+        final var targetValues =
+                anyParentsMatching ? matchingCandidateValues(localMatchers) : ImmutableList.<Value>of();
 
         //
         // Create a matcher for this level.
@@ -584,18 +586,18 @@ public class MaxMatchMap {
         final var isCurrentMatching = currentMatcher.anyMatches();
 
         //
-        // Keep a results map that maps from a Value variant to a match result. Note that if we don't have a potential
-        // parent match we can make local decisions in this method, specifically, we can prune the variants that are
-        // being generated early on.
+        // Keep the best match of the variants that are being generated, and the witnesses for the targets.
         //
-        final var bestMatches = new BestMatches(currentQueryValue, !anyParentsMatching);
+        final var bestMatches = new BestMatches(currentQueryValue);
 
-        final var children = currentQueryValue.getChildren();
-        if (Iterables.isEmpty(children)) {
+        final var children = ImmutableList.copyOf(currentQueryValue.getChildren());
+        if (children.isEmpty()) {
             final var resultForCurrent =
                     computeForCurrent(maxDepthBound, currentQueryValue, candidateValue, rangedOverAliases,
                             valueEquivalence, unmatchedHandlerFunction, ImmutableList.of());
             bestMatches.put(currentQueryValue, resultForCurrent);
+            putWitnesses(bestMatches, currentQueryValue, children, ImmutableList.of(), targetValues,
+                    valueEquivalence);
         } else {
             final ConstrainedBoolean isFound;
             if (!anyParentsMatching && isCurrentMatching) {
@@ -631,50 +633,70 @@ public class MaxMatchMap {
                 //
                 // Recurse into the children of the current query value.
                 //
-                final var childrenResultsBuilder =
-                        ImmutableList.<Collection<Map.Entry<Value, MatchResult>>>builder();
+                final var childrenBestMatchesBuilder = ImmutableList.<BestMatches>builder();
                 int i = 0;
                 for (final var child : children) {
                     if (logger.isTraceEnabled()) {
                         logger.trace("recursing into child max_depth_bound={}, value={}", childrenMaxDepthBound, child);
                     }
-                    final var childrenResultsMap =
+                    childrenBestMatchesBuilder.add(
                             recurseQueryResultValue(child, candidateValue, rangedOverAliases, valueEquivalence,
                                     unmatchedHandlerFunction, knownValueMap, i, localMatchers, childrenMaxDepthBound,
-                                    expandedValues);
-
-                    childrenResultsBuilder.add(childrenResultsMap.entrySet());
+                                    expandedValues));
                     i++;
                 }
+                final var childrenBestMatches = childrenBestMatchesBuilder.build();
 
-                final var childrenResults = childrenResultsBuilder.build();
-                for (final var childrenResultEntries : CrossProduct.crossProduct(childrenResults)) {
-                    boolean areAllChildrenSame = true;
-                    final var childrenValuesBuilder = ImmutableList.<Value>builder();
-                    i = 0;
-                    for (final Value child : children) {
-                        final var childrenResultsEntry = childrenResultEntries.get(i);
-                        final var key = childrenResultsEntry.getKey();
-                        if (child != key) {
-                            areAllChildrenSame = false;
-                        }
-                        childrenValuesBuilder.add(key);
-                        i++;
+                //
+                // Combine the best variants of the children. As the max depth of a combination that does not match as
+                // a whole is the maximum max depth of its children plus one, no other combination of variants of the
+                // children has a smaller max depth.
+                //
+                boolean areAllChildrenSame = true;
+                final var childrenValuesBuilder = ImmutableList.<Value>builder();
+                final var childrenResultEntriesBuilder = ImmutableList.<Map.Entry<Value, MatchResult>>builder();
+                for (i = 0; i < children.size(); i++) {
+                    final var childBestMatches = childrenBestMatches.get(i);
+                    final var key = childBestMatches.getValue();
+                    if (children.get(i) != key) {
+                        areAllChildrenSame = false;
                     }
-                    Verify.verify(i == childrenResultEntries.size());
-
-                    final Value resultQueryValue;
-                    if (!areAllChildrenSame) {
-                        resultQueryValue = currentQueryValue.withChildren(childrenValuesBuilder.build());
-                    } else {
-                        resultQueryValue = currentQueryValue;
-                    }
-
-                    final var resultForCurrent =
-                            computeForCurrent(maxDepthBound, resultQueryValue, candidateValue, rangedOverAliases,
-                                    valueEquivalence, unmatchedHandlerFunction, childrenResultEntries);
-                    bestMatches.put(resultQueryValue, resultForCurrent);
+                    childrenValuesBuilder.add(key);
+                    childrenResultEntriesBuilder.add(Maps.immutableEntry(key, childBestMatches.getMatchResult()));
                 }
+
+                final Value resultQueryValue;
+                if (!areAllChildrenSame) {
+                    resultQueryValue = currentQueryValue.withChildren(childrenValuesBuilder.build());
+                } else {
+                    resultQueryValue = currentQueryValue;
+                }
+
+                final var resultForCurrent =
+                        computeForCurrent(maxDepthBound, resultQueryValue, candidateValue, rangedOverAliases,
+                                valueEquivalence, unmatchedHandlerFunction, childrenResultEntriesBuilder.build());
+                bestMatches.put(resultQueryValue, resultForCurrent);
+
+                //
+                // A combination that matches a candidate subtree as a whole may need variants of the children other
+                // than their best ones. Build it for each candidate subtree that potentially matches the current value
+                // from the witnesses of the children.
+                //
+                if (bestMatches.getCurrentMaxDepth() > 0) {
+                    for (final var matchingCandidateValuePair : currentMatcher.getMatchingCandidateValues()) {
+                        final var matchingCandidateValue = matchingCandidateValuePair.getLeft();
+                        final var witness =
+                                witnessMaybe(currentQueryValue, children, childrenBestMatches, matchingCandidateValue,
+                                        valueEquivalence);
+                        if (witness != null) {
+                            final var witnessValue = witness.getLeft();
+                            bestMatches.put(witnessValue, MatchResult.of(ImmutableMap.of(witnessValue,
+                                    matchingCandidateValue), 0, witness.getRight()));
+                        }
+                    }
+                }
+                putWitnesses(bestMatches, currentQueryValue, children, childrenBestMatches, targetValues,
+                        valueEquivalence);
             }
         }
 
@@ -683,8 +705,8 @@ public class MaxMatchMap {
 
         //
         // Try to transform the current query value into a more matchable shape -- and recurse with that new tree.
-        // Only attempt to create variants if any parents are potentially matching (as we need to enumerate all
-        // potential subtrees) OR if we have not found a perfect match (depth == 0) yet. Also don't attempt to generate
+        // Only attempt to create variants if any parents are potentially matching (as we need to find the witnesses
+        // for the targets) OR if we have not found a perfect match (depth == 0) yet. Also don't attempt to generate
         // variants if we are in the middle of an expansion of the same value.
         //
         if ((anyParentsMatching || bestMatches.getCurrentMaxDepth() > 0) &&
@@ -709,13 +731,12 @@ public class MaxMatchMap {
                                 expandedCurrentQueryValue);
                     }
 
-                    final var expandedResultsMap =
+                    final var expandedBestMatches =
                             recurseQueryResultValue(expandedCurrentQueryValue, candidateValue,
                                     rangedOverAliases, valueEquivalence, unmatchedHandlerFunction, knownValueMap,
                                     descendOrdinal, matchers, currentMaxDepthBound, expandedValues);
-                    for (final var expandedResultsEntry : expandedResultsMap.entrySet()) {
-                        bestMatches.put(expandedResultsEntry.getKey(), expandedResultsEntry.getValue());
-                    }
+                    bestMatches.put(expandedBestMatches.getValue(), expandedBestMatches.getMatchResult());
+                    bestMatches.putWitnesses(expandedBestMatches);
                 }
             } finally {
                 expandedValues.remove(currentQueryValue);
@@ -725,16 +746,116 @@ public class MaxMatchMap {
         Verify.verify(bestMatches.getCurrentMaxDepth() == Integer.MAX_VALUE ||
                 bestMatches.getCurrentMaxDepth() <= maxDepthBound);
 
-        final var resultMap = bestMatches.toResultMap();
-
         // memoize the result is appropriate
         if (!anyParentsMatching && !expandedValues.contains(currentQueryValue)) {
             if (logger.isTraceEnabled()) {
                 logger.trace("memoizing value={}", currentQueryValue);
             }
-            knownValueMap.put(currentQueryValue, resultMap);
+            knownValueMap.put(currentQueryValue, bestMatches);
         }
-        return resultMap;
+        return bestMatches;
+    }
+
+    /**
+     * Returns the candidate values that the given matchers potentially match, each one once, in the order of the
+     * matchers.
+     */
+    @Nonnull
+    private static List<Value> matchingCandidateValues(@Nonnull final Iterable<IncrementalValueMatcher> matchers) {
+        final Set<Value> seenCandidateValues = Sets.newIdentityHashSet();
+        final var matchingCandidateValuesBuilder = ImmutableList.<Value>builder();
+        for (final var matcher : matchers) {
+            for (final var matchingCandidateValuePair : matcher.getMatchingCandidateValues()) {
+                final var matchingCandidateValue = matchingCandidateValuePair.getLeft();
+                if (seenCandidateValues.add(matchingCandidateValue)) {
+                    matchingCandidateValuesBuilder.add(matchingCandidateValue);
+                }
+            }
+        }
+        return matchingCandidateValuesBuilder.build();
+    }
+
+    /**
+     * Adds a witness to {@code bestMatches} for each target of the current query value that has no witness yet but can
+     * get one from the witnesses of the children, see {@link #witnessMaybe}.
+     */
+    private static void putWitnesses(@Nonnull final BestMatches bestMatches,
+                                     @Nonnull final Value currentQueryValue,
+                                     @Nonnull final List<? extends Value> children,
+                                     @Nonnull final List<BestMatches> childrenBestMatches,
+                                     @Nonnull final List<Value> targetValues,
+                                     @Nonnull final ValueEquivalence valueEquivalence) {
+        for (final var targetValue : targetValues) {
+            if (bestMatches.getWitness(targetValue) == null) {
+                final var witness =
+                        witnessMaybe(currentQueryValue, children, childrenBestMatches, targetValue, valueEquivalence);
+                if (witness != null) {
+                    bestMatches.putWitness(targetValue, witness.getLeft(), witness.getRight());
+                }
+            }
+        }
+    }
+
+    /**
+     * Builds the witness of the current query value for a candidate value, that is a variant of the current query
+     * value that is equal to the candidate value, together with the constraint of that equality. The witness needs no
+     * call to {@link Value#semanticEquals}, which would walk both trees: the current query value is
+     * {@link Value#equalsWithoutChildren} equal to the candidate value, and each child of the witness is the witness of
+     * the respective child of the current query value for the child of the candidate value at the same position. A
+     * child without such a witness can still be equal to the child of the candidate value by the value equivalence
+     * alone, which the matchers do not consider; the child itself is then the child of the witness.
+     *
+     * @param currentQueryValue the current query value
+     * @param children the children of the current query value
+     * @param childrenBestMatches the results of the recursion into the children of the current query value
+     * @param candidateValue a candidate value that potentially matches the current query value
+     * @param valueEquivalence a value equivalence
+     * @return the witness and the constraint of the equality, or {@code null} if there is no witness
+     */
+    @Nullable
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    private static NonnullPair<Value, QueryPlanConstraint> witnessMaybe(@Nonnull final Value currentQueryValue,
+                                                                        @Nonnull final List<? extends Value> children,
+                                                                        @Nonnull final List<BestMatches> childrenBestMatches,
+                                                                        @Nonnull final Value candidateValue,
+                                                                        @Nonnull final ValueEquivalence valueEquivalence) {
+        final var equalsWithoutChildren = currentQueryValue.equalsWithoutChildren(candidateValue);
+        if (equalsWithoutChildren.isFalse()) {
+            return null;
+        }
+        final var candidateChildren = ImmutableList.copyOf(candidateValue.getChildren());
+        if (candidateChildren.size() != children.size()) {
+            return null;
+        }
+
+        var queryPlanConstraint = equalsWithoutChildren.getConstraint();
+        boolean areAllChildrenSame = true;
+        final var witnessChildrenBuilder = ImmutableList.<Value>builder();
+        for (int i = 0; i < children.size(); i++) {
+            final var child = children.get(i);
+            final var candidateChild = candidateChildren.get(i);
+            final var childWitness = childrenBestMatches.get(i).getWitness(candidateChild);
+            final Value witnessChild;
+            if (childWitness != null) {
+                witnessChild = childWitness.getLeft();
+                queryPlanConstraint = queryPlanConstraint.compose(childWitness.getRight());
+            } else {
+                final var isDefinedEqual = valueEquivalence.isDefinedEqual(child, candidateChild);
+                if (isDefinedEqual.isFalse()) {
+                    return null;
+                }
+                witnessChild = child;
+                queryPlanConstraint = queryPlanConstraint.compose(isDefinedEqual.getConstraint());
+            }
+            if (witnessChild != child) {
+                areAllChildrenSame = false;
+            }
+            witnessChildrenBuilder.add(witnessChild);
+        }
+
+        final var witnessValue =
+                areAllChildrenSame ? currentQueryValue : currentQueryValue.withChildren(witnessChildrenBuilder.build());
+        return NonnullPair.of(witnessValue, queryPlanConstraint);
     }
 
     /**
@@ -832,32 +953,28 @@ public class MaxMatchMap {
     }
 
     /**
-     * Helper class to encapsulate away details we have to consider when a new obtained match is added to the result
-     * set of matches. When we are pruning the new match may or may not replace the current best match. If we are not
-     * pruning, the new match just gets added to a map of matches as all matches are returned.
+     * Helper class to keep the result of {@link #recurseQueryResultValue} for a query value: the best match among the
+     * variants of the query value, that is the variant with the minimum max depth, and the witnesses of the query value
+     * for its targets. A new match replaces the current best match only if it has a smaller max depth, so of the
+     * variants with the same max depth the one added first is kept.
      */
     private static class BestMatches {
         @Nonnull
         private final Value currentQueryValue;
-        private final boolean isPruning;
         private int currentMaxDepth = -1;
-        @Nullable
-        private Map<Value, MatchResult> matchMap;
         @Nullable
         private Value value;
         @Nullable
         private MatchResult matchResult;
+        /**
+         * A map from a target, by identity, to the witness for it and the constraint of their equality, created when
+         * the first witness is added.
+         */
+        @Nullable
+        private Map<Value, NonnullPair<Value, QueryPlanConstraint>> witnessesMap;
 
-        public BestMatches(@Nonnull final Value currentQueryValue, final boolean isPruning) {
+        public BestMatches(@Nonnull final Value currentQueryValue) {
             this.currentQueryValue = currentQueryValue;
-            this.isPruning = isPruning;
-            if (!isPruning) {
-                this.matchMap = new LinkedHashMap<>();
-            }
-        }
-
-        public boolean isPruning() {
-            return isPruning;
         }
 
         public boolean isEmpty() {
@@ -869,45 +986,52 @@ public class MaxMatchMap {
         }
 
         @Nonnull
-        private Map<Value, MatchResult> getMatchMap() {
-            return Objects.requireNonNull(matchMap);
-        }
-
-        @Nonnull
         public Value getValue() {
-            return Objects.requireNonNull(value);
+            return value == null ? currentQueryValue : value;
         }
 
         @Nonnull
         public MatchResult getMatchResult() {
-            return Objects.requireNonNull(matchResult);
-        }
-
-        @Nonnull
-        public Map<Value, MatchResult> toResultMap() {
-            if (isEmpty()) {
-                return ImmutableMap.of(currentQueryValue, MatchResult.notMatched());
-            }
-            if (isPruning()) {
-                return ImmutableMap.of(getValue(), getMatchResult());
-            }
-            return getMatchMap();
+            return matchResult == null ? MatchResult.notMatched() : matchResult;
         }
 
         public void put(@Nonnull final Value newQueryValue,
                         @Nonnull final MatchResult newMatchResult) {
-            if (isPruning()) {
-                if (matchResult == null || newMatchResult.getMaxDepth() < currentMaxDepth) {
-                    this.value = newQueryValue;
-                    this.matchResult = newMatchResult;
-                    this.currentMaxDepth = newMatchResult.getMaxDepth();
-                }
-            } else {
-                if (currentMaxDepth == -1 || newMatchResult.getMaxDepth() < currentMaxDepth) {
-                    currentMaxDepth = newMatchResult.getMaxDepth();
-                }
-                getMatchMap().put(newQueryValue, newMatchResult);
+            if (matchResult == null || newMatchResult.getMaxDepth() < currentMaxDepth) {
+                this.value = newQueryValue;
+                this.matchResult = newMatchResult;
+                this.currentMaxDepth = newMatchResult.getMaxDepth();
             }
+        }
+
+        @Nullable
+        public NonnullPair<Value, QueryPlanConstraint> getWitness(@Nonnull final Value targetValue) {
+            return witnessesMap == null ? null : witnessesMap.get(targetValue);
+        }
+
+        public void putWitness(@Nonnull final Value targetValue,
+                               @Nonnull final Value witnessValue,
+                               @Nonnull final QueryPlanConstraint queryPlanConstraint) {
+            if (witnessesMap == null) {
+                witnessesMap = new IdentityHashMap<>();
+            }
+            witnessesMap.putIfAbsent(targetValue, NonnullPair.of(witnessValue, queryPlanConstraint));
+        }
+
+        public void putWitnesses(@Nonnull final BestMatches other) {
+            if (other.witnessesMap != null) {
+                for (final var witnessEntry : other.witnessesMap.entrySet()) {
+                    final var witness = witnessEntry.getValue();
+                    putWitness(witnessEntry.getKey(), witness.getLeft(), witness.getRight());
+                }
+            }
+        }
+
+        @Nonnull
+        public static BestMatches notMatched(@Nonnull final Value currentQueryValue) {
+            final var bestMatches = new BestMatches(currentQueryValue);
+            bestMatches.put(currentQueryValue, MatchResult.notMatched());
+            return bestMatches;
         }
     }
 
