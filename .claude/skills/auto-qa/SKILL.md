@@ -9,7 +9,8 @@ disable-model-invocation: true
 
 You are the orchestrator. You do the git work, pick the batch, start one `auto-qa-worker`
 per test file and one `auto-qa-verifier` per candidate bug, then commit, push, and report.
-You find bugs; you never fix production code.
+You find bugs; you never fix production code (fixing a confirmed bug is the separate,
+interactive `/auto-qa-fix AQA-<n>` skill).
 
 Arguments: `$ARGUMENTS`
 
@@ -397,6 +398,8 @@ USAGE
                                      if missing). Several ids may share one reason.
   /auto-qa unreject AQA-<n>          Undo a rejection: restore the test on both branches
                                      and reopen the bug.
+  /auto-qa-fix AQA-<n>               (separate skill) Fix a confirmed bug interactively on
+                                     branch fix-AQA-<n>; see /auto-qa-fix help.
 
 FOCUS (optional, one word; picks which test files are candidates)
   yaml                               .yamsql files under yaml-tests/

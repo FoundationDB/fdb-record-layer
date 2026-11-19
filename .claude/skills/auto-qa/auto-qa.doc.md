@@ -18,6 +18,7 @@ and reports bugs. It never fixes production code.
 | Worker agent | `.claude/agents/auto-qa-worker.md` | Gets one test file in a fresh context. Writes 1-5 tests in a companion file and reports candidate bugs. |
 | Verifier agent | `.claude/agents/auto-qa-verifier.md` | Gets one candidate bug, without the worker's reasoning. Tries to prove the test wrong and returns CONFIRMED or REJECTED. |
 | Wrapper script | `auto-qa/run.sh` | Runs a headless iteration (cron, launchd, CI) in a dedicated checkout, with a tool allow-list, a timeout and a log. |
+| Fixer skill | `.claude/skills/auto-qa-fix/SKILL.md` | `/auto-qa-fix AQA-<n>`: fixes one confirmed bug interactively on branch `fix-AQA-<n>` (see "Fixing bugs"). The only part of the tooling that edits production code. |
 | Import helper | `auto-qa/fix-unused-imports.py` | Removes the imports that checkstyle reports as unused after tests are deleted from a companion file. |
 | Checkstyle rule | `gradle/codequality/checkstyle.xml` | Allows the `QA` abbreviation, so companions can be named `*AutoQATest`. |
 
@@ -150,6 +151,32 @@ The exact steps are in `SKILL.md`.
    description in sync.
 6. **Report**, switch back to the starting branch, and release the lock, also when the run fails.
 
+## Fixing bugs (`/auto-qa-fix`)
+
+`/auto-qa-fix AQA-<n>` is a separate skill, so `/auto-qa` and `run.sh` keep the guarantee that they
+never edit production code. The fixer runs interactively only (never from `run.sh`, cron or CI):
+
+1. It checks that the bug is `open` in `bugs.md` and that no open PR or existing branch already
+   fixes it. A rejected bug is fixed only if the user confirms, and an already fixed one is not.
+2. It creates branch `fix-AQA-<n>` from `upstream/main` (the working tree must be clean). The
+   branch lives on the user's fork (`origin`), not on upstream.
+3. It moves the bug's test into the real test file as a normal regression test (no `// BUG`
+   comment, project style, existing helpers), and confirms that the test fails.
+4. It finds the root cause and fixes it. It asks the user first when there are several reasonable
+   fixes, or when the fix is complicated: many files or layers, behavior other code may rely on,
+   or anything touching on-disk or serialized formats, wire protocols, public APIs, plan-cache keys
+   or compatibility with older versions. In those cases it explains the options and asks how the
+   user would like it fixed.
+5. It confirms that the test passes (3 out of 3), runs the original test class and the tests of
+   every changed production class (and related yamsql files for SQL-reachable code), runs
+   checkstyle and SpotBugs, and reviews the diff with the `code-reviewer` skill.
+6. It stops with the change uncommitted for the user's review. It commits, pushes `fix-AQA-<n>`
+   to the fork, or opens a draft PR (label `bug fix`) only when asked.
+
+It never modifies the auto-qa branches or state files. After the PR merges, the next
+`/auto-qa check-fixed` (or full run) marks the bug `fixed upstream` with that PR and removes its
+test from the caught branch.
+
 ## Permissions
 
 Within the workflow the skill may commit to, push and force-push (`--force-with-lease`) only the two
@@ -192,7 +219,8 @@ To set up a machine: clone the repo, log in to Claude Code, log in to git and `g
 
 ## Out of scope (for now)
 
-- Fixing the bugs it finds.
+- Fixing bugs automatically. `/auto-qa` never fixes bugs; `/auto-qa-fix` does, but only
+  interactively and with the user reviewing every change.
 - Opening GitHub issues automatically.
 - More than one iteration per invocation. Repeat it with cron, CI or `/loop`.
 - Using FOCUS to steer a worker's test ideas inside a file. FOCUS only picks which files are
