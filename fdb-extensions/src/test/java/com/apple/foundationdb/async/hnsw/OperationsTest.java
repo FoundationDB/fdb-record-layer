@@ -250,7 +250,7 @@ class OperationsTest implements BaseTest {
     @MethodSource("seedAndIsNormalized")
     void testStorageTransform(final long seed, final boolean isNormalized) {
         final Random random = new Random(seed);
-        final int numDimensions = random.nextInt(128);
+        final int numDimensions = Math.max(random.nextInt(128), 2);
         final FhtKacRotator rotator = new FhtKacRotator(seed, numDimensions, 10);
         final RealVector translation = RealVectorTest.createRandomDoubleVector(random, numDimensions);
 
