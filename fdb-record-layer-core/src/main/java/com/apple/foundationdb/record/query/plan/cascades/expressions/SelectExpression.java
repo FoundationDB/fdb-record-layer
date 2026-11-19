@@ -945,22 +945,33 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
 
         //
         // We now know we need compensation. If more than one for-each quantifier was matched, reapplying that
-        // compensation means translating references from the query graph onto values over the MQT. For predicates and
-        // for unmatched quantifiers we cannot do that (yet).
+        // compensation means translating references from the query graph onto values over the MQT.
         //
-        // For the result value we can: `computeResultCompensation` above already expressed it over the root of the
-        // match. That is the case a candidate over a synthetic record type produces -- the match stands in for the
-        // whole join, and all that is left is to project the query's result out of the record the scan flows. The
-        // result is re-targeted onto just one of the matched quantifiers (see `ForMatch.applyFinal()`), which has to be
-        // the one whose child match needs compensation of its own, so at most one of them may.
+        // For the result value and for predicates over the matched quantifiers we can: `computeResultCompensation` and
+        // `computeCompensationFunction` above already expressed them over the root of the match, so the compensation
+        // is re-targeted onto just one of the matched quantifiers.
+        //
+        // We cannot do (yet) for unmatched quantifiers and for a predicate over an existential quantifier:
+        // reapplying them pulls a quantifier into the compensation, but for that the subgraph needs to be rebased.
+        // We also still require that no child match needs compensation for filtering.
         //
         final var partialMatchMap = regularMatchInfo.getPartialMatchMap();
-        final var isResultCompensationOnly =
+        final var existentialAliases =
+                quantifiers.stream()
+                        .filter(quantifier -> quantifier instanceof Quantifier.Existential)
+                        .map(Quantifier::getAlias)
+                        .collect(ImmutableSet.toImmutableSet());
+        final var isAnyCompensatedPredicateOverExistential =
+                predicateCompensationMap.keySet()
+                        .stream()
+                        .anyMatch(predicate -> predicate.getCorrelatedTo().stream()
+                                .anyMatch(existentialAliases::contains));
+        final var isCompensationOverRootOfMatch =
                 !childCompensation.isNeededForFiltering() &&
                         unmatchedQuantifiers.isEmpty() &&
-                        !isAnyCompensationFunctionNeeded &&
+                        !isAnyCompensatedPredicateOverExistential &&
                         childCompensatedAliases.size() <= 1;
-        if (!isResultCompensationOnly &&
+        if (!isCompensationOverRootOfMatch &&
                 quantifiers.stream()
                         .filter(quantifier -> quantifier instanceof Quantifier.ForEach &&
                                 partialMatchMap.containsKeyUnwrapped(quantifier))
