@@ -417,6 +417,25 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
             return ImmutableList.of();
         }
 
+        // Existential of a query only observes if the result is produced. Matching it to for-each is only sound if the
+        // candidate's subgraph does not observe how many times an element occurs either, which is what a child match
+        // that requires an existential (over a distinct explode) records. A non-distinct explode, such as the one of
+        // an unnesting of a synthetic record type, would return the query's row once per element.
+        for (final var quantifier : getQuantifiers()) {
+            if (!(quantifier instanceof Quantifier.Existential)) {
+                continue;
+            }
+            final var candidateAlias = bindingAliasMap.getTarget(quantifier.getAlias());
+            if (candidateAlias == null ||
+                    !(candidateQuantifierMap.get(candidateAlias) instanceof Quantifier.ForEach)) {
+                continue;
+            }
+            final var childPartialMatch = partialMatchMap.getUnwrapped(quantifier);
+            if (childPartialMatch == null || !childPartialMatch.getMatchInfo().requiresExistential()) {
+                return ImmutableList.of();
+            }
+        }
+
         // TODO this should be inverted, i.e. go through the predicates and make sure the referred alias is among the
         //      quantifiers owned by this expression
         //
