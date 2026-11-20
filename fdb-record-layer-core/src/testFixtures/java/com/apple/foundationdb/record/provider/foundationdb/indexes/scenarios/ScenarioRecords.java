@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 
+import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.IntStream;
@@ -104,12 +105,18 @@ public final class ScenarioRecords {
      * @return the raw bytes of the vector
      */
     public static ByteString vectorBytes(final int distinctness) {
+        final Half[] components = zeroVector();
+        components[0] = Half.valueOf((float)distinctness);
+        return ByteString.copyFrom(new HalfRealVector(components).getRawData());
+    }
+
+    @Nonnull
+    public static Half[] zeroVector() {
         final Half[] components = new Half[VECTOR_DIMENSIONS];
         for (int i = 0; i < components.length; i++) {
             components[i] = Half.valueOf(0.0f);
         }
-        components[0] = Half.valueOf((float)distinctness);
-        return ByteString.copyFrom(new HalfRealVector(components).getRawData());
+        return components;
     }
 
     /**
