@@ -288,6 +288,7 @@ message PValue {
     PArrayAggValue array_agg_value = 64;
     PCurrentTimestampValue current_timestamp_value = 65;
     PExplodeValue explode_value = 66;
+    PNotProvidedValue not_provided_value = 67;
   }
   // Removed types that are no longer supported
   reserved 38;
@@ -613,6 +614,10 @@ message PNotValue {
 }
 
 message PNullValue {
+  optional PType result_type = 1;
+}
+
+message PNotProvidedValue {
   optional PType result_type = 1;
 }
 
