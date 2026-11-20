@@ -37,7 +37,7 @@ import org.junit.jupiter.params.ParameterizedTest;
  * Tests for the {@link ValueIndexMaintainer} using the shared index scenario framework.
  */
 @Tag(Tags.RequiresFDB)
-public class ValueIndexTest {
+class ValueIndexTest {
 
     @RegisterExtension
     final FDBDatabaseExtension dbExtension = new FDBDatabaseExtension();
