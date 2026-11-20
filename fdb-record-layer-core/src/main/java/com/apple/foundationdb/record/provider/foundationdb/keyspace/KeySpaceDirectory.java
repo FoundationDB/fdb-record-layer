@@ -589,9 +589,21 @@ public class KeySpaceDirectory {
                     .thenApply(resolvedValue -> {
                         final byte[] key = subspace.pack(Tuple.from(resolvedValue.getResolvedValue()));
                         return new KeyRange(key, EndpointType.RANGE_INCLUSIVE,
-                                ByteArrayUtil.strinc(key), EndpointType.RANGE_EXCLUSIVE);
+                                tupleRangeEnd(key), EndpointType.RANGE_EXCLUSIVE);
                     });
         }
+    }
+
+    /**
+     * Returns the exclusive end of the range that holds the given packed tuple key and every key that extends it with
+     * more tuple elements.
+     *
+     * @param key a packed tuple key
+     * @return the exclusive end of the range of keys at or under {@code key}
+     */
+    @Nonnull
+    static byte[] tupleRangeEnd(@Nonnull byte[] key) {
+        return ByteArrayUtil.join(key, new byte[] {(byte)0xFF});
     }
 
     private RecordCoreArgumentException invalidValueTypeException(KeyType rangeValueType, KeyType expectedValueType,
