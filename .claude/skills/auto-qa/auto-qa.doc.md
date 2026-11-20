@@ -1,7 +1,8 @@
 # auto-qa: requirements and design
 
 This document records what the `/auto-qa` skill is for and how it is designed. It is reference
-documentation only: Claude Code does not load it when the skill runs. **`SKILL.md` is the source
+documentation only: Claude Code does not load it when the skill runs. For a one-page usage guide,
+see [auto-qa.doc.short.md](auto-qa.doc.short.md). **`SKILL.md` is the source
 of truth** for the exact steps. If the two disagree, `SKILL.md` wins, and this document should be
 updated.
 
