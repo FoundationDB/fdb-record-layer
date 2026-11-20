@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.query.plan.cascades.References.RebaseOptions;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
@@ -169,7 +170,7 @@ public class RuleTestHelper {
         // rewriting and planning
         final var copiedOriginal =
                 Iterables.getOnlyElement(References.rebaseGraphs(ImmutableList.of(referenceOf(original)),
-                        memoizer(), new ToUniqueAliasesTranslationMap(), false)).get();
+                        memoizer(), new ToUniqueAliasesTranslationMap(), RebaseOptions.COPY)).get();
         ensureCorrectStage(copiedOriginal);
         if (rule instanceof ImplementationCascadesRule) {
             //
@@ -277,7 +278,7 @@ public class RuleTestHelper {
             //
             final var copiedExpected =
                     Iterables.getOnlyElement(References.rebaseGraphs(ImmutableList.of(referenceOf(expression)),
-                            memoizer(), new ToUniqueAliasesTranslationMap(), false)).get();
+                            memoizer(), new ToUniqueAliasesTranslationMap(), RebaseOptions.COPY)).get();
             ensureCorrectStage(copiedExpected);
             expectedListBuilder.add(copiedExpected);
         }

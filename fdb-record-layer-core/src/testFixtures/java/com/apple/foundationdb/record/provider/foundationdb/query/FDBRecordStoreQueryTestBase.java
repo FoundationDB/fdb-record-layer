@@ -739,8 +739,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     protected static RecordQueryPlan verifyRebase(@Nonnull final RecordQueryPlan plan) {
         final var rebasedPlans =
                 References.rebaseGraphs(ImmutableList.of(Reference.plannedOf(plan)),
-                        Memoizer.noMemoization(PlannerStage.PLANNED), new ToUniqueAliasesTranslationMap(),
-                        false);
+                        Memoizer.noMemoization(PlannerStage.PLANNED), new ToUniqueAliasesTranslationMap());
         Assertions.assertEquals(1, rebasedPlans.size());
         final var rebasedPlan = rebasedPlans.get(0).getOnlyElementAsPlan();
         Assertions.assertEquals(plan.planHash(PlanHashable.CURRENT_FOR_CONTINUATION),

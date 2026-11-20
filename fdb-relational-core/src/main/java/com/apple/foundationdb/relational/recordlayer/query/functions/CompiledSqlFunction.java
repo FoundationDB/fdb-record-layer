@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.References;
+import com.apple.foundationdb.record.query.plan.cascades.References.RebaseOptions;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
@@ -52,12 +53,26 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * This represents a compilable SQL function. If the function is a table function, it is modeled as a join between
- * the function body as defined by the user, and a constant row representing the list of arguments as given in the
- * call site.
+ * A compiled table-valued SQL function, that is, a function whose body is a relational expression.
  *
- * <p>Note that a SQL function is only compiled once, upon invocation, the call site is created representing the compiled
- * function plan as a leg of a binary join, where
+ * <p>A SQL function is compiled only once, and the compiled function is then shared by all the call sites. Each call
+ * site gets its own copy of the body (see {@link #encapsulate}), which takes the place of the call in the query. If the
+ * function has no parameters, the call site is just the copy. Otherwise, it is modeled as a join of two quantifiers:
+ * one over the copy of the body, and one over a single record that holds the arguments as given at the call site.
+ * The body is correlated to that record, as it refers to its parameters through it, which feeds the arguments into the
+ * body. The result of the join consists of the columns of the body.
+ *
+ * <p>For example, given {@code CREATE FUNCTION f (IN i BIGINT) AS SELECT i1 FROM T WHERE i1 < i}, the call site of
+ * {@code f(1)} is the following graph. The quantifier {@code qBody} ranges over the copy of the body, and {@code qArgs}
+ * ranges over the single record of arguments. The body is correlated to the latter:
+ * <pre>{@code
+ * Select → (qBody.i1)
+ *   ├── qBody: ƒ
+ *   │     └── Select [qT.i1 < qArgs.i] → (qT.i1)
+ *   │           └── qT: ƒ ── BaseScan(T)
+ *   └── qArgs: ƒ
+ *         └── Select → (1 AS i)
+ * }</pre>
  */
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class CompiledSqlFunction extends UserDefinedFunction implements WithPlanGenerationSideEffects {
@@ -89,14 +104,24 @@ public class CompiledSqlFunction extends UserDefinedFunction implements WithPlan
         throw new RecordCoreException("attempt to serialize compiled SQL function");
     }
 
+    /**
+     * Copies the function body for a call site. Copying is important for thread safety, as the compiled function is
+     * cached and shared by all planning operations that call it.
+     */
+    @Nonnull
+    private Reference copyBody(@Nonnull final ToUniqueAliasesTranslationMap aliasMap) {
+        final var bodyRef = Reference.initialOf(body);
+        return Iterables.getOnlyElement(References.rebaseGraphs(List.of(bodyRef),
+                Memoizer.noMemoization(PlannerStage.INITIAL), aliasMap, RebaseOptions.COPY));
+    }
+
     @Nonnull
     @Override
     public RelationalExpression encapsulate(@Nonnull final CallSiteArguments arguments) {
         if (parametersCorrelation.isEmpty()) {
-            // this should never happen.
             Assert.thatUnchecked(arguments.isEmpty(), ErrorCode.INTERNAL_ERROR,
                     "unexpected parameterless function invocation with non-zero arguments");
-            return body;
+            return copyBody(new ToUniqueAliasesTranslationMap()).get();
         }
         if (arguments.isNamed()) {
             return encapsulateFromArgumentValues(
@@ -122,10 +147,7 @@ public class CompiledSqlFunction extends UserDefinedFunction implements WithPlan
     private RelationalExpression constructTableFunctionExpression(@Nonnull final RelationalExpression argumentsExpression) {
         final var aliasMap = new ToUniqueAliasesTranslationMap();
 
-        final var bodyRef = Reference.initialOf(body);
-        final var translatedBodyRef = Iterables.getOnlyElement(References.rebaseGraphs(List.of(bodyRef),
-                Memoizer.noMemoization(PlannerStage.INITIAL), aliasMap, false));
-        final var bodyQun = Quantifier.forEach(translatedBodyRef);
+        final var bodyQun = Quantifier.forEach(copyBody(aliasMap));
 
         final var translatedParamCorrelation = aliasMap.getSnapshotAliasMap()
                 .getTargetOrDefault(Assert.optionalUnchecked(parametersCorrelation),

@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.References;
+import com.apple.foundationdb.record.query.plan.cascades.References.RebaseOptions;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithPredicates;
@@ -167,7 +168,9 @@ public class SelectMergeRule extends AbstractCascadesRule<SelectExpression> impl
                 if (!correlationOrder.getDependencyMap().get(alias).isEmpty()) {
                     // This might possibly prove wasteful as we first create and memoize a new ref of final expressions,
                     // and then rebase it for adjustments - which itself could memoize refs that changed.
-                    newChildReference = Iterables.getOnlyElement(References.rebaseGraphs(ImmutableList.of(newChildReference), (Memoizer) call, nextExpressionTranslationBuilder.build(), true));
+                    newChildReference = Iterables.getOnlyElement(
+                            References.rebaseGraphs(ImmutableList.of(newChildReference), (Memoizer) call,
+                                    nextExpressionTranslationBuilder.build(), RebaseOptions.SIMPLIFY));
                 }
                 newQuantifiers.add(oldQun.overNewReference(newChildReference));
             }
