@@ -28,7 +28,8 @@
 #        auto-qa/run.sh check-fixed               (cheap: only re-checks known bugs; good for nightly cron)
 #
 # Environment:
-#   AUTO_QA_DIR       dedicated checkout (default ~/.auto-qa/fdb-record-layer); cloned on first run
+#   AUTO_QA_DIR       dedicated checkout (default ~/.auto-qa/fdb-record-layer); created on first run
+#                     as a git worktree of this script's checkout, or cloned if there is none
 #   AUTO_QA_LOG_DIR   log folder (default ~/.auto-qa/logs); logs older than 30 days are deleted
 #   AUTO_QA_TIMEOUT   seconds before the run is killed (default 14400 = 4 hours)
 #   AUTO_QA_MAX_TURNS cap on agent turns (default 400)
@@ -54,13 +55,29 @@ log() {
     echo "[run.sh $(date +%H:%M:%S)] $*" | tee -a "$LOG"
 }
 
-# 1. Dedicated checkout, never the one you work in.
+# 1. Dedicated checkout, never the one you work in. If this script runs from a git checkout
+#    that has an upstream remote (the usual case on a dev machine), create the dedicated
+#    checkout as a git worktree of it: it shares the object store, so it needs no second copy
+#    of the history and no separate fetch. Otherwise (e.g. CI), clone upstream.
 if [[ ! -e "$AUTO_QA_DIR/.git" ]]; then
-    log "Cloning $UPSTREAM_URL into $AUTO_QA_DIR"
     mkdir -p "$(dirname "$AUTO_QA_DIR")"
-    if ! git clone -o upstream "$UPSTREAM_URL" "$AUTO_QA_DIR" >>"$LOG" 2>&1; then
-        log "ERROR: clone failed"
-        exit 1
+    SCRIPT_UPSTREAM=""
+    if git -C "$SCRIPT_REPO" rev-parse --git-dir >/dev/null 2>&1; then
+        SCRIPT_UPSTREAM="$(git -C "$SCRIPT_REPO" remote -v | awk '/FoundationDB\/fdb-record-layer/ {print $1; exit}')"
+    fi
+    if [[ -n "$SCRIPT_UPSTREAM" ]]; then
+        log "Creating worktree $AUTO_QA_DIR from $SCRIPT_REPO ($SCRIPT_UPSTREAM/main)"
+        if ! git -C "$SCRIPT_REPO" fetch -q "$SCRIPT_UPSTREAM" >>"$LOG" 2>&1 ||
+           ! git -C "$SCRIPT_REPO" worktree add --detach "$AUTO_QA_DIR" "$SCRIPT_UPSTREAM/main" >>"$LOG" 2>&1; then
+            log "ERROR: could not create the worktree"
+            exit 1
+        fi
+    else
+        log "Cloning $UPSTREAM_URL into $AUTO_QA_DIR"
+        if ! git clone -o upstream "$UPSTREAM_URL" "$AUTO_QA_DIR" >>"$LOG" 2>&1; then
+            log "ERROR: clone failed"
+            exit 1
+        fi
     fi
 fi
 cd "$AUTO_QA_DIR" || exit 1

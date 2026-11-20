@@ -197,8 +197,14 @@ push any other branch, and never modify production code.
 
 `run.sh` works like this:
 
-- It uses its own checkout (`AUTO_QA_DIR`, default `~/.auto-qa/fdb-record-layer`) and clones it on
-  first use.
+- It uses its own checkout (`AUTO_QA_DIR`, default `~/.auto-qa/fdb-record-layer`), created on first
+  use. When `run.sh` runs from a git checkout with an upstream remote (the usual case on a dev
+  machine), the dedicated checkout is a git worktree of it: it shares the object store, so there is
+  no second copy of the history and a fetch in either checkout serves both. Otherwise (e.g. on a CI
+  runner) it is a fresh clone. Build output is separate in either case. Two side effects of a
+  worktree: a branch cannot be checked out in two worktrees at once (the skill holds the auto-qa
+  branches only during a run and ends on a detached commit), and the worktree depends on the main
+  checkout, so do not delete or move that checkout while the worktree is in use.
 - It copies `fdb-environment.yaml` into that checkout and starts from the latest `upstream/main`.
 - It runs `claude -p "/auto-qa <args>"` with an explicit tool allow-list and `--max-turns`. It never
   uses a blanket permission mode.
