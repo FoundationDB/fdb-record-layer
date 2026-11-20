@@ -269,7 +269,7 @@ class UniqueIndexConcurrencyTest extends FDBRecordStoreConcurrentTestBase {
 
         final int writers = 2;
         final int successful = fdb.asyncToSync(timer, FDBStoreTimer.Waits.WAIT_COMMIT,
-                storeRunner.runConcurrently(storeSupplier, writers, (store, recNo) -> saveRecord(store, recNo, 17)));
+                storeRunner.runConcurrently(storeSupplier, writers, (store, recNo) -> saveRecordAsync(store, recNo, 17)));
 
         // The commit does not fail while the index is write-only, as the violations are recorded instead.
         final boolean writeOnly = indexState == IndexState.WRITE_ONLY;
@@ -306,14 +306,14 @@ class UniqueIndexConcurrencyTest extends FDBRecordStoreConcurrentTestBase {
         int newId2 = 14;
         final int value = 17;
         final Supplier<FDBRecordStore> storeSupplier = createStore(maintainerType, indexState, disableConcurrencyManagement,
-                seedStore -> fdb.asyncToSync(timer, FDBStoreTimer.Waits.WAIT_SAVE_RECORD, saveRecord(seedStore, seedId, value)));
+                seedStore -> saveRecordSync(seedStore, seedId, value));
 
         final int successful = fdb.asyncToSync(timer, FDBStoreTimer.Waits.WAIT_COMMIT,
                 storeRunner.runConcurrently(storeSupplier, concurrentInsert ? 3 : 2,
                         (store, writer) -> switch (writer) {
-                            case 0 -> saveRecord(store, seedId, value + 3);
-                            case 1 -> saveRecord(store, newId1, value);
-                            case 2 -> saveRecord(store, newId2, value);
+                            case 0 -> saveRecordAsync(store, seedId, value + 3);
+                            case 1 -> saveRecordAsync(store, newId1, value);
+                            case 2 -> saveRecordAsync(store, newId2, value);
                             default -> throw new IllegalStateException("Unexpected value: " + writer);
                         }));
 
@@ -393,24 +393,24 @@ class UniqueIndexConcurrencyTest extends FDBRecordStoreConcurrentTestBase {
         try (FDBRecordContext context = seedStore.getContext()) {
             context.asyncToSync(FDBStoreTimer.Waits.WAIT_INDEX_OPERATION,
                     seedStore.markIndexWriteOnly(CONTROLLED_VIOLATIONS_INDEX_NAME));
-            context.asyncToSync(FDBStoreTimer.Waits.WAIT_SAVE_RECORD, saveRecord(seedStore, seedId, value));
+            saveRecordSync(seedStore, seedId, value);
             commit(context);
         }
 
         final FDBRecordStore store = storeSupplier.get();
         try (FDBRecordContext context = store.getContext()) {
             // The first insert sees the seed record, so there are two violations, which are recorded.
-            store.saveRecord(record(newId1, value));
+            saveRecordSync(store, newId1, value);
             ControlledViolationsIndexMaintainer.awaitHeldViolations(2).forEach(Runnable::run);
             // The second insert sees the seed record and the first insert, so there are four violations, which are not
             // recorded yet.
-            store.saveRecord(record(newId2, value));
+            saveRecordSync(store, newId2, value);
             final List<Runnable> lateViolations = ControlledViolationsIndexMaintainer.awaitHeldViolations(4);
             if (recordedBetweenScanAndClear) {
                 ControlledViolationsIndexMaintainer.afterRemovalScanIssued = () -> lateViolations.forEach(Runnable::run);
             }
             // Moving the seed record removes its index entry, and so its violations.
-            store.saveRecord(record(seedId, value + 3));
+            saveRecordSync(store, seedId, value + 3);
             if (!recordedBetweenScanAndClear) {
                 lateViolations.forEach(Runnable::run);
             }
@@ -583,8 +583,16 @@ class UniqueIndexConcurrencyTest extends FDBRecordStoreConcurrentTestBase {
     }
 
     @Nonnull
-    private static CompletableFuture<Void> saveRecord(@Nonnull FDBRecordStore store, int recNo, int numValueUnique) {
-        return store.saveRecordAsync(record(recNo, numValueUnique)).thenApply(ignore -> null);
+    private static CompletableFuture<Void> saveRecordAsync(@Nonnull FDBRecordStore store, int recNo, int numValueUnique) {
+        return store.saveRecordAsync(TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(recNo)
+                        .setNumValueUnique(numValueUnique)
+                        .build())
+                .thenApply(ignore -> null);
+    }
+
+    private static void saveRecordSync(@Nonnull FDBRecordStore store, int recNo, int numValueUnique) {
+        store.getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_SAVE_RECORD, saveRecordAsync(store, recNo, numValueUnique));
     }
 
     /**
@@ -601,14 +609,6 @@ class UniqueIndexConcurrencyTest extends FDBRecordStoreConcurrentTestBase {
             context.close();
             throw e;
         }
-    }
-
-    @Nonnull
-    private static TestRecords1Proto.MySimpleRecord record(long recNo, int numValueUnique) {
-        return TestRecords1Proto.MySimpleRecord.newBuilder()
-                .setRecNo(recNo)
-                .setNumValueUnique(numValueUnique)
-                .build();
     }
 
     @Nonnull
