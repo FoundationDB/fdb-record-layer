@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
-import com.apple.foundationdb.half.Half;
 import com.apple.foundationdb.linear.HalfRealVector;
 import com.apple.foundationdb.linear.Metric;
 import com.apple.foundationdb.record.IndexEntry;
@@ -42,7 +41,6 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.Ind
 import com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios.ScenarioRecords;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 
@@ -62,7 +60,7 @@ import java.util.Map;
 class SlidingWindowIndexDefinition implements IndexDefinition {
     private final int windowSize;
     // A fixed query vector (all zeros) shared by every scan so that the before/after scans are comparable.
-    private final HalfRealVector queryVector = new HalfRealVector(zeroComponents());
+    private final HalfRealVector queryVector = new HalfRealVector(ScenarioRecords.zeroVector());
 
     SlidingWindowIndexDefinition(final int windowSize) {
         this.windowSize = windowSize;
@@ -118,14 +116,5 @@ class SlidingWindowIndexDefinition implements IndexDefinition {
         // The sliding-window factory rejects synthetic types outright: "sliding window index is on
         // synthetic record types". Supporting them would be a maintainer change.
         return false;
-    }
-
-    @Nonnull
-    private static Half[] zeroComponents() {
-        final Half[] components = new Half[ScenarioRecords.VECTOR_DIMENSIONS];
-        for (int i = 0; i < components.length; i++) {
-            components[i] = Half.valueOf(0.0f);
-        }
-        return components;
     }
 }
