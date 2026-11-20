@@ -93,13 +93,14 @@ public abstract class RecordQueryInUnionPlan extends AbstractRelationalExpressio
 
         Bindings.Internal internal = Bindings.Internal.fromProto(serializationContext, Objects.requireNonNull(recordQueryInUnionPlanProto.getInternal()));
         Verify.verify(internal == Bindings.Internal.IN || internal == Bindings.Internal.CORRELATION);
+        this.inner = Quantifier.Physical.fromProto(serializationContext,
+                Objects.requireNonNull(recordQueryInUnionPlanProto.getInner()));
 
         final ImmutableList.Builder<InSource> inSourcesBuilder = ImmutableList.builder();
         for (int i = 0; i < recordQueryInUnionPlanProto.getInSourcesCount(); i ++) {
             inSourcesBuilder.add(InSource.fromInSourceProto(serializationContext, recordQueryInUnionPlanProto.getInSources(i)));
         }
 
-        this.inner = Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryInUnionPlanProto.getInner()));
         this.inSources = inSourcesBuilder.build();
         this.comparisonKeyFunction = ComparisonKeyFunction.fromComparisonKeyFunctionProto(serializationContext, Objects.requireNonNull(recordQueryInUnionPlanProto.getComparisonKeyFunction()));
         this.reverse = recordQueryInUnionPlanProto.getReverse();

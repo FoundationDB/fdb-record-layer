@@ -309,14 +309,18 @@ public class MultidimensionalIndexScanComparisons implements IndexScanParameters
     @Nonnull
     public static MultidimensionalIndexScanComparisons fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                                  @Nonnull final PMultidimensionalIndexScanComparisons multidimensionalIndexScanComparisonsProto) {
+        final ScanComparisons prefixScanComparisons = ScanComparisons.fromProto(serializationContext,
+                Objects.requireNonNull(multidimensionalIndexScanComparisonsProto.getPrefixScanComparisons()));
         final ImmutableList.Builder<ScanComparisons> dimensionScanComparisonsBuilder = ImmutableList.builder();
         for (int i = 0; i < multidimensionalIndexScanComparisonsProto.getDimensionsScanComparisonsCount(); i ++) {
             dimensionScanComparisonsBuilder.add(ScanComparisons.fromProto(serializationContext,
                     multidimensionalIndexScanComparisonsProto.getDimensionsScanComparisons(i)));
         }
-        return new MultidimensionalIndexScanComparisons(ScanComparisons.fromProto(serializationContext, Objects.requireNonNull(multidimensionalIndexScanComparisonsProto.getPrefixScanComparisons())),
+        final ScanComparisons suffixScanComparisons = ScanComparisons.fromProto(serializationContext,
+                Objects.requireNonNull(multidimensionalIndexScanComparisonsProto.getSuffixScanComparisons()));
+        return new MultidimensionalIndexScanComparisons(prefixScanComparisons,
                 dimensionScanComparisonsBuilder.build(),
-                ScanComparisons.fromProto(serializationContext, Objects.requireNonNull(multidimensionalIndexScanComparisonsProto.getSuffixScanComparisons())));
+                suffixScanComparisons);
     }
 
     @Nonnull

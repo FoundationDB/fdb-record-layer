@@ -494,15 +494,16 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
     @Nonnull
     public static RangeConstraints fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                              @Nonnull final PRangeConstraints rangeConstraintsProto) {
+        final CompilableRange evaluableRange =
+                rangeConstraintsProto.hasEvaluableRange()
+                ? CompilableRange.fromProto(serializationContext, rangeConstraintsProto.getEvaluableRange())
+                : null;
         final ImmutableSet.Builder<Comparisons.Comparison> deferredRangesBuilder = ImmutableSet.builder();
         for (int i = 0; i < rangeConstraintsProto.getDeferredRangesCount(); i ++) {
             deferredRangesBuilder.add(
                     Comparisons.Comparison.fromComparisonProto(serializationContext, rangeConstraintsProto.getDeferredRanges(i)));
         }
-        return new RangeConstraints(
-                rangeConstraintsProto.hasEvaluableRange()
-                ? CompilableRange.fromProto(serializationContext, rangeConstraintsProto.getEvaluableRange()) : null,
-                deferredRangesBuilder.build());
+        return new RangeConstraints(evaluableRange, deferredRangesBuilder.build());
     }
 
     /**

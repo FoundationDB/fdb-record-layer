@@ -119,19 +119,23 @@ public class UserDefinedMacroFunction extends UserDefinedFunction {
     public static UserDefinedMacroFunction fromProto(@Nonnull final PUserDefinedMacroFunction function) {
         PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
                 PlanHashable.CURRENT_FOR_CONTINUATION);
-        final var parametersQuantifiedObjectValues = function.getArgumentsList().stream()
-                .map(pvalue -> ((QuantifiedObjectValue)Value.fromValueProto(serializationContext, pvalue)))
-                .collect(ImmutableList.toImmutableList());
-        final var bodyValue = Value.fromValueProto(serializationContext, function.getBody());
         final List<String> parameterNames = function.getArgumentNamesList();
+        final var parametersBuilder = ImmutableList.<QuantifiedObjectValue>builder();
+        final var parameterDefaultsBuilder = ImmutableList.<Optional<Value>>builder();
+        for (int i = 0; i < function.getArgumentsCount(); i++) {
+            parametersBuilder.add((QuantifiedObjectValue)Value.fromValueProto(serializationContext, function.getArguments(i)));
+            if (!parameterNames.isEmpty()) {
+                final var pDefaultArgumentValue = function.getDefaultArgumentValues(i);
+                parameterDefaultsBuilder.add(!pDefaultArgumentValue.getIsProvided() ? Optional.<Value>empty() :
+                                             Optional.of(Value.fromValueProto(serializationContext, pDefaultArgumentValue.getValue())));
+            }
+        }
+        final var parametersQuantifiedObjectValues = parametersBuilder.build();
+        final var bodyValue = Value.fromValueProto(serializationContext, function.getBody());
         if (parameterNames.isEmpty()) {
             return new UserDefinedMacroFunction(function.getFunctionName(), parametersQuantifiedObjectValues, bodyValue);
         }
-        final List<Optional<Value>> parameterDefaults = function.getDefaultArgumentValuesList().stream().map(
-                pDefaultArgumentValue ->
-                        !pDefaultArgumentValue.getIsProvided() ? Optional.<Value>empty() :
-                        Optional.of(Value.fromValueProto(serializationContext, pDefaultArgumentValue.getValue())))
-                .collect(ImmutableList.toImmutableList());
+        final List<Optional<Value>> parameterDefaults = parameterDefaultsBuilder.build();
         return new UserDefinedMacroFunction(function.getFunctionName(), parametersQuantifiedObjectValues, parameterNames, parameterDefaults, bodyValue);
     }
 }

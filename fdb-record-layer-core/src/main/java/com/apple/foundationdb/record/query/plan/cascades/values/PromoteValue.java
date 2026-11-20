@@ -654,15 +654,17 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
         @Nonnull
         public static ArrayCoercionBiFunction fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                         @Nonnull final PArrayCoercionBiFunction arrayCoercionBiFunctionProto) {
+            final Type.Array fromArrayType = (Type.Array)Type.fromTypeProto(serializationContext,
+                    Objects.requireNonNull(arrayCoercionBiFunctionProto.getFromArrayType()));
+            final Type.Array toArrayType = (Type.Array)Type.fromTypeProto(serializationContext,
+                    Objects.requireNonNull(arrayCoercionBiFunctionProto.getToArrayType()));
             final CoercionTrieNode elementsTrie;
             if (arrayCoercionBiFunctionProto.hasElementsTrie()) {
                 elementsTrie = CoercionTrieNode.fromProto(serializationContext, arrayCoercionBiFunctionProto.getElementsTrie());
             } else {
                 elementsTrie = null;
             }
-            return new ArrayCoercionBiFunction((Type.Array)Type.fromTypeProto(serializationContext, Objects.requireNonNull(arrayCoercionBiFunctionProto.getFromArrayType())),
-                    (Type.Array)Type.fromTypeProto(serializationContext, Objects.requireNonNull(arrayCoercionBiFunctionProto.getToArrayType())),
-                    elementsTrie);
+            return new ArrayCoercionBiFunction(fromArrayType, toArrayType, elementsTrie);
         }
 
         /**
