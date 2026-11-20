@@ -40,20 +40,20 @@ digraph G {
   4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Í
+}€
 Ã
-bitmap-agg-index-tests¨EXPLAIN SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap, category, bitmap_bucket_offset(id) as offset FROM T2 GROUP BY category, bitmap_bucket_offset(id)„
-™äÍ‡J ¯­¢(0æ§8@ýISCAN(AGG_INDEX_2 <,>) | MAP (_ AS _0) | AGG (bitmap_construct_agg_l((_._0.ID) bitmap_bit_position 10000) AS _0) GROUP BY (_._0.CATEGORY AS _0, (_._0.ID) bitmap_bucket_offset 10000 AS _1) | MAP (_._1._0 AS BITMAP, _._0._0 AS CATEGORY, _._0._1 AS OFFSET)ædigraph G {
+bitmap-agg-index-tests¨EXPLAIN SELECT bitmap_construct_agg(bitmap_bit_position(id)) as bitmap, category, bitmap_bucket_offset(id) as offset FROM T2 GROUP BY category, bitmap_bucket_offset(id)·
+«Ì õM ãå“(0”¦8@¤COVERING(AGG_INDEX_2 <,> -> [CATEGORY: KEY:[0], ID: KEY:[3]]) | MAP (_ AS _0) | AGG (bitmap_construct_agg_l((_._0.ID) bitmap_bit_position 10000) AS _0) GROUP BY (_._0.CATEGORY AS _0, (_._0.ID) bitmap_bucket_offset 10000 AS _1) | MAP (_._1._0 AS BITMAP, _._0._0 AS CATEGORY, _._0._1 AS OFFSET)òdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6._1._0 AS BITMAP, q6._0._0 AS CATEGORY, q6._0._1 AS OFFSET)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(BYTES AS BITMAP, STRING AS CATEGORY, LONG AS OFFSET)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (bitmap_construct_agg_l((q50._0.ID) bitmap_bit_position 10000) AS _0)</td></tr><tr><td align="left">GROUP BY (q50._0.CATEGORY AS _0, (q50._0.ID) bitmap_bucket_offset 10000 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, LONG AS _1 AS _0, BYTES AS _0 AS _1)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS CATEGORY AS _0)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-âˆž, âˆž&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS CATEGORY)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Streaming Aggregate</td></tr><tr><td align="left">COLLECT (bitmap_construct_agg_l((q51._0.ID) bitmap_bit_position 10000) AS _0)</td></tr><tr><td align="left">GROUP BY (q51._0.CATEGORY AS _0, (q51._0.ID) bitmap_bucket_offset 10000 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, LONG AS _1 AS _0, BYTES AS _0 AS _1)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q44 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS CATEGORY AS _0)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-âˆž, âˆž&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS CATEGORY)" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">AGG_INDEX_2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS CATEGORY)" ];
-  3 -> 2 [ label=<&nbsp;q50> label="q50" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  3 -> 2 [ label=<&nbsp;q51> label="q51" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q44> label="q44" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }

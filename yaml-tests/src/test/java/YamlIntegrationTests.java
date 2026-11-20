@@ -161,6 +161,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void coveringSumPushdown(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("covering-sum-pushdown.yamsql");
+    }
+
+    @TestTemplate
     void createDrop(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("create-drop.yamsql");
     }
@@ -371,6 +376,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void recursiveCte(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("recursive-cte.yamsql");
+    }
+
+    @TestTemplate
+    public void rowVersionPushdown(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("row-version-pushdown.yamsql");
     }
 
     @TestTemplate

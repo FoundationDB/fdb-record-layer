@@ -111,7 +111,7 @@ public final class IndexEntryToRecordValueHelper
      * array, which cannot be null and whose emptiness is indistinguishable from being unset.
      */
     @Nonnull
-    private static Value absent(@Nonnull final Type fieldType) {
+    static Value absent(@Nonnull final Type fieldType) {
         if (fieldType.getTypeCode() == Type.TypeCode.ARRAY && !fieldType.isNullable()) {
             return LightArrayConstructorValue.emptyArray(
                     Objects.requireNonNull(((Type.Array)fieldType).getElementType()));
