@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NotProvidedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -173,7 +174,7 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
 
     /**
      * The record a covering scan provides, as a value over the base: every field the entry carries reads itself, the
-     * rest read absent. Addressed by ordinal rather than by field name, because the names an index's extracted
+     * rest are {@link NotProvidedValue}s, which no query value can match. Addressed by ordinal rather than by field name, because the names an index's extracted
      * {@link FieldValue}s carry are the record descriptor's, which differ from the base type's wherever an identifier
      * had to be escaped.
      *
@@ -214,7 +215,7 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
             } else if (!through.isEmpty() && field.getFieldType() instanceof Type.Record) {
                 column = providedRecordValue((Type.Record)field.getFieldType(), through, depth + 1);
             } else {
-                column = IndexEntryToRecordValueHelper.absent(field.getFieldType());
+                column = new NotProvidedValue(field.getFieldType());
             }
             columns.add(Column.of(field, column));
         }
