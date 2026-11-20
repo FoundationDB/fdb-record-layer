@@ -34,13 +34,11 @@ Arguments: `$ARGUMENTS`
   - rejected: <date> by <who>
   - reason: <why it will not be fixed>
   ```
-- FIX_IMPORTS = `<git dir>/auto-qa-fix-unused-imports.py`, a copy of
-  `auto-qa/fix-unused-imports.py` made in step A.1 (the SEARCH and CAUGHT branches may not
-  contain the tooling). **Removing tests:** whenever you delete tests from a companion file
-  (steps A.5b, A.7, D, F.3, R.5), afterwards run the module's `checkstyleTest` with its output
-  saved to a file, run `python3 FIX_IMPORTS <that file>` to drop the imports it reports as
-  unused, and run `checkstyleTest` again until it passes. Remove unused private helpers by
-  hand if SpotBugs reports them.
+- **Removing tests:** whenever you delete tests from a companion file (steps A.5b, A.7, D,
+  F.3, R.5), afterwards run the module's `checkstyleTest`. For each `[UnusedImports]` error it
+  reports (it names the file, line and import), delete that import line from the companion
+  file, then run `checkstyleTest` again until it passes. Remove unused private helpers the same
+  way if SpotBugs reports them.
 
 ## Permissions
 
@@ -100,7 +98,7 @@ release the lock).
    in this checkout. If it is older, remove it and mention that in the report. Then create
    it containing the start time and `hostname`.
 1. Remember the current branch as START_BRANCH. If `git status --porcelain` is not empty,
-   stop (release the lock first). Copy `auto-qa/fix-unused-imports.py` to FIX_IMPORTS.
+   stop (release the lock first).
 2. **Find UPSTREAM:** the remote from `git remote -v` whose URL contains
    `FoundationDB/fdb-record-layer`. If none, stop. `git fetch UPSTREAM`.
 3. Check out SEARCH. If it doesn't exist locally, use `UPSTREAM/SEARCH` if it exists,
@@ -341,8 +339,8 @@ when the team learns a rejected bug is real after all. No bug hunting happens in
 The order matters: the entry must leave REJECTED_FILE before the restored test is pushed to
 SEARCH, or the next iteration's step A.7 would reject the bug again.
 
-1. **Prepare.** Do steps A.0, A.1 and A.2 (lock, clean tree, FIX_IMPORTS, find and fetch
-   UPSTREAM). WHO as in R.4.
+1. **Prepare.** Do steps A.0, A.1 and A.2 (lock, clean tree, find and fetch UPSTREAM).
+   WHO as in R.4.
 2. **Validate.** Every id must be listed in REJECTED_FILE on `UPSTREAM/CAUGHT` and have status
    `rejected ...` in bugs.md on `UPSTREAM/SEARCH`. Skip (and report) ids that are not; if none
    are left, stop.
@@ -355,7 +353,7 @@ SEARCH, or the next iteration's step A.7 would reject the bug again.
    - Put the test back into its companion file. If the file was deleted, recreate it from the
      DEL^ version with only this test plus the other tests that still exist there (and restore
      its yamsql registration if needed).
-   - Compile and run `checkstyleTest` for the module (use FIX_IMPORTS as in Constants).
+   - Compile and run `checkstyleTest` for the module (remove unused imports as in Constants).
    - Run the test 3 times. If it still fails 3 out of 3 times, set its status in bugs.md to
      `open`. If it now passes 3 out of 3 times, find FIX as in A.6a and set it to
      `fixed upstream (<date>, <FIX>)` instead. If it is flaky, set `open` and report it.

@@ -20,7 +20,6 @@ and reports bugs. It never fixes production code.
 | Verifier agent | `.claude/agents/auto-qa-verifier.md` | Gets one candidate bug, without the worker's reasoning. Tries to prove the test wrong and returns CONFIRMED or REJECTED. |
 | Wrapper script | `auto-qa/run.sh` | Runs a headless iteration (cron, launchd, CI) in a dedicated checkout, with a tool allow-list, a timeout and a log. |
 | Fixer skill | `.claude/skills/auto-qa-fix/SKILL.md` | `/auto-qa-fix AQA-<n>`: fixes one confirmed bug interactively on branch `fix-AQA-<n>` (see "Fixing bugs"). The only part of the tooling that edits production code. |
-| Import helper | `auto-qa/fix-unused-imports.py` | Removes the imports that checkstyle reports as unused after tests are deleted from a companion file. |
 | Checkstyle rule | `gradle/codequality/checkstyle.xml` | Allows the `QA` abbreviation, so companions can be named `*AutoQATest`. |
 
 ## Usage
