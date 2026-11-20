@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.NotProvidedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedRecordValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
@@ -405,8 +404,7 @@ public class MaxMatchMap {
             final var resultsMap =
                     recurseQueryResultValue(queryValue, candidateValue, rangedOverAliases,
                             valueEquivalence, unmatchedHandlerFunction, new IdentityHashMap<>(), -1,
-                            new ArrayDeque<>(), Integer.MAX_VALUE, new HashSet<>(),
-                            incompleteCandidateValues(candidateValue));
+                            new ArrayDeque<>(), Integer.MAX_VALUE, new HashSet<>());
 
             //
             // Pick a match which has the minimum max depth among all the matches.
@@ -472,35 +470,6 @@ public class MaxMatchMap {
     }
 
     /**
-     * The subtrees of {@code candidateValue} that contain a {@link NotProvidedValue}, by identity. A
-     * {@code NotProvidedValue} is equal to nothing, so none of these subtrees can ever be equal to a query subtree, and
-     * none of them is ever considered a potential match. That keeps a candidate subtree that merely has the shape of a
-     * query subtree, but stands for data that is not available, from making the matching of the query subtree
-     * exhaustive.
-     *
-     * @param candidateValue the candidate value (root)
-     * @return an identity set of the candidate subtrees that can never be matched, empty if there are none
-     */
-    @Nonnull
-    private static Set<Value> incompleteCandidateValues(@Nonnull final Value candidateValue) {
-        final Set<Value> incompleteCandidateValues = Collections.newSetFromMap(new IdentityHashMap<>());
-        collectIncompleteCandidateValues(candidateValue, incompleteCandidateValues);
-        return incompleteCandidateValues.isEmpty() ? ImmutableSet.of() : incompleteCandidateValues;
-    }
-
-    private static boolean collectIncompleteCandidateValues(@Nonnull final Value value,
-                                                            @Nonnull final Set<Value> incompleteCandidateValues) {
-        boolean isIncomplete = value instanceof NotProvidedValue;
-        for (final var child : value.getChildren()) {
-            isIncomplete |= collectIncompleteCandidateValues(child, incompleteCandidateValues);
-        }
-        if (isIncomplete) {
-            incompleteCandidateValues.add(value);
-        }
-        return isIncomplete;
-    }
-
-    /**
      * Recursion logic to match {@code queryValue} to {@code candidateValue}. Without any optimization,
      * we recursively carry out the following steps.
      * <ul>
@@ -559,8 +528,6 @@ public class MaxMatchMap {
      * @param maxDepthBound the maximum depth we consider whe searching for matches or {@link Integer#MAX_VALUE} if
      *        there is no maximum depth.
      * @param expandedValues a set of values we already have expanded and should not attempt to expand again.
-     * @param incompleteCandidateValues the subtrees of {@code candidateValue} that can never be matched, see
-     *        {@link #incompleteCandidateValues(Value)}
      * @return a map from variants ({@link Value}s) to {@link MatchResult}s).
      */
     @Nonnull
@@ -574,8 +541,7 @@ public class MaxMatchMap {
                                                                    final int descendOrdinal,
                                                                    @Nonnull final Deque<IncrementalValueMatcher> matchers,
                                                                    final int maxDepthBound,
-                                                                   @Nonnull final Set<Value> expandedValues,
-                                                                   @Nonnull final Set<Value> incompleteCandidateValues) {
+                                                                   @Nonnull final Set<Value> expandedValues) {
         if (maxDepthBound == 0) {
             return ImmutableMap.of(currentQueryValue, MatchResult.notMatched());
         }
@@ -613,7 +579,7 @@ public class MaxMatchMap {
         // Create a matcher for this level.
         //
         final var currentMatcher =
-                IncrementalValueMatcher.initial(currentQueryValue, candidateValue, incompleteCandidateValues);
+                IncrementalValueMatcher.initial(currentQueryValue, candidateValue);
         localMatchers.push(currentMatcher);
         final var isCurrentMatching = currentMatcher.anyMatches();
 
@@ -675,7 +641,7 @@ public class MaxMatchMap {
                     final var childrenResultsMap =
                             recurseQueryResultValue(child, candidateValue, rangedOverAliases, valueEquivalence,
                                     unmatchedHandlerFunction, knownValueMap, i, localMatchers, childrenMaxDepthBound,
-                                    expandedValues, incompleteCandidateValues);
+                                    expandedValues);
 
                     childrenResultsBuilder.add(childrenResultsMap.entrySet());
                     i++;
@@ -746,8 +712,7 @@ public class MaxMatchMap {
                     final var expandedResultsMap =
                             recurseQueryResultValue(expandedCurrentQueryValue, candidateValue,
                                     rangedOverAliases, valueEquivalence, unmatchedHandlerFunction, knownValueMap,
-                                    descendOrdinal, matchers, currentMaxDepthBound, expandedValues,
-                                    incompleteCandidateValues);
+                                    descendOrdinal, matchers, currentMaxDepthBound, expandedValues);
                     for (final var expandedResultsEntry : expandedResultsMap.entrySet()) {
                         bestMatches.put(expandedResultsEntry.getKey(), expandedResultsEntry.getValue());
                     }
@@ -1069,8 +1034,7 @@ public class MaxMatchMap {
 
         @Nonnull
         public static IncrementalValueMatcher initial(@Nonnull final Value queryRootValue,
-                                                      @Nonnull final Value candidateRootValue,
-                                                      @Nonnull final Set<Value> incompleteCandidateValues) {
+                                                      @Nonnull final Value candidateRootValue) {
             return new IncrementalValueMatcher(queryRootValue) {
                 @Nonnull
                 @Override
@@ -1082,11 +1046,6 @@ public class MaxMatchMap {
                                         return Stream.of(NonnullPair.<Value, QueryPlanConstraint>of(candidateValue,
                                                 QueryPlanConstraint.noConstraint()));
                                     }
-                                }
-                                // A subtree that can never be equal is not a potential match. Matchers descending from
-                                // a potential match need no such check: all subtrees of a complete subtree are complete.
-                                if (incompleteCandidateValues.contains(candidateValue)) {
-                                    return Stream.empty();
                                 }
                                 return getCurrentQueryValue().equalsWithoutChildren(candidateValue)
                                         .mapToOptional(Function.identity())

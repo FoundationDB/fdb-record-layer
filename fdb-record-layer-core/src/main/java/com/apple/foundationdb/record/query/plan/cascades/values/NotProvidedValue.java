@@ -48,8 +48,7 @@ import java.util.function.Supplier;
  * value describing what the scan provides (such as the record a covering scan produces).
  *
  * <p>Its value is unknown, not {@code null}: it is equal to nothing but itself, so a value tree containing one can never
- * be equal to another tree. {@link com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap}
- * relies on that to discard such candidate subtrees up front instead of searching for a match it can never find.
+ * be equal to another tree, and matching never maps a query value onto a field that is not provided.
  *
  * <p>It can be serialized as part of a plan that describes what it provides, but it cannot be evaluated. Values that are
  * evaluated, such as the index-entry-to-record value of
