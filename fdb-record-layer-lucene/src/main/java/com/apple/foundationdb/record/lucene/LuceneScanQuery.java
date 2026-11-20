@@ -52,11 +52,23 @@ public class LuceneScanQuery extends LuceneScanBounds {
     @Nullable
     private final Map<String, Set<String>> termMap;
 
+    /** Whether to include the Lucene score in the returned entries. */
+    private final boolean includeScoreValue;
+
     public LuceneScanQuery(@Nonnull final IndexScanType scanType, @Nonnull final Tuple groupKey,
                            @Nonnull final Query query, @Nullable final Sort sort, @Nullable final List<String> storedFields,
                            @Nullable final List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes,
                            @Nullable final LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters,
                            @Nullable final Map<String, Set<String>> termMap) {
+        this(scanType, groupKey, query, sort, storedFields, storedFieldTypes, luceneQueryHighlightParameters, termMap, false);
+    }
+
+    public LuceneScanQuery(@Nonnull final IndexScanType scanType, @Nonnull final Tuple groupKey,
+                           @Nonnull final Query query, @Nullable final Sort sort, @Nullable final List<String> storedFields,
+                           @Nullable final List<LuceneIndexExpressions.DocumentFieldType> storedFieldTypes,
+                           @Nullable final LuceneScanQueryParameters.LuceneQueryHighlightParameters luceneQueryHighlightParameters,
+                           @Nullable final Map<String, Set<String>> termMap,
+                           final boolean includeScoreValue) {
         super(scanType, groupKey);
         this.query = query;
         this.sort = sort;
@@ -64,6 +76,11 @@ public class LuceneScanQuery extends LuceneScanBounds {
         this.storedFieldTypes = storedFieldTypes;
         this.luceneQueryHighlightParameters = luceneQueryHighlightParameters;
         this.termMap = termMap;
+        this.includeScoreValue = includeScoreValue;
+    }
+
+    public boolean isIncludeScoreValue() {
+        return includeScoreValue;
     }
 
     @Nonnull
