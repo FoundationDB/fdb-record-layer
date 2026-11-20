@@ -7,6 +7,12 @@ schema_template:
     create index price_idx as select price, category from products order by price
     create index category_idx as select category, price from products order by category
     create index category_price_idx as select category, price from products order by category, price
+    create index category_price_mixed_idx as select category, price from products order by category ASC, price DESC
+    
+    create type as struct address_type(city string, zipcode integer)
+    create table customers(id bigint, name string, address address_type, primary key(id))
+    create index city_idx as select address.city from customers order by address.city  
+    create index address_idx as select address.city, address.zipcode from customers order by address.city, address.zipcode
 ---
 setup:
   steps:
@@ -16,6 +22,11 @@ setup:
                    (3, 'Gadget X', 'Electronics', 200),
                    (4, 'Tool A', 'Hardware', 80),
                    (5, 'Tool B', 'Hardware', 120)
+    - query: insert into customers
+            values (1, 'Alice', ('New York', 12345)),
+                   (2, 'Bob', ('California', 23456)),
+                   (3, 'Charlie', ('Boston', 10000)),
+                   (4, 'David', ('New York', 10001))
 ---
 test_block:
   name: order-by-documentation-tests
@@ -57,6 +68,19 @@ test_block:
                  {category: "Hardware", name: "Tool A", price: 80},
                  {category: "Hardware", name: "Tool B", price: 120}]
 
+    # ORDER BY with Mixed Directions
+    -
+      - query: SELECT category, name, price
+          FROM products
+          ORDER BY category ASC, price DESC
+      - supported_version: 4.3.2.0
+      - result: [
+                 {category: "Electronics", name: "Gadget X", price: 200},
+                 {category: "Electronics", name: "Widget B", price: 150},
+                 {category: "Electronics", name: "Widget A", price: 100},
+                 {category: "Hardware", name: "Tool B", price: 120},
+                 {category: "Hardware", name: "Tool A", price: 80}]
+
     # ORDER BY with WHERE
     -
       - query: SELECT name, price
@@ -80,3 +104,26 @@ test_block:
                  {name: "Tool B"},
                  {name: "Widget B"},
                  {name: "Gadget X"}]
+
+    # ORDER BY on Nested Fields
+    -
+      - query: SELECT name, address.city
+              FROM customers
+              ORDER BY address.city
+      - explain: "ISCAN(CITY_IDX <,>) | MAP (_.NAME AS NAME, _.ADDRESS.CITY AS CITY)"
+      - result: [{name: "Charlie", city: "Boston"},
+                 {name: "Bob", city: "California"},
+                 {name: "Alice", city: "New York"},
+                 {name: "David", city: "New York"}]
+
+    # ORDER BY on a Struct
+    -
+      - query: SELECT name, address
+          FROM customers
+          ORDER BY address
+      - supported_version: !current_version
+      - explain: "ISCAN(ADDRESS_IDX <,>) | MAP (_.NAME AS NAME, _.ADDRESS AS ADDRESS)"
+      - result: [{name: "Charlie", address: {city: "Boston", zipcode: 10000}},
+                 {name: "Bob", address: {city: "California", zipcode: 23456}},
+                 {name: "David", address: {city: "New York", zipcode: 10001}},
+                 {name: "Alice", address: {city: "New York", zipcode: 12345}}]
