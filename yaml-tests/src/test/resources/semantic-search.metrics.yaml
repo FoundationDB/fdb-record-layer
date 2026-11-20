@@ -199,7 +199,7 @@ semantic-search-queries:
         = 'fiction' qualify (row_number() over (partition by zone, bookshelf order
         by cosine_distance(embedding, ?) asc) <= 1 or row_number() over (partition
         by zone, bookshelf order by euclidean_distance(embedding, ?) asc) <= 1)
-    ref: semantic-search.yamsql:222
+    ref: semantic-search.yamsql:227
     explain: 'ISCAN(DOCUMENTSCOSINEINDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11
         AS STRING)]:{DISTANCE_RANK_LESS_THAN_OR_EQUAL @c30: @c36}:[] BY_DISTANCE)
         ∪ ISCAN(DOCUMENTSEUCLIDEANINDEX [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11
@@ -207,8 +207,8 @@ semantic-search-queries:
         COMPARE BY (recordType([_]), _.DOCID) | MAP (_.TITLE AS TITLE)'
     task_count: 464
     task_total_time_ms: 31
-    transform_count: 142
-    transform_time_ms: 17
+    transform_count: 141
+    transform_time_ms: 13
     transform_yield_count: 49
     insert_time_ms: 1
     insert_new_count: 39

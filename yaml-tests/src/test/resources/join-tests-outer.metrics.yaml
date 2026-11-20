@@ -482,8 +482,8 @@ left-outer-join:
         AS name) }'
     task_count: 1843
     task_total_time_ms: 47
-    transform_count: 404
-    transform_time_ms: 28
+    transform_count: 403
+    transform_time_ms: 22
     transform_yield_count: 117
     insert_time_ms: 2
     insert_new_count: 250
