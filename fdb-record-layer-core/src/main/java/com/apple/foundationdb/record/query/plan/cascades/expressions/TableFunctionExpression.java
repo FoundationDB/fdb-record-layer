@@ -28,14 +28,19 @@ import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
+import com.apple.foundationdb.record.query.plan.cascades.MatchInfo.RegularMatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Verify;
@@ -147,11 +152,41 @@ public class TableFunctionExpression extends AbstractRelationalExpressionWithout
                                           @Nonnull final AliasMap bindingAliasMap,
                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                           @Nonnull final EvaluationContext evaluationContext) {
-        if (!isCompatiblyAndCompletelyBound(bindingAliasMap, candidateExpression.getQuantifiers())) {
+        if (!(candidateExpression instanceof TableFunctionExpression candidateTableFunctionExpression) ||
+                !isSubsumedBy(value, candidateTableFunctionExpression.getValue(), bindingAliasMap)) {
             return ImmutableList.of();
         }
+        final var maxMatchMap =
+                MaxMatchMap.identityOf(getResultValue(), candidateExpression.getResultValue(),
+                        Quantifiers.aliases(candidateExpression.getQuantifiers()),
+                        ValueEquivalence.fromAliasMap(bindingAliasMap));
+        return RegularMatchInfo.tryFromMatchMap(bindingAliasMap, partialMatchMap, maxMatchMap)
+                .map(ImmutableList::of)
+                .orElse(ImmutableList.of());
+    }
 
-        return exactlySubsumedBy(candidateExpression, bindingAliasMap, partialMatchMap, TranslationMap.empty());
+    /**
+     * Whether the candidate's streaming value produces everything the query's may produce.
+     */
+    private static boolean isSubsumedBy(@Nonnull final StreamingValue queryValue,
+                                        @Nonnull final StreamingValue candidateValue,
+                                        @Nonnull final AliasMap bindingAliasMap) {
+        if (queryValue.semanticEquals(candidateValue, bindingAliasMap)) {
+            return true;
+        }
+        // An ExplodeValue that does not preserve its order is subsumed by an explode of the same collection that
+        // does, such as the one an index on an unnested record type is expanded with. Both flow the same
+        // {@code (element, ordinal)} struct, one per element of the collection, and the query does not observe its
+        // ordinals. A sorted query explode is not, as the candidate does not produce its elements in the order the
+        // query asks for.
+        return queryValue instanceof ExplodeValue queryExplodeValue &&
+                !queryExplodeValue.preservesOrder() &&
+                !queryExplodeValue.isSorted() &&
+                candidateValue instanceof ExplodeValue candidateExplodeValue &&
+                candidateExplodeValue.preservesOrder() &&
+                queryExplodeValue.getCollectionValue().semanticEquals(candidateExplodeValue.getCollectionValue(),
+                        bindingAliasMap) &&
+                queryExplodeValue.getElementType().equals(candidateExplodeValue.getElementType());
     }
 
     @Nonnull

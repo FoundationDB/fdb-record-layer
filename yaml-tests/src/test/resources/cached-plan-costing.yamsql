@@ -21,7 +21,7 @@
 options:
     # Steps 3 and 5 only became covering once the plan cache stopped picking by plan hash, see
     # https://github.com/FoundationDB/fdb-record-layer/issues/4642
-    supported_version: !current_version
+    supported_version: 4.19.1.0
 ---
 schema_template:
     CREATE TABLE T ("id" INTEGER, "x" INTEGER, PRIMARY KEY ("id"))
