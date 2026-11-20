@@ -113,6 +113,38 @@ public class AdvancedSnippets {
         // end::create-struct-null[]
     }
 
+    public static void accessStructFieldInParameters() throws SQLException {
+        // tag::access-struct-field-in-parameter[]
+        try (Connection conn = DriverManager.getConnection(url)) {
+            conn.setAutoCommit(false);
+
+            String sql = "SELECT * FROM reviewers WHERE reviewer.NAME = ?.name AND id = ?param.id";
+            try (RelationalPreparedStatement pstmt =
+                         conn.prepareStatement(sql).unwrap(RelationalPreparedStatement.class)) {
+
+                // Create two STRUCTs to pass as query parameters
+                RelationalStruct namedParam = EmbeddedRelationalStruct.newBuilder()
+                        .addString("NAME", "Anthony Bourdain")
+                        .build();
+                RelationalStruct unnamedParam = EmbeddedRelationalStruct.newBuilder()
+                        .addLong("ID", 1L)
+                        .build();
+                pstmt.setObject(1, unnamedParam);
+                pstmt.setObject("param", namedParam);
+
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    RelationalResultSet relationalRs = rs.unwrap(RelationalResultSet.class);
+                    while (relationalRs.next()) {
+                        RelationalStruct reviewer = relationalRs.getStruct("reviewer");
+                        System.out.println(
+                                rs.getLong("id") + ": " + reviewer.getString("name"));
+                    }
+                }
+            }
+        }
+        // end::access-struct-field-in-parameter[]
+    }
+
     public static void readArrayBasic() throws SQLException {
         // tag::read-array-basic[]
         try (Connection conn = DriverManager.getConnection(url)) {
