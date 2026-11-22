@@ -199,7 +199,7 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
         final var scanPlan = new RecordQueryScanPlan(availableRecordTypeNames,
                 flowedTypes,
                 primaryKey,
-                toScanComparisons(comparisonRanges),
+                ScanComparisons.fromComparisonRanges(comparisonRanges),
                 reverseScanOrder,
                 false,
                 this);
@@ -234,14 +234,5 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
     @Override
     public boolean isScopedToSingleType() {
         return queriedRecordTypes.size() == 1 || hasAndOrderedByRecordTypeKey();
-    }
-
-    @Nonnull
-    private static ScanComparisons toScanComparisons(@Nonnull List<ComparisonRange> comparisonRanges) {
-        ScanComparisons.Builder builder = new ScanComparisons.Builder();
-        for (ComparisonRange comparisonRange : comparisonRanges) {
-            builder.addComparisonRange(comparisonRange);
-        }
-        return builder.build();
     }
 }

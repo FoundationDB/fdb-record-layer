@@ -131,6 +131,7 @@ final class SqlFunctionCatalogImpl implements SqlFunctionCatalog {
                 .put("euclidean_square_distance", argumentsCount -> BuiltInFunctionCatalog.resolve("euclidean_square_distance", argumentsCount))
                 .put("cosine_distance", argumentsCount -> BuiltInFunctionCatalog.resolve("cosine_distance", argumentsCount))
                 .put("dot_product_distance", argumentsCount -> BuiltInFunctionCatalog.resolve("dot_product_distance", argumentsCount))
+                .put("geo_distance", argumentsCount -> BuiltInFunctionCatalog.resolve("geo_distance", argumentsCount))
                 .put("not", argumentsCount -> BuiltInFunctionCatalog.resolve("not", argumentsCount))
                 .put("and", argumentsCount -> BuiltInFunctionCatalog.resolve("and", argumentsCount))
                 .put("or", argumentsCount -> BuiltInFunctionCatalog.resolve("or", argumentsCount))
