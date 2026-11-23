@@ -1,7 +1,7 @@
 # Auto QA bugs
 
 ## AQA-1: checkAnyOngoingOnlineIndexBuildsAsync treats stale heartbeats as active sessions
-- status: open
+- status: fixed upstream (2026-11-23, #4929)
 - found: 2026-11-16
 - test: fdb-record-layer-core/src/test/java/com/apple/foundationdb/record/provider/foundationdb/OnlineIndexerAutoQATest.java#checkAnyOngoingOnlineIndexBuildsStaleHeartbeatReturnsFalse
 - spec: OnlineIndexer.checkAnyOngoingOnlineIndexBuildsAsync(FDBRecordStore, Index, long) javadoc: "leasingMilliseconds max heartbeat age to be considered an active session"
@@ -251,3 +251,14 @@
 - spec: PendingWritesQueue.getQueueCursor comment ("the caller's row/time/byte/skip limits are honored at the entry level") and @param javadoc (only isolation is overridden)
 - details: the inner KeyValueCursor clears skip and the unsplitter never applies it (FDBRecordStore adds an explicit
   .skip() after its unsplitter). Same defect as AQA-12 in the Lucene PendingWriteQueue.
+
+## AQA-31: deleteRecordsWhere clears the index entries of a NUL-extended sibling prefix
+- status: open
+- found: 2026-11-23
+- test: fdb-record-layer-core/src/test/java/com/apple/foundationdb/record/provider/foundationdb/FDBRecordStoreAutoQATest.java#deleteRecordsWhereStringPrefixKeepsIndexEntriesOfNulSuffixedPrefix, #deleteRecordsWhereStringPrefixKeepsCountOfNulSuffixedPrefix
+- spec: FDBRecordStoreBase.deleteRecordsWhere javadoc ("Delete records and associated index entries matching a query filter"); StandardIndexMaintainer.deleteWhere comment ("primary key starts with prefix")
+- details: records are cleared with recordsSubspace().subspace(prefix).range() (correct), but StandardIndexMaintainer.deleteWhere
+  (~876-883) clears [pack(prefix), strinc(pack(prefix))): for prefix "a" it also clears the VALUE and COUNT entries of
+  records with prefix "a\u0000b", which survive, so the index loses their entries (index corruption). Same byte-range
+  defect as AQA-22; the same pattern is in SlidingWindow, Rank, Multidimensional, GeospatialRTree and TimeWindowLeaderboard
+  maintainers (not tested). Different from rejected AQA-3.

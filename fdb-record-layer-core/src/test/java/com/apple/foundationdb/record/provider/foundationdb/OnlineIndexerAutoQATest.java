@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -107,7 +107,7 @@ class OnlineIndexerAutoQATest {
 
     @Test
     void checkAnyOngoingOnlineIndexBuildsStaleHeartbeatReturnsFalse() {
-        // BUG AQA-1: checkAnyOngoingOnlineIndexBuildsAsync compares heartbeatTime < now + lease, which is true for any past
+        // FIXED UPSTREAM AQA-1 (#4929): checkAnyOngoingOnlineIndexBuildsAsync compares heartbeatTime < now + lease, which is true for any past
         // heartbeat, so stale sessions count as active. Spec: OnlineIndexer javadoc, "leasingMilliseconds max heartbeat
         // age to be considered an active session".
         // A heartbeat older than the given lease length must not count as an active indexing session
@@ -191,5 +191,112 @@ class OnlineIndexerAutoQATest {
                 .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.MULTI_TARGET_BY_RECORDS).build();
         assertThat(copy.shouldAllowTypeConversionContinue(single, mutual)).isTrue();
         assertThat(copy.shouldAllowTypeConversionContinue(single, multi)).isFalse();
+    }
+
+    private void writeRawHeartbeat(@Nonnull Index index, @Nonnull UUID indexerId, long heartbeatTimeMillis) {
+        final byte[] value = IndexBuildProto.IndexBuildHeartbeat.newBuilder()
+                .setInfo("raw")
+                .setCreateTimeMilliseconds(heartbeatTimeMillis)
+                .setHeartbeatTimeMilliseconds(heartbeatTimeMillis)
+                .build().toByteArray();
+        recordStore.ensureContextActive().set(IndexingSubspaces.indexHeartbeatSubspaceBytes(recordStore, index, indexerId), value);
+    }
+
+    @Test
+    void checkAnyOngoingOnlineIndexBuildsMixedHeartbeats() {
+        // Only stale heartbeats means no active session; adding one fresh heartbeat makes the index count as being built
+        final Index index = new Index("simple$num_value_2", field("num_value_2"), IndexTypes.VALUE);
+        openSimpleMetaData(index);
+        final long lease = 10_000L;
+        try (FDBRecordContext context = openContext()) {
+            recordStore.markIndexWriteOnly(index).join();
+            final long now = System.currentTimeMillis();
+            writeRawHeartbeat(index, UUID.randomUUID(), now - 6 * lease);
+            writeRawHeartbeat(index, UUID.randomUUID(), now - 3 * lease);
+            writeRawHeartbeat(index, UUID.randomUUID(), now - lease - 1);
+            writeRawHeartbeat(index, UUID.randomUUID(), 0L);
+            context.commit();
+        }
+        try (FDBRecordContext context = openContext()) {
+            assertThat(OnlineIndexer.checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index, lease).join()).isFalse();
+            writeRawHeartbeat(index, UUID.randomUUID(), System.currentTimeMillis() - lease / 2);
+            assertThat(OnlineIndexer.checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index, lease).join()).isTrue();
+            context.commit();
+        }
+    }
+
+    @Test
+    void checkAnyOngoingOnlineIndexBuildsDefaultLease() {
+        // The 2-argument overload uses DEFAULT_LEASE_LENGTH_MILLIS as the maximal heartbeat age of an active session
+        final Index index = new Index("simple$num_value_2", field("num_value_2"), IndexTypes.VALUE);
+        openSimpleMetaData(index);
+        final long lease = OnlineIndexOperationConfig.DEFAULT_LEASE_LENGTH_MILLIS;
+        try (FDBRecordContext context = openContext()) {
+            recordStore.markIndexWriteOnly(index).join();
+            writeRawHeartbeat(index, UUID.randomUUID(), System.currentTimeMillis() - 2 * lease);
+            assertThat(OnlineIndexer.checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index).join()).isFalse();
+            writeRawHeartbeat(index, UUID.randomUUID(), System.currentTimeMillis() - lease / 2);
+            assertThat(OnlineIndexer.checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index).join()).isTrue();
+            context.commit();
+        }
+    }
+
+    @Test
+    void checkAnyOngoingOnlineIndexBuildsInvalidAndZeroLease() {
+        // An unparseable heartbeat is not an active session, and with a zero lease no past heartbeat is active
+        final Index index = new Index("simple$num_value_2", field("num_value_2"), IndexTypes.VALUE);
+        openSimpleMetaData(index);
+        try (FDBRecordContext context = openContext()) {
+            recordStore.markIndexWriteOnly(index).join();
+            recordStore.ensureContextActive().set(
+                    IndexingSubspaces.indexHeartbeatSubspaceBytes(recordStore, index, UUID.randomUUID()),
+                    new byte[] {(byte)0xff, (byte)0xff, (byte)0xff});
+            assertThat(OnlineIndexer.checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index).join()).isFalse();
+            writeRawHeartbeat(index, UUID.randomUUID(), System.currentTimeMillis() - 5);
+            assertThat(OnlineIndexer.checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index, 0L).join()).isFalse();
+            assertThat(OnlineIndexer.checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index, 60_000L).join()).isTrue();
+            context.commit();
+        }
+    }
+
+    @Test
+    void checkAnyOngoingOnlineIndexBuildsFutureHeartbeat() {
+        // A heartbeat slightly in the future (clock skew) has a negative age, so it is below any positive lease
+        final Index index = new Index("simple$num_value_2", field("num_value_2"), IndexTypes.VALUE);
+        openSimpleMetaData(index);
+        try (FDBRecordContext context = openContext()) {
+            recordStore.markIndexWriteOnly(index).join();
+            writeRawHeartbeat(index, UUID.randomUUID(), System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(5));
+            assertThat(OnlineIndexer.checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index, 100L).join()).isTrue();
+            context.commit();
+        }
+    }
+
+    @Test
+    void checkAnyOngoingOnlineIndexBuildsInstanceUsesConfiguredLease() {
+        // The instance method must use the lease length configured on the indexer
+        final Index index = new Index("simple$num_value_2", field("num_value_2"), IndexTypes.VALUE);
+        openSimpleMetaData(index);
+        try (FDBRecordContext context = openContext()) {
+            recordStore.markIndexWriteOnly(index).join();
+            writeRawHeartbeat(index, UUID.randomUUID(), System.currentTimeMillis() - 30_000L);
+            context.commit();
+        }
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setDatabase(fdb)
+                .setRecordStoreBuilder(createStoreBuilder())
+                .addTargetIndex(index)
+                .setLeaseLengthMillis(60_000L)
+                .build()) {
+            assertThat(indexer.checkAnyOngoingOnlineIndexBuildsAsync().join()).isTrue();
+        }
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setDatabase(fdb)
+                .setRecordStoreBuilder(createStoreBuilder())
+                .addTargetIndex(index)
+                .setLeaseLengthMillis(1_000L)
+                .build()) {
+            assertThat(indexer.checkAnyOngoingOnlineIndexBuildsAsync().join()).isFalse();
+        }
     }
 }

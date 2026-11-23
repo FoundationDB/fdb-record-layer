@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -32,6 +33,7 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingHeartbeat;
+import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
@@ -41,6 +43,7 @@ import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -243,5 +246,188 @@ class OnlineIndexerMutualAutoQATest extends OnlineIndexerTest {
         assertReadable(indexes);
         scrubAndValidate(indexes);
         assertThat(readCount(indexes.get(0))).isEqualTo(95L);
+    }
+
+    private void writePeerHeartbeat(List<Index> indexes, UUID peerId, long heartbeatTimeMillis) {
+        try (FDBRecordContext context = openContext()) {
+            for (Index index : indexes) {
+                final byte[] value = IndexBuildProto.IndexBuildHeartbeat.newBuilder()
+                        .setInfo(IndexBuildProto.IndexBuildIndexingStamp.Method.MUTUAL_BY_RECORDS.toString())
+                        .setCreateTimeMilliseconds(heartbeatTimeMillis)
+                        .setHeartbeatTimeMilliseconds(heartbeatTimeMillis)
+                        .build().toByteArray();
+                context.ensureActive().set(IndexingSubspaces.indexHeartbeatSubspaceBytes(recordStore, index, peerId), value);
+            }
+            context.commit();
+        }
+    }
+
+    private boolean anyOngoingBuild(Index index, long leaseMillis) {
+        try (FDBRecordContext context = openContext()) {
+            final boolean ongoing = OnlineIndexer.checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index, leaseMillis).join();
+            context.commit();
+            return ongoing;
+        }
+    }
+
+    @Nonnull
+    private OnlineIndexer buildSingleByRecordsAfterMutual(Index index) {
+        return newIndexerBuilder(index)
+                .setLimit(5)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .allowTakeoverContinue(List.of(OnlineIndexer.IndexingPolicy.TakeoverTypes.MUTUAL_TO_SINGLE))
+                        .build())
+                .build();
+    }
+
+    @Test
+    void mutualPeerHeartbeatStaleIsIgnoredWhileFreshIsRespected() {
+        // A crashed mutual build has a peer heartbeat: fresh blocks an exclusive takeover, stale (older than the lease) does not
+        final Index countIndex = new Index("countIndex", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT);
+        final List<Index> indexes = List.of(countIndex);
+        populateData(60);
+        openSimpleMetaData(allIndexesHook(indexes));
+        disableAll(indexes);
+        buildMutuallyAndCrash(indexes, getBoundariesList(60, 10), 2);
+
+        final long lease = OnlineIndexOperationConfig.DEFAULT_LEASE_LENGTH_MILLIS;
+        final UUID peerId = UUID.randomUUID();
+        openSimpleMetaData(allIndexesHook(indexes));
+        writePeerHeartbeat(indexes, peerId, System.currentTimeMillis());
+        assertThat(anyOngoingBuild(countIndex, lease)).isTrue();
+        try (OnlineIndexer indexBuilder = buildSingleByRecordsAfterMutual(countIndex)) {
+            assertThatThrownBy(indexBuilder::buildIndex).isInstanceOf(SynchronizedSessionLockedException.class);
+        }
+
+        writePeerHeartbeat(indexes, peerId, System.currentTimeMillis() - 3 * lease);
+        assertThat(anyOngoingBuild(countIndex, lease)).isFalse();
+        try (OnlineIndexer indexBuilder = buildSingleByRecordsAfterMutual(countIndex)) {
+            indexBuilder.buildIndex(true);
+        }
+
+        assertReadable(indexes);
+        assertThat(readCount(countIndex)).isEqualTo(60L);
+        try (FDBRecordContext context = openContext()) {
+            assertThat(IndexingHeartbeat.getIndexingHeartbeats(recordStore, countIndex, 0).join()).isEmpty();
+            context.commit();
+        }
+    }
+
+    @Test
+    void mutualPeersWithFreshHeartbeatFinishTheBuild() {
+        // A fresh mutual peer heartbeat does not block another mutual indexer, which finishes the peer's fragments
+        final List<Index> indexes = countAndValueIndexes();
+        populateData(70);
+        openSimpleMetaData(allIndexesHook(indexes));
+        disableAll(indexes);
+        final List<Tuple> boundaries = getBoundariesList(70, 10);
+        buildMutuallyAndCrash(indexes, boundaries, 2);
+
+        openSimpleMetaData(allIndexesHook(indexes));
+        writePeerHeartbeat(indexes, UUID.randomUUID(), System.currentTimeMillis());
+        writePeerHeartbeat(indexes, UUID.randomUUID(), System.currentTimeMillis() - 3 * OnlineIndexOperationConfig.DEFAULT_LEASE_LENGTH_MILLIS);
+        buildMutually(indexes, boundaries);
+
+        assertReadable(indexes);
+        scrubAndValidate(indexes);
+        assertThat(readCount(indexes.get(0))).isEqualTo(70L);
+    }
+
+    @Test
+    void mutualIndexingWithEmptyTupleBoundary() {
+        // An empty tuple boundary (packs below every primary key) must still lead to a complete build
+        final List<Index> indexes = countAndValueIndexes();
+        populateData(50);
+        openSimpleMetaData(allIndexesHook(indexes));
+        disableAll(indexes);
+
+        buildMutually(indexes, Arrays.asList(null, Tuple.from(), Tuple.from(25L), null));
+
+        assertReadable(indexes);
+        scrubAndValidate(indexes);
+        assertThat(readCount(indexes.get(0))).isEqualTo(50L);
+    }
+
+    @Test
+    void mutualIndexingEmptyStoreWithPresetBoundaries() {
+        // An empty store with preset boundaries (including boundaries of another tuple type) becomes readable with a zero count
+        final List<Index> indexes = countAndValueIndexes();
+        openSimpleMetaData(allIndexesHook(indexes));
+        try (FDBRecordContext context = openContext()) {
+            context.commit();
+        }
+        disableAll(indexes);
+
+        buildMutually(indexes, Arrays.asList(null, Tuple.from(10L), Tuple.from("a"), Tuple.from(20L), null));
+
+        assertReadable(indexes);
+        assertThat(readCount(indexes.get(0))).isZero();
+        saveRecords(0, 5);
+        assertThat(readCount(indexes.get(0))).isEqualTo(5L);
+    }
+
+    @Test
+    void mutualIndexingSplitLongRecordsAcrossCrash() {
+        // Split long records, preset primary key boundaries, and a crash mid-way: each record is counted once
+        final List<Index> indexes = countAndValueIndexes();
+        final FDBRecordStoreTestBase.RecordMetaDataHook hook = metaDataBuilder -> {
+            metaDataBuilder.setSplitLongRecords(true);
+            metaDataBuilder.removeIndex("MySimpleRecord$str_value_indexed");
+            allIndexesHook(indexes).apply(metaDataBuilder);
+        };
+        final String longString = "x".repeat(250_000);
+        openSimpleMetaData(hook);
+        disableAll(indexes);
+        try (FDBRecordContext context = openContext()) {
+            for (long val = 0; val < 12; val++) {
+                recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(val)
+                        .setStrValueIndexed(longString)
+                        .setNumValueUnique((int)val * 1139)
+                        .build());
+            }
+            context.commit();
+        }
+        final List<Tuple> boundaries = Arrays.asList(null, Tuple.from(3L), Tuple.from(7L), null);
+
+        final AtomicLong counter = new AtomicLong(0);
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
+                .setLimit(1)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setMutualIndexingBoundaries(boundaries)
+                        .build())
+                .setConfigLoader(old -> {
+                    if (counter.incrementAndGet() > 4) {
+                        throw new RecordCoreException(CRASH_MESSAGE);
+                    }
+                    return old;
+                })
+                .build()) {
+            assertThatThrownBy(indexBuilder::buildIndex).hasMessageContaining(CRASH_MESSAGE);
+        }
+        try (OnlineIndexer indexBuilder = newIndexerBuilder(indexes)
+                .setLimit(2)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setMutualIndexingBoundaries(boundaries)
+                        .build())
+                .build()) {
+            indexBuilder.buildIndex(true);
+        }
+
+        openSimpleMetaData(hook);
+        try (FDBRecordContext context = openContext()) {
+            for (Index index : indexes) {
+                assertThat(recordStore.getIndexState(index).isReadable()).isTrue();
+            }
+            context.commit();
+        }
+        assertThat(readCount(indexes.get(0))).isEqualTo(12L);
+        try (FDBRecordContext context = openContext()) {
+            final List<IndexEntry> entries = recordStore.scanIndex(indexes.get(1), IndexScanType.BY_VALUE, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
+                    .asList().join();
+            assertThat(entries).hasSize(12);
+            context.commit();
+        }
     }
 }

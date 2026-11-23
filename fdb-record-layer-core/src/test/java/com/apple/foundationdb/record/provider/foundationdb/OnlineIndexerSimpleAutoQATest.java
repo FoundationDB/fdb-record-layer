@@ -22,10 +22,12 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IndexState;
+import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
@@ -45,6 +47,7 @@ class OnlineIndexerSimpleAutoQATest extends OnlineIndexerTest {
 
     private final Index queueIndex = new Index("simple$num_value_2_queue", field("num_value_2"), ValueIndexMaintainerWithQueue.Factory.INDEX_TYPE);
     private final Index countIndex = new Index("simple$count_aqa", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT);
+    private final Index uniqueIndex = new Index("simple$num_value_2_unique_aqa", field("num_value_2"), IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
 
     private void saveSimple(final long recNo, final int numValue2) {
         recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
@@ -101,6 +104,25 @@ class OnlineIndexerSimpleAutoQATest extends OnlineIndexerTest {
         }
         assertThat(primaryKeysForValue(queueIndex, 777)).containsExactly(0L);
         assertThat(primaryKeysForValue(queueIndex, 0)).isEmpty();
+    }
+
+    private long countIndexValue() {
+        try (FDBRecordContext context = openContext()) {
+            final List<Long> counts = recordStore.scanIndex(countIndex, IndexScanType.BY_GROUP, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
+                    .map(entry -> entry.getValue().getLong(0)).asList().join();
+            context.commit();
+            assertThat(counts).hasSizeLessThanOrEqualTo(1);
+            return counts.isEmpty() ? 0L : counts.get(0);
+        }
+    }
+
+    @Nonnull
+    private IndexState indexState(@Nonnull final Index index) {
+        try (FDBRecordContext context = openContext()) {
+            final IndexState state = recordStore.getIndexState(index);
+            context.commit();
+            return state;
+        }
     }
 
     @Test
@@ -193,5 +215,135 @@ class OnlineIndexerSimpleAutoQATest extends OnlineIndexerTest {
                     .isEmpty();
             context.commit();
         }
+    }
+
+    @Test
+    void rebuildReadableIndexWithTrackingCountsEachRecordOnce() {
+        // setIfReadable(REBUILD) javadoc: "clear the existing data and rebuild"; with tracking requested the rebuilt COUNT must equal the record count
+        populateAndAddIndex(countIndex, 6);
+        try (OnlineIndexer indexer = newIndexerBuilder(countIndex).build()) {
+            indexer.buildIndex();
+        }
+        assertThat(countIndexValue()).isEqualTo(6L);
+        try (OnlineIndexer indexer = newIndexerBuilder(countIndex)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
+                        .setUseWriteOnlyWithTracking(List.of(countIndex)))
+                .build()) {
+            indexer.buildIndex();
+        }
+        assertThat(indexState(countIndex)).isEqualTo(IndexState.READABLE);
+        assertThat(countIndexValue()).isEqualTo(6L);
+    }
+
+    @Test
+    void rebuildWriteOnlyWithTrackingIndexAfterUserWritesCountsEachRecordOnce() {
+        // setIfWriteOnly(REBUILD) javadoc: "clear the existing data and rebuild"; tracked user writes must not be counted twice afterwards
+        populateAndAddIndex(countIndex, 4);
+        try (FDBRecordContext context = openContext()) {
+            recordStore.markIndexWriteOnly(countIndex, IndexState.WRITE_ONLY_WITH_TRACKING).join();
+            context.commit();
+        }
+        try (FDBRecordContext context = openContext()) {
+            saveSimple(1, 111);
+            saveSimple(10, 100);
+            context.commit();
+        }
+        try (OnlineIndexer indexer = newIndexerBuilder(countIndex)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
+                        .setUseWriteOnlyWithTracking(List.of(countIndex)))
+                .build()) {
+            indexer.buildIndex();
+        }
+        assertThat(indexState(countIndex)).isEqualTo(IndexState.READABLE);
+        assertThat(countIndexValue()).isEqualTo(5L);
+        try (FDBRecordContext context = openContext()) {
+            saveSimple(11, 110);
+            context.commit();
+        }
+        assertThat(countIndexValue()).isEqualTo(6L);
+    }
+
+    @Test
+    void markReadableIfBuiltOnBuiltTrackingIndexKeepsCount() {
+        // markReadableIfBuilt of a fully built write-only-with-tracking index returns true and leaves a correct, maintained COUNT
+        populateAndAddIndex(countIndex, 5);
+        try (OnlineIndexer indexer = newIndexerBuilder(countIndex)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setUseWriteOnlyWithTracking(List.of(countIndex)))
+                .build()) {
+            indexer.buildIndex(false);
+        }
+        assertThat(indexState(countIndex)).isEqualTo(IndexState.WRITE_ONLY_WITH_TRACKING);
+        try (FDBRecordContext context = openContext()) {
+            saveSimple(2, 222);
+            saveSimple(20, 200);
+            context.commit();
+        }
+        try (OnlineIndexer indexer = newIndexerBuilder(countIndex).build()) {
+            assertThat(indexer.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, indexer.markReadableIfBuilt())).isTrue();
+        }
+        assertThat(indexState(countIndex)).isEqualTo(IndexState.READABLE);
+        assertThat(countIndexValue()).isEqualTo(6L);
+        try (FDBRecordContext context = openContext()) {
+            saveSimple(21, 210);
+            context.commit();
+        }
+        assertThat(countIndexValue()).isEqualTo(7L);
+    }
+
+    private void buildUniqueIndexWithDuplicatesWithoutMarkingReadable() {
+        openSimpleMetaData();
+        try (FDBRecordContext context = openContext()) {
+            saveSimple(1, 5);
+            saveSimple(2, 5);
+            saveSimple(3, 6);
+            context.commit();
+        }
+        openSimpleMetaData(allIndexesHook(List.of(uniqueIndex)));
+        disableAll(List.of(uniqueIndex));
+        try (OnlineIndexer indexer = newIndexerBuilder(uniqueIndex).build()) {
+            indexer.buildIndex(false);
+        }
+        assertThat(indexState(uniqueIndex)).isEqualTo(IndexState.WRITE_ONLY);
+    }
+
+    @Test
+    void markReadableIfBuiltOnBuiltUniqueIndexWithDuplicatesKeepsItWriteOnly() {
+        // a built unique index with duplicates must not become readable through markReadableIfBuilt (false or a violation)
+        buildUniqueIndexWithDuplicatesWithoutMarkingReadable();
+        try (OnlineIndexer indexer = newIndexerBuilder(uniqueIndex).build()) {
+            boolean marked;
+            try {
+                marked = indexer.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, indexer.markReadableIfBuilt());
+            } catch (RecordIndexUniquenessViolation e) {
+                marked = false;
+            }
+            assertThat(marked).isFalse();
+        }
+        assertThat(indexState(uniqueIndex)).isEqualTo(IndexState.WRITE_ONLY);
+    }
+
+    @Test
+    void markReadableAllowingUniquePendingThenResolvedBecomesReadable() {
+        // allowUniquePendingState javadoc: duplicates -> READABLE_UNIQUE_PENDING; once resolved, markReadableIfBuilt makes it READABLE
+        buildUniqueIndexWithDuplicatesWithoutMarkingReadable();
+        try (OnlineIndexer indexer = newIndexerBuilder(uniqueIndex)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder().allowUniquePendingState())
+                .build()) {
+            assertThat(indexer.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, indexer.markReadable())).isTrue();
+        }
+        assertThat(indexState(uniqueIndex)).isEqualTo(IndexState.READABLE_UNIQUE_PENDING);
+        try (FDBRecordContext context = openContext()) {
+            saveSimple(2, 7);
+            context.commit();
+        }
+        try (OnlineIndexer indexer = newIndexerBuilder(uniqueIndex).build()) {
+            assertThat(indexer.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, indexer.markReadableIfBuilt())).isTrue();
+        }
+        assertThat(indexState(uniqueIndex)).isEqualTo(IndexState.READABLE);
+        assertThat(primaryKeysForValue(uniqueIndex, 5)).containsExactly(1L);
+        assertThat(primaryKeysForValue(uniqueIndex, 7)).containsExactly(2L);
     }
 }
