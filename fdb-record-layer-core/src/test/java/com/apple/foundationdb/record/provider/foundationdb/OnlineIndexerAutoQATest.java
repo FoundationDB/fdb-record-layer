@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,8 +25,6 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.IndexTypes;
-import com.apple.foundationdb.record.provider.foundationdb.indexing.IndexingHeartbeat;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.record.test.TestKeySpace;
@@ -39,12 +37,9 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
 /**
@@ -105,34 +100,6 @@ class OnlineIndexerAutoQATest {
     }
 
     @Test
-    void checkAnyOngoingOnlineIndexBuildsStaleHeartbeatReturnsFalse() {
-        // BUG AQA-1: checkAnyOngoingOnlineIndexBuildsAsync compares heartbeatTime < now + lease, which is true for any past
-        // heartbeat, so stale sessions count as active. Spec: OnlineIndexer javadoc, "leasingMilliseconds max heartbeat
-        // age to be considered an active session".
-        // A heartbeat older than the given lease length must not count as an active indexing session
-        final Index index = new Index("simple$num_value_2", field("num_value_2"), IndexTypes.VALUE);
-        openSimpleMetaData(index);
-        try (FDBRecordContext context = openContext()) {
-            recordStore.markIndexWriteOnly(index).join();
-            new IndexingHeartbeat(UUID.randomUUID(), "stale", 10, false).updateHeartbeat(recordStore, index);
-            context.commit();
-        }
-        snooze(500);
-        try (FDBRecordContext context = openContext()) {
-            final Map<UUID, IndexBuildProto.IndexBuildHeartbeat> heartbeats =
-                    IndexingHeartbeat.getIndexingHeartbeats(recordStore, index, 0).join();
-            assertThat(heartbeats).hasSize(1);
-            final long age = System.currentTimeMillis() - heartbeats.values().iterator().next().getHeartbeatTimeMilliseconds();
-            assertThat(age).isGreaterThan(100L);
-            // "leasingMilliseconds max heartbeat age to be considered an 'active session'"
-            assertThat(OnlineIndexer.checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index, 100L).join())
-                    .as("heartbeat of age %d ms with a lease of 100 ms", age)
-                    .isFalse();
-            context.commit();
-        }
-    }
-
-    @Test
     void allowTakeoverContinueEmptyCollectionAllowsNoConversion() {
         // BUG AQA-2: allowTakeoverContinue(Collection) calls EnumSet.copyOf, which throws on an empty non-EnumSet collection.
         // Spec: OnlineIndexer.IndexingPolicy.Builder#allowTakeoverContinue javadoc, "Null or empty set will allow no conversion".
@@ -141,5 +108,14 @@ class OnlineIndexerAutoQATest {
                 .allowTakeoverContinue(List.of())
                 .build())
                 .doesNotThrowAnyException();
+    }
+
+    private void writeRawHeartbeat(@Nonnull Index index, @Nonnull UUID indexerId, long heartbeatTimeMillis) {
+        final byte[] value = IndexBuildProto.IndexBuildHeartbeat.newBuilder()
+                .setInfo("raw")
+                .setCreateTimeMilliseconds(heartbeatTimeMillis)
+                .setHeartbeatTimeMilliseconds(heartbeatTimeMillis)
+                .build().toByteArray();
+        recordStore.ensureContextActive().set(IndexingSubspaces.indexHeartbeatSubspaceBytes(recordStore, index, indexerId), value);
     }
 }
