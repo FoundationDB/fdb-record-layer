@@ -819,6 +819,18 @@ public class RangeConstraints implements PlanHashable, Correlated<RangeConstrain
     }
 
     /**
+     * Builds a {@link RangeConstraints} object that consists of a single comparison.
+     *
+     * @param comparison the comparison
+     * @return the range constraints, or {@code Optional.empty()} if the comparison cannot be used in a scan prefix
+     */
+    @Nonnull
+    public static Optional<RangeConstraints> ofComparisonMaybe(@Nonnull final Comparisons.Comparison comparison) {
+        final Builder builder = newBuilder();
+        return builder.addComparisonMaybe(comparison) ? builder.build() : Optional.empty();
+    }
+
+    /**
      * Creates a new instance of {@link Builder}.
      *
      * @return a new instance of {@link Builder}

@@ -157,14 +157,14 @@ array-join-at:
         _._0 EQUALS q2._0 AS q3 RETURN (q2 AS _0, q3 AS _1) } AS q4 RETURN q4 } AS
         q4 RETURN (q0.id AS id, q4._0._1 + 1 AS at, q4._0._0 AS val, q4._1._0 AS val2)
         }
-    task_count: 6370
-    task_total_time_ms: 209
-    transform_count: 3064
-    transform_time_ms: 60
-    transform_yield_count: 296
-    insert_time_ms: 30
-    insert_new_count: 758
-    insert_reused_count: 133
+    task_count: 7674
+    task_total_time_ms: 122
+    transform_count: 3547
+    transform_time_ms: 32
+    transform_yield_count: 370
+    insert_time_ms: 17
+    insert_new_count: 984
+    insert_reused_count: 118
 -   query: EXPLAIN SELECT T2."id", "val1", "at1", "val2" FROM T2, T2."arr1" AS "val1"
         AT "at1", T2."arr2" AS "val2"
     ref: array-join-at.yamsql:267
@@ -185,24 +185,24 @@ array-join-at:
     explain: '[IN arrayDistinct(promote(@c21 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS
         T1, EQUALS q0._0]) | FLATMAP q1 -> { TF explode(q1.arr1_nn) AS q2 RETURN (q1.id
         AS id, q2._0 AS val, q2._1 + 1 AS at) } }'
-    task_count: 1167
-    task_total_time_ms: 30
-    transform_count: 452
-    transform_time_ms: 11
-    transform_yield_count: 68
+    task_count: 1178
+    task_total_time_ms: 13
+    transform_count: 453
+    transform_time_ms: 4
+    transform_yield_count: 69
     insert_time_ms: 2
-    insert_new_count: 140
-    insert_reused_count: 9
+    insert_new_count: 142
+    insert_reused_count: 8
 -   query: EXPLAIN SELECT "id", "val", "at" FROM T1, T1."arr1_nn" AS "val" AT "at"
         WHERE "at" IN (1, 2)
     ref: array-join-at.yamsql:323
     explain: SCAN([IS T1]) | FLATMAP q0 -> { TF explode(q0.arr1_nn) | FILTER _._1
         + 1 IN @c19 AS q1 RETURN (q0.id AS id, q1._0 AS val, q1._1 + 1 AS at) }
-    task_count: 1048
-    task_total_time_ms: 19
-    transform_count: 420
-    transform_time_ms: 6
-    transform_yield_count: 51
+    task_count: 1068
+    task_total_time_ms: 10
+    transform_count: 421
+    transform_time_ms: 3
+    transform_yield_count: 52
     insert_time_ms: 1
-    insert_new_count: 114
-    insert_reused_count: 6
+    insert_new_count: 116
+    insert_reused_count: 5
