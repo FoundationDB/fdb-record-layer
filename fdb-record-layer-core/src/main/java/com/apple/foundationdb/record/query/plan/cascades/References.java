@@ -27,9 +27,11 @@ import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventList
 import com.apple.foundationdb.record.query.plan.cascades.events.TranslateCorrelationsPlannerEvent;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpressionWithChildren;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.ToUniqueAliasesTranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 
 import javax.annotation.Nonnull;
@@ -83,10 +85,9 @@ public class References {
         final var translationsCache =
                 Maps.<Reference, Reference>newIdentityHashMap();
 
-        final var options = RebaseOptions.of(shouldSimplifyValues);
         for (final var reference : references) {
             if (reference.getCorrelatedTo().stream().anyMatch(translationMap::containsSourceAlias)) {
-                rebaseGraph(memoizer, translationMap, options, reference, translationsCache,
+                rebaseGraph(memoizer, translationMap, shouldSimplifyValues, reference, translationsCache,
                         alias -> {
                             Verify.verify(!translationMap.containsSourceAlias(alias),
                                     "internal quantifiers cannot be re-aliased");
@@ -103,14 +104,60 @@ public class References {
     }
 
     /**
-     * Convenience overload of {@link #rebaseGraphs(List, Memoizer, TranslationMap, RebaseOptions)} to rebase a graph
-     * with no options set (i.e., {@link RebaseOptions#NONE}).
+     * The result of {@link #instantiate}.
+     *
+     * @param reference the root of the new graph
+     * @param aliasMap the map from the aliases in the original graph to the ones in the new graph. It contains the
+     *        aliases of the quantifiers in the graph, and also the aliases the graph is correlated to from outside.
+     *        An outside alias that the graph does not use is not in the map.
+     */
+    public record Instantiation(@Nonnull Reference reference, @Nonnull AliasMap aliasMap) {
+    }
+
+    /**
+     * Creates an independent instance of a graph, so that the instance can be placed in another graph (for example,
+     * once for each call site of a pre-compiled function). The instance has fresh aliases for all quantifiers in the
+     * graph, so that two instances do not clash in the same statement. It also shares no {@link Reference} with the
+     * graph that is instantiated, so that planning one of them does not change the other, which makes it safe to
+     * instantiate a graph that is shared between threads.
+     *
+     * <p>The graph is rebased with a {@link ToUniqueAliasesTranslationMap}, which copies every reference that has a
+     * quantifier. This method also copies the references that have none (the leaves of the graph), as they would be
+     * shared otherwise.
+     *
+     * <p>The references of the instance are created in the {@link PlannerStage} of the given reference, so all
+     * references of the graph must be in that stage. (The method verifies this.)
+     *
+     * @param reference the root {@link Reference} of the graph to instantiate
+     * @return the {@link Instantiation}, i.e. the root of the new graph, and the aliases it uses for the quantifiers
+     *         of the original graph
      */
     @Nonnull
-    public static List<? extends Reference> rebaseGraphs(@Nonnull final List<? extends Reference> refs,
-                                                         @Nonnull final Memoizer memoizer,
-                                                         @Nonnull final TranslationMap translationMap) {
-        return rebaseGraphs(refs, memoizer, translationMap, RebaseOptions.NONE);
+    public static Instantiation instantiate(@Nonnull final Reference reference) {
+        final PlannerStage plannerStage = reference.getPlannerStage();
+        final List<Reference> references =
+                TopologicalSort.anyTopologicalOrderPermutation(referencesAndDependencies().evaluate(reference))
+                        .orElseThrow(() -> new RecordCoreException("graph has cycles"));
+        Verify.verify(references.stream().allMatch(ref -> ref.getPlannerStage() == plannerStage),
+                "all references of the graph must be in the planner stage %s", plannerStage);
+        return instantiate(reference, Memoizer.noMemoization(plannerStage));
+    }
+
+    /**
+     * Variant of {@link #instantiate(Reference)} that creates the references of the instance with the given
+     * {@link Memoizer}. The instance is only guaranteed to be independent if the memoizer does not reuse existing
+     * references, as {@link Memoizer#noMemoization(PlannerStage)} does.
+     *
+     * @param reference the root {@link Reference} of the graph to instantiate
+     * @param memoizer the {@link Memoizer} to create the references with
+     * @return the {@link Instantiation}
+     */
+    @Nonnull
+    static Instantiation instantiate(@Nonnull final Reference reference, @Nonnull final Memoizer memoizer) {
+        final var translationMap = new ToUniqueAliasesTranslationMap();
+        final Reference instance = Iterables.getOnlyElement(
+                rebaseGraphs(ImmutableList.of(reference), memoizer, translationMap, RebaseOptions.COPY));
+        return new Instantiation(instance, translationMap.getSnapshotAliasMap());
     }
 
     /**
@@ -120,23 +167,48 @@ public class References {
      * in its predicates, select list expressions and others by delegating to
      * {@link RelationalExpression#translateCorrelations}.
      *
-     * <p>Unless {@link RebaseOptions#copy} is set, this method attempts to not copy a sub-graph unless necessary.
-     * In particular, a {@link Reference} is shared between the original graph and the translated one if nothing in its
-     * sub-graph is translated. Note that such sharing can be problematic if the graph outlives the planning operation
-     * that uses the rebased graph. With {@code copy} set, {@link Reference} objects are instead copied as necessary.
+     * <p>This method attempts to not copy a sub-graph unless necessary. In particular, a {@link Reference} is shared
+     * between the original graph and the rebased one if nothing in its sub-graph is translated. Note that such sharing
+     * can be problematic if the graph outlives the planning operation that uses the rebased graph. Use
+     * {@link #instantiate} in that case.
      *
      * @param refs a list of {@link Reference}s. They can share common sub-graphs
      * @param memoizer a {@link Memoizer}. If used outside the planner rules, use
      *        {@link Memoizer#noMemoization(PlannerStage)}
      * @param translationMap the {@link TranslationMap} that defines the translations to be carried out
-     * @param options the {@link RebaseOptions} that define how the graph is rebased
+     * @param shouldSimplifyValues an indicator whether we should attempt to simplify values after translation
      * @return a list of translated references
      */
     @Nonnull
     public static List<? extends Reference> rebaseGraphs(@Nonnull final List<? extends Reference> refs,
                                                          @Nonnull final Memoizer memoizer,
                                                          @Nonnull final TranslationMap translationMap,
-                                                         @Nonnull final RebaseOptions options) {
+                                                         final boolean shouldSimplifyValues) {
+        return rebaseGraphs(refs, memoizer, translationMap, RebaseOptions.of(shouldSimplifyValues));
+    }
+
+    /**
+     * Options of the private rebase methods.
+     *
+     * @param simplify whether to attempt to simplify values after translation
+     * @param copy whether to copy every reference of the graph, even if nothing in it is translated
+     */
+    private record RebaseOptions(boolean simplify, boolean copy) {
+        static final RebaseOptions NONE = new RebaseOptions(false, false);
+        static final RebaseOptions SIMPLIFY = new RebaseOptions(true, false);
+        static final RebaseOptions COPY = new RebaseOptions(false, true);
+
+        @Nonnull
+        static RebaseOptions of(final boolean simplify) {
+            return simplify ? SIMPLIFY : NONE;
+        }
+    }
+
+    @Nonnull
+    private static List<? extends Reference> rebaseGraphs(@Nonnull final List<? extends Reference> refs,
+                                                          @Nonnull final Memoizer memoizer,
+                                                          @Nonnull final TranslationMap translationMap,
+                                                          @Nonnull final RebaseOptions options) {
         if (refs.isEmpty()) {
             return ImmutableList.of();
         }
@@ -160,39 +232,26 @@ public class References {
                 .collect(ImmutableList.toImmutableList());
     }
 
-    /**
-     * Options of {@link #rebaseGraphs}.
-     *
-     * @param simplify whether to attempt to simplify values after translation
-     * @param copy whether to make a safe copy, that is, copy everything as necessary, so that the result will not
-     *        share any {@link Reference} objects with the graph that is rebased.
-     */
-    public record RebaseOptions(boolean simplify, boolean copy) {
-        public static final RebaseOptions NONE = new RebaseOptions(false, false);
-        public static final RebaseOptions SIMPLIFY = new RebaseOptions(true, false);
-        public static final RebaseOptions COPY = new RebaseOptions(false, true);
-
-        @Nonnull
-        public static RebaseOptions of(final boolean simplify) {
-            return of(simplify, false);
-        }
-
-        @Nonnull
-        public static RebaseOptions of(final boolean simplify, final boolean copy) {
-            return copy
-                    ? (simplify ? new RebaseOptions(true, true) : COPY)
-                    : (simplify ? SIMPLIFY : NONE);
-        }
+    private static void rebaseGraph(@Nonnull final Memoizer memoizer, @Nonnull final TranslationMap translationMap,
+                                    final boolean shouldSimplifyValues, @Nonnull final Reference reference,
+                                    @Nonnull final IdentityHashMap<Reference, Reference> translationsCache,
+                                    @Nonnull final Function<CorrelationIdentifier, CorrelationIdentifier> quantifierAliasMapper) {
+        rebaseGraph(memoizer, translationMap, RebaseOptions.of(shouldSimplifyValues), reference, translationsCache,
+                quantifierAliasMapper);
     }
 
+    /**
+     * Rebases a single reference, given the translations of the references it depends on, and records the result in
+     * the {@code translationsCache}. A reference that is not translated is not recorded, unless
+     * {@link RebaseOptions#copy} is set.
+     */
     private static void rebaseGraph(@Nonnull final Memoizer memoizer, @Nonnull final TranslationMap translationMap,
                                     @Nonnull final RebaseOptions options, @Nonnull final Reference reference,
                                     @Nonnull final IdentityHashMap<Reference, Reference> translationsCache,
                                     @Nonnull final Function<CorrelationIdentifier, CorrelationIdentifier> quantifierAliasMapper) {
         Verify.verify(!reference.isExploring());
-        final boolean simplify = options.simplify();
-        final boolean copy = options.copy();
-        var allMembersSame = true;
+        final boolean shouldSimplifyValues = options.simplify();
+        boolean allMembersSame = true;
         final var translatedExploratoryExpressionsBuilder = ImmutableList.<RelationalExpression>builder();
         final var translatedFinalExpressionsBuilder = ImmutableList.<RelationalExpression>builder();
         for (final var expression : reference.getAllMemberExpressions()) {
@@ -231,14 +290,14 @@ public class References {
                 if (memberCorrelatedTo.stream().noneMatch(translationMap::containsSourceAlias)) {
                     translatedExpression = expression;
                 } else {
-                    translatedExpression = expression.translateCorrelations(translationMap, simplify,
+                    translatedExpression = expression.translateCorrelations(translationMap, shouldSimplifyValues,
                             translatedQuantifiers);
                     PlannerEventListeners.dispatchEvent(() ->
                             new TranslateCorrelationsPlannerEvent(translatedExpression, Location.COUNT));
                     allMembersSame = false;
                 }
             } else {
-                translatedExpression = expression.translateCorrelations(translationMap, simplify,
+                translatedExpression = expression.translateCorrelations(translationMap, shouldSimplifyValues,
                         translatedQuantifiers);
                 PlannerEventListeners.dispatchEvent(() ->
                         new TranslateCorrelationsPlannerEvent(translatedExpression, Location.COUNT));
@@ -251,7 +310,7 @@ public class References {
                 translatedExploratoryExpressionsBuilder.add(translatedExpression);
             }
         }
-        if (copy || !allMembersSame) {
+        if (options.copy() || !allMembersSame) {
             final var translatedExploratoryExpressions =
                     translatedExploratoryExpressionsBuilder.build();
             final var translatedFinalExpressions =

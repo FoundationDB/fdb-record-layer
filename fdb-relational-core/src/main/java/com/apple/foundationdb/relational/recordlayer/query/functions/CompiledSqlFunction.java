@@ -26,12 +26,9 @@ import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
-import com.apple.foundationdb.record.query.plan.cascades.Memoizer;
-import com.apple.foundationdb.record.query.plan.cascades.PlannerStage;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.References;
-import com.apple.foundationdb.record.query.plan.cascades.References.RebaseOptions;
 import com.apple.foundationdb.record.query.plan.cascades.UserDefinedFunction;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
@@ -40,12 +37,10 @@ import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RangeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.ToUniqueAliasesTranslationMap;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Literals;
 import com.apple.foundationdb.relational.util.Assert;
-import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -105,23 +100,22 @@ public class CompiledSqlFunction extends UserDefinedFunction implements WithPlan
     }
 
     /**
-     * Copies the function body for a call site. Copying is important for thread safety, as the compiled function is
-     * cached and shared by all planning operations that call it.
+     * Creates an instance of the function body for a call site. Instantiating is important for thread safety, as the
+     * compiled function is cached and shared by all planning operations that call it.
      */
     @Nonnull
-    private Reference copyBody(@Nonnull final ToUniqueAliasesTranslationMap aliasMap) {
-        final var bodyRef = Reference.initialOf(body);
-        return Iterables.getOnlyElement(References.rebaseGraphs(List.of(bodyRef),
-                Memoizer.noMemoization(PlannerStage.INITIAL), aliasMap, RebaseOptions.COPY));
+    private References.Instantiation instantiateBody() {
+        return References.instantiate(Reference.initialOf(body));
     }
 
     @Nonnull
     @Override
     public RelationalExpression encapsulate(@Nonnull final CallSiteArguments arguments) {
         if (parametersCorrelation.isEmpty()) {
+            // this should never happen.
             Assert.thatUnchecked(arguments.isEmpty(), ErrorCode.INTERNAL_ERROR,
                     "unexpected parameterless function invocation with non-zero arguments");
-            return copyBody(new ToUniqueAliasesTranslationMap()).get();
+            return instantiateBody().reference().get();
         }
         if (arguments.isNamed()) {
             return encapsulateFromArgumentValues(
@@ -145,11 +139,11 @@ public class CompiledSqlFunction extends UserDefinedFunction implements WithPlan
 
     @Nonnull
     private RelationalExpression constructTableFunctionExpression(@Nonnull final RelationalExpression argumentsExpression) {
-        final var aliasMap = new ToUniqueAliasesTranslationMap();
+        final var bodyInstance = instantiateBody();
 
-        final var bodyQun = Quantifier.forEach(copyBody(aliasMap));
+        final var bodyQun = Quantifier.forEach(bodyInstance.reference());
 
-        final var translatedParamCorrelation = aliasMap.getSnapshotAliasMap()
+        final var translatedParamCorrelation = bodyInstance.aliasMap()
                 .getTargetOrDefault(Assert.optionalUnchecked(parametersCorrelation),
                         Quantifier.uniqueId());
         final var parametersQun = Quantifier.forEach(Reference.initialOf(argumentsExpression), translatedParamCorrelation);

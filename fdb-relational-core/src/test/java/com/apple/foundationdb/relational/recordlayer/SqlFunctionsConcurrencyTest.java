@@ -22,14 +22,25 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerInvokedRoutine;
 import com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.query.PlanGenerator;
 import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.query.cache.NoOpMetricCollector;
 import com.apple.foundationdb.relational.utils.SchemaTemplateRule;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
+import com.google.common.collect.Sets;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -39,6 +50,7 @@ import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CyclicBarrier;
@@ -46,8 +58,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.apple.foundationdb.record.query.plan.cascades.properties.ReferencesAndDependenciesProperty.referencesAndDependencies;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -159,5 +173,47 @@ class SqlFunctionsConcurrencyTest {
         }
 
         assertThat(failures).isEmpty();
+    }
+
+    /**
+     * Tests that two call sites of the same function, with and without parameters, get instances of the body that
+     * share no reference and no quantifier alias.
+     */
+    @Test
+    void encapsulateInstancesDoNotShareState() {
+        for (final var call : List.of(
+                new FunctionCall("F0", CallSiteArguments.ofPositional(List.<Value>of())),
+                new FunctionCall("F1", CallSiteArguments.ofPositional(LiteralValue.ofScalar(103L),
+                        LiteralValue.ofScalar("b"))))) {
+            final var routine = (RecordLayerInvokedRoutine) schemaTemplate.findInvokedRoutineByName(call.name())
+                    .orElseThrow();
+            final var function = routine.getUserDefinedFunctionProvider().apply(false);
+
+            final var instance1 = Reference.initialOf((RelationalExpression)function.encapsulate(call.arguments()));
+            final var instance2 = Reference.initialOf((RelationalExpression)function.encapsulate(call.arguments()));
+
+            assertThat(collectReferences(instance1)).doesNotContainAnyElementsOf(collectReferences(instance2));
+            assertThat(collectAliases(instance1)).doesNotContainAnyElementsOf(collectAliases(instance2));
+        }
+    }
+
+    private record FunctionCall(@Nonnull String name, @Nonnull CallSiteArguments arguments) {
+    }
+
+    @Nonnull
+    private static Set<Reference> collectReferences(@Nonnull final Reference root) {
+        final Set<Reference> references = Sets.newIdentityHashSet();
+        references.addAll(TopologicalSort.anyTopologicalOrderPermutation(referencesAndDependencies().evaluate(root))
+                .orElseThrow());
+        return references;
+    }
+
+    @Nonnull
+    private static Set<CorrelationIdentifier> collectAliases(@Nonnull final Reference root) {
+        return collectReferences(root).stream()
+                .flatMap(reference -> reference.getAllMemberExpressions().stream())
+                .flatMap(expression -> expression.getQuantifiers().stream())
+                .map(Quantifier::getAlias)
+                .collect(Collectors.toSet());
     }
 }
