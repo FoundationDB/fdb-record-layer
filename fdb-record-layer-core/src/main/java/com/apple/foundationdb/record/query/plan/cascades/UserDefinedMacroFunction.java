@@ -22,7 +22,9 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.planprotos.PUserDefinedFunctionArgumentDefaultValue;
 import com.apple.foundationdb.record.planprotos.PUserDefinedMacroFunction;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
@@ -117,21 +119,34 @@ public class UserDefinedMacroFunction extends UserDefinedFunction {
 
     @Nonnull
     public static UserDefinedMacroFunction fromProto(@Nonnull final PUserDefinedMacroFunction function) {
+        final List<String> parameterNames = function.getArgumentNamesList();
+        if (!parameterNames.isEmpty() &&
+                (parameterNames.size() != function.getArgumentsCount() ||
+                 function.getDefaultArgumentValuesCount() != function.getArgumentsCount())) {
+            throw new RecordCoreException("user-defined macro function has inconsistent parameter lists")
+                    .addLogInfo(LogMessageKeys.FUNCTION, function.getFunctionName())
+                    .addLogInfo("argument_count", function.getArgumentsCount())
+                    .addLogInfo("argument_name_count", parameterNames.size())
+                    .addLogInfo("default_argument_value_count", function.getDefaultArgumentValuesCount());
+        }
         PlanSerializationContext serializationContext = new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE,
                 PlanHashable.CURRENT_FOR_CONTINUATION);
-        final var parametersQuantifiedObjectValues = function.getArgumentsList().stream()
-                .map(pvalue -> ((QuantifiedObjectValue)Value.fromValueProto(serializationContext, pvalue)))
-                .collect(ImmutableList.toImmutableList());
+        final var parametersBuilder = ImmutableList.<QuantifiedObjectValue>builder();
+        final var parameterDefaultsBuilder = ImmutableList.<Optional<Value>>builder();
+        for (int i = 0; i < function.getArgumentsCount(); i++) {
+            parametersBuilder.add((QuantifiedObjectValue)Value.fromValueProto(serializationContext, function.getArguments(i)));
+            if (!parameterNames.isEmpty()) {
+                final var pDefaultArgumentValue = function.getDefaultArgumentValues(i);
+                parameterDefaultsBuilder.add(!pDefaultArgumentValue.getIsProvided() ? Optional.<Value>empty() :
+                                             Optional.of(Value.fromValueProto(serializationContext, pDefaultArgumentValue.getValue())));
+            }
+        }
+        final var parametersQuantifiedObjectValues = parametersBuilder.build();
         final var bodyValue = Value.fromValueProto(serializationContext, function.getBody());
-        final List<String> parameterNames = function.getArgumentNamesList();
         if (parameterNames.isEmpty()) {
             return new UserDefinedMacroFunction(function.getFunctionName(), parametersQuantifiedObjectValues, bodyValue);
         }
-        final List<Optional<Value>> parameterDefaults = function.getDefaultArgumentValuesList().stream().map(
-                pDefaultArgumentValue ->
-                        !pDefaultArgumentValue.getIsProvided() ? Optional.<Value>empty() :
-                        Optional.of(Value.fromValueProto(serializationContext, pDefaultArgumentValue.getValue())))
-                .collect(ImmutableList.toImmutableList());
+        final List<Optional<Value>> parameterDefaults = parameterDefaultsBuilder.build();
         return new UserDefinedMacroFunction(function.getFunctionName(), parametersQuantifiedObjectValues, parameterNames, parameterDefaults, bodyValue);
     }
 }

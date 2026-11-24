@@ -22,12 +22,17 @@ package com.apple.foundationdb.record.query.plan.match;
 
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.planprotos.PRangeConstraints;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.RangeConstraints;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.ConstantObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ValueTestHelpers;
 import com.apple.foundationdb.record.util.pair.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -44,6 +49,7 @@ import static com.apple.foundationdb.record.query.expressions.Comparisons.Type.L
 import static com.apple.foundationdb.record.query.expressions.Comparisons.Type.NOT_NULL;
 import static com.apple.foundationdb.record.query.expressions.Comparisons.Type.STARTS_WITH;
 import static com.apple.foundationdb.record.util.pair.Pair.of;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Unit tests for {@link RangeConstraints}.
@@ -167,6 +173,28 @@ public class RangeConstraintsTest {
 
         Assertions.assertTrue(candidate.encloses(query, boundConstant("c0", 42L)));
         Assertions.assertFalse(candidate.encloses(query, boundConstant("c0", 5L)));
+    }
+
+    /**
+     * Tests that a {@link RangeConstraints} survives a round trip through its proto representation when a deferred
+     * range refers to a record type that is defined by the evaluable range.
+     */
+    @Test
+    public void serializationRoundTripSucceedsWhenDeferredRangeSharesRecordTypeWithEvaluableRange() {
+        final var evaluableRange = new RangeConstraints.CompilableRange(Set.of(
+                new Comparisons.ValueComparison(EQUALS,
+                        QuantifiedObjectValue.of(CorrelationIdentifier.of("e"), ValueTestHelpers.namedRecordType()))));
+        final var deferredRange = new Comparisons.ValueComparison(EQUALS,
+                QuantifiedObjectValue.of(CorrelationIdentifier.of("d"), ValueTestHelpers.namedRecordType()));
+        final PlanSerializationContext context = PlanSerializationContext.newForCurrentMode();
+        final PRangeConstraints proto = PRangeConstraints.newBuilder()
+                .setEvaluableRange(evaluableRange.toProto(context))
+                .addDeferredRanges(deferredRange.toComparisonProto(context))
+                .build();
+
+        final RangeConstraints deserialized = RangeConstraints.fromProto(PlanSerializationContext.newForCurrentMode(), proto);
+
+        assertThat(deserialized.toProto(PlanSerializationContext.newForCurrentMode())).isEqualTo(proto);
     }
 
     @Nonnull
