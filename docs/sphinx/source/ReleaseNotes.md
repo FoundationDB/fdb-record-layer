@@ -8,6 +8,53 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.19
 
+{#release-4-19-3-0}
+
+### 4.19.3.0
+
+<h4> New Features </h4>
+
+* Make `PartitionBinarySelectRule` reorient predicates towards the quantifier they are pushed to - [PR #4865](https://github.com/FoundationDB/fdb-record-layer/pull/4865)
+<h4> Bug Fixes </h4>
+
+* Ensure that nested objects are deserialized in the order of serialization - [PR #4874](https://github.com/FoundationDB/fdb-record-layer/pull/4874)
+* Fix checkAnyOngoingOnlineIndexBuildsAsync treating stale heartbeats as active - [PR #4929](https://github.com/FoundationDB/fdb-record-layer/pull/4929)
+<h4> Performance Improvements </h4>
+
+* Drop the identity map left over a covering scan after pushing it through a fetch - [PR #4912](https://github.com/FoundationDB/fdb-record-layer/pull/4912)
+<h4> Dependency Updates </h4>
+
+* Bump actions/setup-java from 6.1.0 to 6.2.0 - [PR #4933](https://github.com/FoundationDB/fdb-record-layer/pull/4933)
+* Bump actions/setup-java from 6.1.0 to 6.2.0 in /actions/setup-base-env - [PR #4934](https://github.com/FoundationDB/fdb-record-layer/pull/4934)
+* Bump soupsieve from 4.0 to 4.0.1 in /docs/sphinx - [PR #4935](https://github.com/FoundationDB/fdb-record-layer/pull/4935)
+
+<details>
+<summary>
+
+<h4> Build/Test/Documentation/Style Improvements (click to expand) </h4>
+
+</summary>
+
+* Fail clearly when the external server directory is not configured in yaml-tests - [PR #4938](https://github.com/FoundationDB/fdb-record-layer/pull/4938)
+* Tidy the index scenario framework's javadoc and test visibility - [PR #4919](https://github.com/FoundationDB/fdb-record-layer/pull/4919)
+* Run the index scenarios against PERMUTED_MIN and PERMUTED_MAX indexes - [PR #4906](https://github.com/FoundationDB/fdb-record-layer/pull/4906)
+* Bound the minimum dimensions generated for `testStorageTransform` to 2 - [PR #4926](https://github.com/FoundationDB/fdb-record-layer/pull/4926)
+
+</details>
+
+
+**[Full Changelog (4.19.2.0...4.19.3.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.19.2.0...4.19.3.0)**
+
+<h4> Mixed Mode Test Results </h4>
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.16.4.0`, ❌`4.17.1.0`, ❌`4.17.2.0`, ❌`4.18.1.0`, ❌`4.18.3.0`, ✅`4.18.4.0`, ✅`4.18.5.0`, ✅`4.18.7.0`, ✅`4.19.1.0`, ✅`4.19.2.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/45422673195)
+
+
+
 {#release-4-19-2-0}
 
 ### 4.19.2.0
