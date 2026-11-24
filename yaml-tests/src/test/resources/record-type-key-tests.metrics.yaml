@@ -138,27 +138,27 @@ index-scan:
 table-isolation:
 -   query: EXPLAIN SELECT count(*) from t1
     ref: record-type-key-tests.yamsql:115
-    explain: ISCAN(I1 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY ()
+    explain: SCAN([IS T1]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY ()
         | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)
-    task_count: 315
+    task_count: 333
     task_total_time_ms: 3
-    transform_count: 76
+    transform_count: 79
     transform_time_ms: 1
-    transform_yield_count: 27
+    transform_yield_count: 28
     insert_time_ms: 0
-    insert_new_count: 33
+    insert_new_count: 36
     insert_reused_count: 4
 -   query: EXPLAIN SELECT count(*) from t2
     ref: record-type-key-tests.yamsql:119
-    explain: ISCAN(I2 <,>) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY ()
+    explain: SCAN([IS T2]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY ()
         | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)
-    task_count: 315
+    task_count: 333
     task_total_time_ms: 3
-    transform_count: 76
+    transform_count: 79
     transform_time_ms: 1
-    transform_yield_count: 27
+    transform_yield_count: 28
     insert_time_ms: 0
-    insert_new_count: 33
+    insert_new_count: 36
     insert_reused_count: 4
 dml-operations:
 -   query: EXPLAIN SELECT * from t1 where a = 13

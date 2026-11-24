@@ -1,0 +1,50 @@
+#
+# covering-sum-pushdown.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Investigation: a plain value index on (a, b) carries everything needed to evaluate
+# `a + b`, so `SELECT a + b` ought to plan as a COVERING index scan with the addition
+# computed above the scan. Instead the arithmetic blocks the projection from being
+# pushed below the fetch, so the plan keeps a fetching ISCAN.
+#
+# Reduced to the single query under investigation, so that a breakpoint in
+# ScanWithFetchMatchCandidate is hit for this query only.
+#
+---
+schema_template:
+    create table t(pk bigint, a bigint, b bigint, c bigint, primary key(pk))
+    create index ab as select a, b from t order by a, b
+---
+setup:
+  steps:
+    - query: INSERT INTO T
+        VALUES (1, 10,  1, 100),
+               (2, 20,  2, 200),
+               (3, 30,  3, 300),
+               (4, 40,  4, 400),
+               (5, 50,  5, 500)
+---
+test_block:
+  name: covering-sum-pushdown
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select a + b as s from t;
+      - explain: "COVERING(AB <,> -> [A: KEY:[0], B: KEY:[1], PK: KEY:[3]]) | MAP (_.A + _.B AS S)"
+      - result: [{S: 11}, {S: 22}, {S: 33}, {S: 44}, {S: 55}]
+...

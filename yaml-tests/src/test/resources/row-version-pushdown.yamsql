@@ -1,0 +1,70 @@
+#
+# row-version-pushdown.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# GROUPED_VERSION_INDEX carries the row version in its entry, but the partial record a
+# covering scan builds cannot hold one. These queries are the ones that must therefore
+# keep a fetch, even though the value they project is available in the entry.
+#
+---
+schema_template: |
+      create table t1(id bigint, col1 bigint, col2 bigint, primary key(id))
+      create index i1 as select col1 from t1
+      create index grouped_version_index as select col1, "__ROW_VERSION" from t1 order by col1, "__ROW_VERSION"
+
+      with options (store_row_versions=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO T1 VALUES
+        (1, 10, 1),
+        (2, 10, 2),
+        (3, 20, 3)
+---
+test_block:
+  name: row-version-pushdown
+  preset: single_repetition_ordered
+  tests:
+    -
+      # projects the version itself off the version index — must not go covering
+      - query: select "__ROW_VERSION" as version from t1 where col1 = 10 and "__ROW_VERSION" is not null;
+      - explain: "ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c9 AS LONG), [NOT_NULL]]) | MAP (_.__ROW_VERSION AS VERSION)"
+      - unorderedResult: [{VERSION: !not_null _}, {VERSION: !not_null _}]
+    -
+      # projects the version alongside a field the entry does not carry
+      - query: select "__ROW_VERSION" as version, col2 from t1 where col1 = 10 and "__ROW_VERSION" is not null;
+      - explain: "ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c11 AS LONG), [NOT_NULL]]) | MAP (_.__ROW_VERSION AS VERSION, _.COL2 AS COL2)"
+      - unorderedResult: [{VERSION: !not_null _, COL2: 1}, {VERSION: !not_null _, COL2: 2}]
+    -
+      # version only in the predicate, projection is a field the entry does carry —
+      # this one is legitimately coverable
+      - query: select col1 from t1 where col1 = 10 and "__ROW_VERSION" is not null;
+      - explain: "COVERING(GROUPED_VERSION_INDEX [EQUALS promote(@c7 AS LONG), [NOT_NULL]] -> [COL1: KEY:[0], ID: KEY:[3]]) | MAP (_.COL1 AS COL1)"
+      - unorderedResult: [{COL1: 10}, {COL1: 10}]
+    -
+      # projection fits entirely inside GROUPED_VERSION_INDEX (col1, version, pk):
+      # the only thing standing between this and a covering scan is reading the version
+      - query: select "__ROW_VERSION" as version, col1, id from t1 where col1 = 10;
+      - explain: "ISCAN(I1 [EQUALS promote(@c13 AS LONG)]) | MAP (_.__ROW_VERSION AS VERSION, _.COL1 AS COL1, _.ID AS ID)"
+      - unorderedResult: [{VERSION: !not_null _, COL1: 10, ID: 1}, {VERSION: !not_null _, COL1: 10, ID: 2}]
+    -
+      # same projection, version dropped — the comparison case
+      - query: select col1, id from t1 where col1 = 10;
+      - explain: "COVERING(I1 [EQUALS promote(@c9 AS LONG)] -> [COL1: KEY:[0], ID: KEY:[2]]) | MAP (_.COL1 AS COL1, _.ID AS ID)"
+      - unorderedResult: [{COL1: 10, ID: 1}, {COL1: 10, ID: 2}]
+...

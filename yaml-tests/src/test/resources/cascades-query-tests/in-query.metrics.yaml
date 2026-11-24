@@ -29,13 +29,13 @@ in-query:
     ref: in-query.yamsql:205
     explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
         [EQUALS q0._0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCH'
-    task_count: 759
-    task_total_time_ms: 47
-    transform_count: 205
-    transform_time_ms: 20
-    transform_yield_count: 71
-    insert_time_ms: 3
-    insert_new_count: 88
+    task_count: 798
+    task_total_time_ms: 12
+    transform_count: 211
+    transform_time_ms: 6
+    transform_yield_count: 73
+    insert_time_ms: 0
+    insert_new_count: 92
     insert_reused_count: 6
 -   query: EXPLAIN select * from my_simple_record where num_value_3_indexed in (1,
         4, 2) order by num_value_3_indexed
@@ -55,13 +55,13 @@ in-query:
     ref: in-query.yamsql:338
     explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
         [EQUALS q0._0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCH'
-    task_count: 759
-    task_total_time_ms: 47
-    transform_count: 205
-    transform_time_ms: 20
-    transform_yield_count: 71
-    insert_time_ms: 3
-    insert_new_count: 88
+    task_count: 798
+    task_total_time_ms: 12
+    transform_count: 211
+    transform_time_ms: 6
+    transform_yield_count: 73
+    insert_time_ms: 0
+    insert_new_count: 92
     insert_reused_count: 6
 -   query: EXPLAIN select rec_no from my_simple_record where num_value_3_indexed in
         (1, 2, 4) order by num_value_3_indexed
@@ -162,11 +162,11 @@ in-query-prepared:
     ref: in-query.yamsql:844
     explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED
         [EQUALS q0._0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } | FETCH'
-    task_count: 759
-    task_total_time_ms: 29
-    transform_count: 205
-    transform_time_ms: 13
-    transform_yield_count: 71
-    insert_time_ms: 2
-    insert_new_count: 88
+    task_count: 798
+    task_total_time_ms: 12
+    transform_count: 211
+    transform_time_ms: 6
+    transform_yield_count: 73
+    insert_time_ms: 0
+    insert_new_count: 92
     insert_reused_count: 6
