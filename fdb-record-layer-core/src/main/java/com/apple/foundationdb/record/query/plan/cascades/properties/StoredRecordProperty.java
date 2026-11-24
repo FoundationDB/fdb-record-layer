@@ -277,8 +277,9 @@ public class StoredRecordProperty implements ExpressionProperty<Boolean> {
         @Nonnull
         @Override
         public Boolean visitMaxOneRecordPlan(@Nonnull final RecordQueryMaxOneRecordPlan maxOneRecordPlan) {
-            // The property passes straight through, as MAX 1 RECORD just flows the record of its inner unchanged.
-            return storedRecordsFromSingleChild(maxOneRecordPlan);
+            // The records are not stored records, as a record that is held back across a continuation is returned
+            // without the stored record.
+            return false;
         }
 
         @Nonnull

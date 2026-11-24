@@ -321,8 +321,9 @@ public class PrimaryKeyProperty implements ExpressionProperty<Optional<List<Valu
         @Nonnull
         @Override
         public Optional<List<Value>> visitMaxOneRecordPlan(@Nonnull final RecordQueryMaxOneRecordPlan maxOneRecordPlan) {
-            // The property passes straight through, as MAX 1 RECORD just flows the record of its inner unchanged.
-            return primaryKeyFromSingleChild(maxOneRecordPlan);
+            // The primary key is not available, as a record that is held back across a continuation is returned
+            // without it.
+            return Optional.empty();
         }
 
         @Nonnull
