@@ -26,10 +26,15 @@ import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ValueTestHelpers;
 import com.apple.foundationdb.record.query.plan.planning.BindingFunction;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -41,7 +46,7 @@ class RecordQueryScoreForRankPlanTest {
      * Tests that a {@link RecordQueryScoreForRankPlan} survives a round trip through its proto representation.
      */
     @Test
-    void testSerialization() {
+    void testSerialization1() {
         final RecordQueryScoreForRankPlan plan = new RecordQueryScoreForRankPlan(
                 new RecordQueryScanPlan(ScanComparisons.EMPTY, false),
                 List.of(new RecordQueryScoreForRankPlan.ScoreForRank("rank1", BindingFunction.LONG,
@@ -57,6 +62,28 @@ class RecordQueryScoreForRankPlanTest {
                 PlanSerializationContext.newForCurrentMode(), proto);
 
         assertThat(deserialized.getRanks()).isEqualTo(plan.getRanks());
+        assertThat(deserialized.toProto(PlanSerializationContext.newForCurrentMode())).isEqualTo(proto);
+    }
+
+    /**
+     * Tests that a {@link RecordQueryScoreForRankPlan} survives a round trip through its proto representation when a
+     * rank comparison refers to a record type that is defined by the inner plan, so that deserializing the ranks before
+     * the inner plan would meet a reference id that nothing has defined yet.
+     */
+    @Test
+    void testSerialization2() {
+        final RecordQueryScoreForRankPlan plan = new RecordQueryScoreForRankPlan(
+                new RecordQueryScanPlan(Set.of("Shared"), ValueTestHelpers.namedRecordType(), null,
+                        ScanComparisons.EMPTY, false, false, Optional.empty()),
+                List.of(new RecordQueryScoreForRankPlan.ScoreForRank("rank1", BindingFunction.LONG,
+                        new IndexAggregateFunction(FunctionNames.SCORE_FOR_RANK, Key.Expressions.field("score"), "rank_index"),
+                        List.of(new Comparisons.ValueComparison(Comparisons.Type.EQUALS,
+                                QuantifiedObjectValue.of(CorrelationIdentifier.of("q"), ValueTestHelpers.namedRecordType()))))));
+
+        final var proto = plan.toProto(PlanSerializationContext.newForCurrentMode());
+        final RecordQueryScoreForRankPlan deserialized = RecordQueryScoreForRankPlan.fromProto(
+                PlanSerializationContext.newForCurrentMode(), proto);
+
         assertThat(deserialized.toProto(PlanSerializationContext.newForCurrentMode())).isEqualTo(proto);
     }
 }
