@@ -178,18 +178,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 // Note: `Concatenate` and `None` can use the graph expansion logic. Both just access the field directly
                 // via `FieldValue.ofFieldNames()`.
                 value = state.registerValue(FieldValue.ofFieldNames(baseQuantifier.getFlowedObjectValue(), fieldNames));
-                if (state.isSelectStar()) {
-                    if (state.isKey() && !state.isInternalExpansion()) {
-                        return GraphExpansion.ofPlaceholder(value.asPlaceholder(newParameterAlias()));
-                    }
-                    return GraphExpansion.empty();
-                } else {
-                    column = Column.unnamedOf(value);
-                    if (state.isKey() && !state.isInternalExpansion()) {
-                        return GraphExpansion.ofResultColumnAndPlaceholder(column, value.asPlaceholder(newParameterAlias()));
-                    }
-                    return GraphExpansion.ofResultColumn(column);
-                }
+                return expandPosition(state, value);
             default:
                 throw new UnsupportedOperationException();
         }
@@ -484,21 +473,34 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
             // a list places its child in a nested tuple, so the value of the position is the record of the child's
             // column values -- a record of one for a single-column child, as that tuple is nested all the same
             final var value = childState.registerValue(RecordConstructorValue.ofUnnamed(childValues));
-            // the child's position contributes what a scalar field at that position would
-            final var isSargable = childState.isKey() && !childState.isInternalExpansion();
-            if (childState.isSelectStar()) {
-                expandedPredicatesBuilder.add(isSargable
-                                              ? GraphExpansion.ofPlaceholder(value.asPlaceholder(newParameterAlias()))
-                                              : GraphExpansion.empty());
-            } else {
-                expandedPredicatesBuilder.add(isSargable
-                                              ? GraphExpansion.ofResultColumnAndPlaceholder(Column.unnamedOf(value),
-                                                      value.asPlaceholder(newParameterAlias()))
-                                              : GraphExpansion.ofResultColumn(Column.unnamedOf(value)));
-            }
+            // the position is then expanded like that of a scalar field, under the list's own state
+            expandedPredicatesBuilder.add(expandPosition(childState, value));
             currentOrdinal++;
         }
         return GraphExpansion.ofOthers(expandedPredicatesBuilder.build());
+    }
+
+    /**
+     * Expands a single position of a key expression whose value has already been registered. A key position outside
+     * an internal expansion is sargable and gets a placeholder, and the value is returned as a result column unless
+     * the expansion is select-star, whose result is the whole base record instead.
+     *
+     * @param state the state the position is visited in
+     * @param value the value of the position
+     * @return the expansion of the position
+     */
+    @Nonnull
+    private static GraphExpansion expandPosition(@Nonnull final VisitorState state, @Nonnull final Value value) {
+        final boolean isSargable = state.isKey() && !state.isInternalExpansion();
+        if (state.isSelectStar()) {
+            return isSargable
+                    ? GraphExpansion.ofPlaceholder(value.asPlaceholder(newParameterAlias()))
+                    : GraphExpansion.empty();
+        }
+        final var column = Column.unnamedOf(value);
+        return isSargable
+                ? GraphExpansion.ofResultColumnAndPlaceholder(column, value.asPlaceholder(newParameterAlias()))
+                : GraphExpansion.ofResultColumn(column);
     }
 
     /**
