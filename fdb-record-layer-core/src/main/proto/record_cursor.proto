@@ -179,6 +179,17 @@ message OneOfTypedState {
   }
 }
 
+// The state of a max-one-record plan whose inner stopped before it could be determined whether it holds a second
+// record, or that has already returned its record.
+message MaxOneRecordCursorContinuation {
+    // Where to resume the inner.
+    optional bytes inner_continuation = 1;
+    // The first record drawn from the inner, which the plan holds back until it has seen that there is no second one.
+    optional planprotos.PQueryResult held_result = 2;
+    // Set once the plan has returned its record, in which case there is nothing left to resume.
+    optional bool done = 3;
+}
+
 message RangeCursorContinuation {
     optional int64 nextPosition = 1;
 }

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -30,8 +31,12 @@ import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.RecordCoreCardinalityViolationException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
+import com.apple.foundationdb.record.cursors.FutureResultCursor;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.planprotos.PQueryResult;
 import com.apple.foundationdb.record.planprotos.PRecordQueryMaxOneRecordPlan;
 import com.apple.foundationdb.record.planprotos.PRecordQueryPlan;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -46,12 +51,17 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
+import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.Descriptors;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -85,62 +95,140 @@ public class RecordQueryMaxOneRecordPlan extends AbstractRelationalExpressionWit
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
+        final RecordCursorProto.MaxOneRecordCursorContinuation parsedContinuation = parseContinuation(continuation);
+        if (parsedContinuation != null && parsedContinuation.getDone()) {
+            return RecordCursor.empty(store.getExecutor());
+        }
         // Note: It’s important that we don’t limit the inner plan, as that could hide a potential second record.
         final ExecuteProperties innerExecuteProperties = executeProperties.clearSkipAndLimit();
-        // Note: The `filter()` is needed to handle the `null` returned by `maxOneRecord()` if the inner is empty.
-        // In that case we want the cursor to be empty rather than the null record emitted by `fromFuture()`.
-        return RecordCursor.fromFuture(
-                        store.getExecutor(),
-                        () -> maxOneRecord(store, context, innerExecuteProperties),
-                        continuation)
-                .filter(Objects::nonNull)
+        return new FutureResultCursor<>(store.getExecutor(),
+                        maxOneRecord(store, context, innerExecuteProperties, parsedContinuation))
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
 
     /**
-     * Draws up to two records from the inner and returns the first one, or {@code null} if the inner is empty. Both
-     * are drawn up front rather than checked lazily as records flow past, since a consumer of this plan (typically a
+     * Draws up to two records from the inner and returns the first one, or no record if the inner is empty. Both are
+     * drawn up front rather than checked lazily as records flow past, since a consumer of this plan (typically a
      * {@link RecordQueryFirstOrDefaultPlan}) might stop after the first record and never ask for the second one.
      * If there are two records, this method raises a {@link RecordCoreCardinalityViolationException}.
      *
      * <p>In case the inner stops early on an out-of-band completion, such as a scan limit, before producing two
-     * records, this method raises a {@link RecordCoreException}, since it is then unknown whether the inner is empty or
-     * has a second record. The cursor of this plan cannot resume the inner across a continuation, as it would have to
-     * hold back the first record. The same limitation also exists in {@link RecordQueryFirstOrDefaultPlan}; see
-     * <a href="https://github.com/FoundationDB/fdb-record-layer/issues/3220">Issue #3220</a>.
+     * records, it is unknown whether the inner is empty or has a second record. This method then returns a result
+     * without a value, carrying the reason the inner stopped for and a continuation to pick up from there. If the
+     * inner has produced a record by then, the continuation holds that record back, serialized as a
+     * {@link PQueryResult}. Such a record is returned with its value only, i.e., it does not carry the stored record
+     * or the primary key that it might have carried had it been returned without being held back.
      */
     @SuppressWarnings({"resource", "PMD.CloseResource"}) // closed once the returned future completes
     @Nonnull
-    private <M extends Message> CompletableFuture<QueryResult> maxOneRecord(
+    private <M extends Message> CompletableFuture<RecordCursorResult<QueryResult>> maxOneRecord(
             @Nonnull final FDBRecordStoreBase<M> store,
             @Nonnull final EvaluationContext context,
-            @Nonnull final ExecuteProperties innerExecuteProperties) {
-        // Note: We always start the inner from the beginning, with a null continuation. The `FutureCursor` only ever
-        // returns a single value, so this method is called only if the continuation of this plan is itself null
-        // (i.e., we are starting the plan from the beginning).
+            @Nonnull final ExecuteProperties innerExecuteProperties,
+            @Nullable final RecordCursorProto.MaxOneRecordCursorContinuation continuation) {
+        @Nullable final QueryResult heldResult;
+        @Nullable final byte[] innerContinuation;
+        if (continuation == null) {
+            heldResult = null;
+            innerContinuation = null;
+        } else {
+            heldResult = continuation.hasHeldResult()
+                         ? QueryResult.from(getResultDescriptor(context), continuation.getHeldResult())
+                         : null;
+            innerContinuation = continuation.hasInnerContinuation() ? continuation.getInnerContinuation().toByteArray() : null;
+        }
+        // Having drawn one record already, a single further record is enough to know that there are two.
         final RecordCursor<QueryResult> innerCursor =
-                getChild().executePlan(store, context, null, innerExecuteProperties).limitRowsTo(2);
+                getChild().executePlan(store, context, innerContinuation, innerExecuteProperties)
+                        .limitRowsTo(heldResult == null ? 2 : 1);
         final AtomicReference<RecordCursorResult<QueryResult>> terminatingResultRef = new AtomicReference<>();
         return innerCursor
                 .asList(terminatingResultRef)
-                .thenApply(results -> {
+                .thenApply(drawnResults -> {
+                    final List<QueryResult> results = heldResult == null
+                                                      ? drawnResults
+                                                      : ImmutableList.<QueryResult>builder().add(heldResult).addAll(drawnResults).build();
                     if (results.size() > 1) {
                         throw new RecordCoreCardinalityViolationException(
                                 "A plan required to return at most one record returned more than one record")
                                 .addLogInfo(LogMessageKeys.PLAN_HASH, planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
                     }
-                    final RecordCursor.NoNextReason noNextReason = terminatingResultRef.get().getNoNextReason();
-                    if (noNextReason.isOutOfBand()) {
-                        throw new RecordCoreException(
-                                "A plan required to return at most one record stopped early on an out-of-band completion")
-                                .addLogInfo(LogMessageKeys.NO_NEXT_REASON, noNextReason)
-                                .addLogInfo(LogMessageKeys.PLAN_HASH, planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+                    final RecordCursorResult<QueryResult> terminatingResult = terminatingResultRef.get();
+                    if (!terminatingResult.getNoNextReason().isSourceExhausted()) {
+                        return RecordCursorResult.<QueryResult>withoutNextValue(
+                                resumeContinuation(context, terminatingResult, results), terminatingResult.getNoNextReason());
                     }
-                    return results.isEmpty() ? null : results.get(0);
+                    if (results.isEmpty()) {
+                        return RecordCursorResult.<QueryResult>exhausted();
+                    }
+                    return RecordCursorResult.withNextValue(results.get(0), doneContinuation());
                 })
-                // Close the inner cursor once done with it. (The `FutureCursor` of this plan isn’t aware of the inner
-                // cursor and would otherwise leak it.)
+                // Close the inner cursor once done with it. (The `FutureResultCursor` of this plan isn’t aware of the
+                // inner cursor and would otherwise leak it.)
                 .whenComplete((ignore, err) -> innerCursor.close());
+    }
+
+    @Nonnull
+    private RecordCursorContinuation resumeContinuation(@Nonnull final EvaluationContext context,
+                                                        @Nonnull final RecordCursorResult<QueryResult> terminatingResult,
+                                                        @Nonnull final List<QueryResult> results) {
+        // Note: Setting `done` explicitly keeps the serialized continuation from being empty.
+        final RecordCursorProto.MaxOneRecordCursorContinuation.Builder builder =
+                RecordCursorProto.MaxOneRecordCursorContinuation.newBuilder().setDone(false);
+        final ByteString innerContinuation = terminatingResult.getContinuation().toByteString();
+        if (!innerContinuation.isEmpty()) {
+            builder.setInnerContinuation(innerContinuation);
+        }
+        if (!results.isEmpty()) {
+            final QueryResult heldResult = results.get(0);
+            if (heldResult.getDatum() instanceof Message && getResultDescriptor(context) == null) {
+                // Fail here rather than when resuming, as that is where the record would be deserialized.
+                throw new RecordCoreException(
+                        "A plan required to return at most one record stopped early on an out-of-band completion, "
+                        + "and cannot hold back a record of a type that is unknown to the type repository")
+                        .addLogInfo(LogMessageKeys.NO_NEXT_REASON, terminatingResult.getNoNextReason())
+                        .addLogInfo(LogMessageKeys.PLAN_HASH, planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            }
+            try {
+                builder.setHeldResult(heldResult.toProto());
+            } catch (RecordCoreException ex) {
+                throw new RecordCoreException(
+                        "A plan required to return at most one record stopped early on an out-of-band completion, "
+                        + "and cannot hold back a record that cannot be serialized", ex)
+                        .addLogInfo(LogMessageKeys.NO_NEXT_REASON, terminatingResult.getNoNextReason())
+                        .addLogInfo(LogMessageKeys.PLAN_HASH, planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+            }
+        }
+        return ByteArrayContinuation.fromNullable(builder.build().toByteArray());
+    }
+
+    @Nonnull
+    private static RecordCursorContinuation doneContinuation() {
+        return ByteArrayContinuation.fromNullable(
+                RecordCursorProto.MaxOneRecordCursorContinuation.newBuilder().setDone(true).build().toByteArray());
+    }
+
+    @Nullable
+    private static RecordCursorProto.MaxOneRecordCursorContinuation parseContinuation(@Nullable final byte[] continuation) {
+        if (continuation == null) {
+            return null;
+        }
+        try {
+            return RecordCursorProto.MaxOneRecordCursorContinuation.parseFrom(continuation);
+        } catch (InvalidProtocolBufferException ex) {
+            throw new RecordCoreException("invalid continuation", ex)
+                    .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(continuation));
+        }
+    }
+
+    /**
+     * Returns the descriptor needed to deserialize a record that has been held back, or {@code null} if the records
+     * flowing through this plan are not messages.
+     */
+    @Nullable
+    private Descriptors.Descriptor getResultDescriptor(@Nonnull final EvaluationContext context) {
+        final Type resultType = Objects.requireNonNull(getResultValue().getResultType());
+        return resultType.isRecord() ? context.getTypeRepository().getMessageDescriptor(resultType) : null;
     }
 
     @Nonnull
