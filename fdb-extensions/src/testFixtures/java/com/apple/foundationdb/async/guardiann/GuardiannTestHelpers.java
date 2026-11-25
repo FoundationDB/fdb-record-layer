@@ -24,6 +24,7 @@ import com.apple.foundationdb.Database;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.common.PrimaryKeyAndVector;
+import com.apple.foundationdb.async.common.PrimaryKeyVectorAndDistance;
 import com.apple.foundationdb.async.common.ResultEntry;
 import com.apple.foundationdb.async.common.TopK;
 import com.apple.foundationdb.linear.DoubleRealVector;
@@ -612,7 +613,9 @@ public class GuardiannTestHelpers {
         int countedQueries = 0;
         for (int i = 0; i < queries.size(); i++) {
             final RealVector query = queries.get(i);
-            final Set<Integer> truth = bruteForceTopK(metric, query, active, k);
+            final Set<Integer> truth = bruteForceTopK(metric, query, active, k).stream()
+                    .map(entry -> (int) entry.primaryKey().getLong(0))
+                    .collect(ImmutableSet.toImmutableSet());
             if (truth.isEmpty()) {
                 continue;
             }
@@ -778,27 +781,24 @@ public class GuardiannTestHelpers {
     }
 
     /**
-     * Brute-force top-{@code k} primary-key indices in {@code active} by {@code metric} distance
-     * to {@code query}. Maintains a max-heap of size {@code k} so the per-query work is
-     * {@code O(|active| * log k)} (and {@code O(|active| * d)} for the distances).
-     *
-     * <p>Returned indices are extracted as {@code (int) primaryKey.getLong(0)}, matching the
-     * convention used by {@link #singleQueryRecall} so the two are directly comparable.
+     * Brute-force top-{@code k} records of {@code active} by {@code metric} distance to {@code query}, nearest first,
+     * ties broken by primary key (the order of {@code CommonTestHelpers.orderedByDistances}). Maintains a max-heap of
+     * size {@code k} so the per-query work is {@code O(|active| * log k)} (and {@code O(|active| * d)} for the
+     * distances).
      */
     @Nonnull
-    static Set<Integer> bruteForceTopK(@Nonnull final Metric metric,
-                                       @Nonnull final RealVector query,
-                                       @Nonnull final Map<Tuple, ? extends RealVector> active,
-                                       final int k) {
-        // Local record so we don't need a top-level helper class.
-        record IndexedDistance(double distance, int index) { }
-
-        final TopK<IndexedDistance> topK = TopK.min(
-                Comparator.comparingDouble(IndexedDistance::distance).thenComparingInt(IndexedDistance::index), k);
+    static List<PrimaryKeyVectorAndDistance> bruteForceTopK(@Nonnull final Metric metric,
+                                                            @Nonnull final RealVector query,
+                                                            @Nonnull final Map<Tuple, ? extends RealVector> active,
+                                                            final int k) {
+        final TopK<PrimaryKeyVectorAndDistance> topK = TopK.min(
+                Comparator.comparingDouble(PrimaryKeyVectorAndDistance::distance)
+                        .thenComparing(PrimaryKeyVectorAndDistance::primaryKey), k);
         for (final Map.Entry<Tuple, ? extends RealVector> e : active.entrySet()) {
-            topK.add(new IndexedDistance(metric.distance(query, e.getValue()), (int) e.getKey().getLong(0)));
+            final RealVector vector = e.getValue();
+            topK.add(new PrimaryKeyVectorAndDistance(e.getKey(), vector, metric.distance(query, vector)));
         }
-        return topK.toSortedList().stream().map(IndexedDistance::index).collect(ImmutableSet.toImmutableSet());
+        return topK.toSortedList();
     }
 
     /**
