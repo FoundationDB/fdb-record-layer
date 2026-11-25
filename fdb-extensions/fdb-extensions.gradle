@@ -244,7 +244,7 @@ tasks.named('check').configure {
 //   clientLogTest          the default, with no checksums. Works with any FDB version, and is part of check.
 //   clientLogChecksumTest  has the client record checksums. Needs a 7.4 or later client library, which the knob
 //                          does not exist in before, so it is only part of check when asked for with
-//                          -Ptests.clientLogChecksum, which CI should pass once it runs such a version.
+//                          -Ptests.clientLogChecksum.
 // Either can also be given -Dfdb.clientlog.capture_dir=<dir> to write the raw log entries that were read there,
 // which is how to add to the log entries that FDBClientLogEventsParsingTest checks.
 //

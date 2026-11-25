@@ -98,7 +98,7 @@ jobs:
           # test tasks and picked up by the coverage-data upload below. These are separated from the main
           # test task because they require their own JVM in order to override certain global settings.
           if [[ ${{ matrix.subproject }} == 'fdb-extensions' ]] ; then
-            echo "task=:fdb-extensions:scalarFallbackTest :fdb-extensions:clientLogTest" >> "$GITHUB_OUTPUT"
+            echo "task=:fdb-extensions:scalarFallbackTest :fdb-extensions:clientLogTest :fdb-extensions:clientLogChecksumTest" >> "$GITHUB_OUTPUT"
           fi
       - name: Run Gradle Test
         uses: ./actions/gradle-test

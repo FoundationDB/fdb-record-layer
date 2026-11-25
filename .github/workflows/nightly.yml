@@ -43,7 +43,7 @@ jobs:
       - name: Run Gradle Test
         uses: ./actions/gradle-test
         with:
-          gradle_command: jar test destructiveTest :fdb-extensions:scalarFallbackTest :fdb-extensions:clientLogTest codeCoverageReport
+          gradle_command: jar test destructiveTest :fdb-extensions:scalarFallbackTest :fdb-extensions:clientLogTest :fdb-extensions:clientLogChecksumTest codeCoverageReport
           gradle_args: -PreleaseBuild=false -PpublishBuild=false -DallTest.timeoutMinutes=330
       - name: Upload coverage to teamscale
         uses: ./actions/teamscale-upload
@@ -160,7 +160,7 @@ jobs:
         # subprojects.
         include:
           - subproject: fdb-extensions
-            extra_tasks: ':fdb-extensions:scalarFallbackTest :fdb-extensions:clientLogTest'
+            extra_tasks: ':fdb-extensions:scalarFallbackTest :fdb-extensions:clientLogTest :fdb-extensions:clientLogChecksumTest'
     runs-on: ubuntu-latest
     # See the timeout comment on the `test` job
     timeout-minutes: 360
