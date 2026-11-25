@@ -55,15 +55,15 @@ all-tests:
     insert_reused_count: 4
 -   query: EXPLAIN select "foo.table$repeated".id from "foo.table$repeated" where
         'foo' IN "foo.table$repeated"."field.1$array"
-    ref: valid-identifiers.yamsql:179
+    ref: valid-identifiers.yamsql:178
     explain: SCAN([IS foo.table$repeated]) | FLATMAP q0 -> { TF explode(arrayDistinct(q0.field.1$array))
         | FILTER _._0 EQUALS @c7 AS q1 RETURN (q0.ID AS ID) }
     task_count: 367
-    task_total_time_ms: 17
+    task_total_time_ms: 41
     transform_count: 118
-    transform_time_ms: 4
+    transform_time_ms: 15
     transform_yield_count: 27
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 34
     insert_reused_count: 2
 -   query: EXPLAIN select "foo.table$repeated".id from "foo.table$repeated" where
@@ -81,14 +81,14 @@ all-tests:
     insert_reused_count: 0
 -   query: EXPLAIN select t."field.1$array" from "foo.table$repeated" as t where 3
         IN t."field.0$array"
-    ref: valid-identifiers.yamsql:191
+    ref: valid-identifiers.yamsql:190
     explain: SCAN([IS foo.table$repeated]) | FLATMAP q0 -> { TF explode(arrayDistinct(q0.field.0$array))
         | FILTER _._0 EQUALS promote(@c9 AS LONG) AS q1 RETURN (q0.field.1$array AS
         field.1$array) }
     task_count: 367
-    task_total_time_ms: 18
+    task_total_time_ms: 40
     transform_count: 118
-    transform_time_ms: 5
+    transform_time_ms: 16
     transform_yield_count: 27
     insert_time_ms: 1
     insert_new_count: 34
@@ -154,17 +154,17 @@ all-tests:
     insert_reused_count: 3
 -   query: EXPLAIN select * from "foo.tableA", "foo.tableB" where "foo.tableA"."foo.tableA.A1"
         = "foo.tableB"."foo.tableB.B1";
-    ref: valid-identifiers.yamsql:287
+    ref: valid-identifiers.yamsql:286
     explain: ISCAN(foo.tableA.idx3 <,>) | FLATMAP q0 -> { SCAN([IS foo.tableB, EQUALS
         q0.foo.tableA.A1]) AS q1 RETURN (q0.foo.tableA.A1 AS foo.tableA.A1, q0.foo.tableA.A2
         AS foo.tableA.A2, q0.foo.tableA.A3 AS foo.tableA.A3, q1.foo.tableB.B1 AS foo.tableB.B1,
         q1.foo.tableB.B2 AS foo.tableB.B2, q1.foo.tableB.B3 AS foo.tableB.B3) }
     task_count: 739
-    task_total_time_ms: 47
+    task_total_time_ms: 115
     transform_count: 204
-    transform_time_ms: 18
+    transform_time_ms: 48
     transform_yield_count: 70
-    insert_time_ms: 1
+    insert_time_ms: 3
     insert_new_count: 99
     insert_reused_count: 5
 -   query: EXPLAIN select "foo$tableC$C2", sum("foo$tableC$C1") from "foo$tableC"
