@@ -100,23 +100,39 @@ public class Values {
     @Nonnull
     public static List<Value> primitiveAccessorsForType(@Nonnull final Type type,
                                                         @Nonnull final Supplier<Value> baseValueSupplier) {
-        if (type.getTypeCode() != Type.TypeCode.RECORD) {
-            SemanticException.check(type.isPrimitive() || type.isEnum(),
-                    SemanticException.ErrorCode.ORDERING_IS_OF_INCOMPATIBLE_TYPE);
-            return ImmutableList.of(baseValueSupplier.get());
+        final List<Value> result;
+        if (type.getTypeCode() == Type.TypeCode.RECORD) {
+            result = deconstructRecordRecursively(baseValueSupplier.get());
+        } else {
+            result = ImmutableList.of(baseValueSupplier.get());
         }
+        SemanticException.check(result.stream().allMatch(
+                v -> v.getResultType().isPrimitive() || v.getResultType().isEnum()),
+                SemanticException.ErrorCode.ORDERING_IS_OF_INCOMPATIBLE_TYPE);
+        return result;
+    }
+
+    /**
+     * Expand a record value recursively into its field values.
+     *
+     * @param recordValue the record value
+     * @return a list of field values
+     */
+    public static List<Value> deconstructRecordRecursively(@Nonnull final Value recordValue) {
+        Verify.verify(recordValue.getResultType().isRecord());
 
         final var orderingValuesBuilder = ImmutableList.<Value>builder();
-        final var recordType = (Type.Record)type;
-        final var fields = recordType.getFields();
-
+        final var fields = ((Type.Record)recordValue.getResultType()).getFields();
         for (int i = 0; i < fields.size(); i++) {
             final var field = fields.get(i);
             final var singleStepPath =
                     FieldValue.FieldPath.ofSingle(FieldValue.ResolvedAccessor.of(field, i));
-            primitiveAccessorsForType(field.getFieldType(),
-                    () -> FieldValue.ofFieldsAndFuseIfPossible(baseValueSupplier.get(), singleStepPath))
-                    .forEach(orderingValuesBuilder::add);
+            final var childValue = FieldValue.ofFieldsAndFuseIfPossible(recordValue, singleStepPath);
+            if (childValue.getResultType().getTypeCode() != Type.TypeCode.RECORD) {
+                orderingValuesBuilder.add(childValue);
+            } else {
+                deconstructRecordRecursively(childValue).forEach(orderingValuesBuilder::add);
+            }
         }
 
         return orderingValuesBuilder.build();

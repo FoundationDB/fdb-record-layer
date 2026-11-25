@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.planprotos.PCoercionBiFunction;
 import com.apple.foundationdb.record.planprotos.PCoercionTrieNode;
 import com.apple.foundationdb.record.planprotos.PTransformationTrieNode;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.NullableArrayTypeUtils;
@@ -175,33 +176,131 @@ public class MessageHelpers {
         return message.getDescriptorForType().getFields().get(fieldOrdinal);
     }
 
+    /**
+     * Compare two protobuf messages for order. Returns a negative integer, zero, or a positive integer if the first
+     * message is less than, equal to, or greater than the second message respectively.
+     *
+     * <p>This method returns {@code null} if the result of the comparison depends on comparing two fields where one or
+     * both of them is {@code null}. For example:
+     * <ul>
+     *  <li>{@code (f1, f2), (f1, f2) -> 0}</li>
+     *  <li>{@code (f1, null), (f2, null) with f1 > f2 -> 1}</li>
+     *  <li>{@code (null, f2), (f1, f2) -> null}</li>
+     *  <li>{@code (f1, null), (f1, f2) -> null}</li>
+     *  <li>{@code (f1, null), (f2, null) with f1 < f2 -> -1}</li>
+     * </ul>
+     *
+     * @param o1 the first message
+     * @param o2 the second message
+     * @return {@code 0} if o1 is equal to o2, {@code 1} if o1 is larger than o2, {@code -1} if o1 is less than o2 and
+     *         {@code null} if the comparison reaches a null comparison.
+     */
+    @Nullable
+    public static Integer compareMessages(@Nullable Object o1, @Nullable Object o2) {
+        if (o1 == null || o2 == null) {
+            return null;
+        }
+
+        final var lessThan = MessageHelpers.compareMessageLessThan(o1, o2);
+        if (lessThan == null) {
+            return null;
+        } else if (lessThan) {
+            return -1;
+        }
+
+        final var equals = MessageHelpers.compareMessageEquals(Comparisons.Type.EQUALS, o1, o2);
+        if (equals == null) {
+            return null;
+        } else if (equals) {
+            return 0;
+        }
+
+        return 1;
+    }
+
+    @Nullable
+    private static Boolean compareMessageLessThan(@Nonnull Object o1, @Nonnull Object o2) {
+        if (!(o1 instanceof final Message m1) || !(o2 instanceof final Message m2)) {
+            return false;
+        }
+
+        final List<Descriptors.FieldDescriptor> m1Fields = m1.getDescriptorForType().getFields();
+        final List<Descriptors.FieldDescriptor> m2Fields = m2.getDescriptorForType().getFields();
+        if (m1Fields.size() != m2Fields.size()) {
+            throw new RecordCoreException("cannot compare messages with different or zero number of fields");
+        }
+
+        for (final var field1Descriptor : m1.getDescriptorForType().getFields()) {
+            final var field2Descriptor = findFieldDescriptorOnMessage(m2, field1Descriptor.getNumber());
+            final Object f1Value = getFieldOnMessage(m1, field1Descriptor);
+            final Object f2Value = getFieldOnMessage(m2, field2Descriptor);
+            final var lessThanResult = Comparisons.evalComparison(Comparisons.Type.LESS_THAN, f1Value, f2Value);
+            final var equalsResult = Comparisons.evalComparison(Comparisons.Type.EQUALS, f1Value, f2Value);
+
+            if (lessThanResult == null || !lessThanResult && equalsResult == null) {
+                return null;
+            } else if (lessThanResult) {
+                return true;
+            } else if (!equalsResult) {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Compare whether two protobuf messages are equal field-wise using the provided comparison type.
+     *
+     * <p>The supported comparison types for this method are either {@link Comparisons.Type#EQUALS} or
+     * {@link Comparisons.Type#NOT_DISTINCT_FROM}. Note that this method returns {@code null} if the result of the
+     * comparison depends on comparing two fields where one or both of them is {@code null} and the comparison type
+     * doesn't support null comparisons. For example:
+     * <ul>
+     *  <li>{@code (f1, f2) = (f1, f2) -> true}</li>
+     *  <li>{@code (f1, null) = (f2, null) -> false}</li>
+     *  <li>{@code (null, f2) = (f1, f2) -> null}</li>
+     *  <li>{@code (null, f2) IS NOT DISTINCT FROM (f1, f2) -> false}</li>
+     *  <li>{@code (null, f2) IS NOT DISTINCT FROM (null, f2) -> true}</li>
+     * </ul>
+     *
+     * @param type the {@link Comparisons.Type} to use
+     * @param o1 the first message
+     * @param o2 the second message
+     * @return {@code true} if both messages are equal field-wise, {@code null} if the comparison reaches a null
+     *         comparison and the provided {@code type} is {@link Comparisons.Type#EQUALS}, {@code false} otherwise.
+     */
+    @Nullable
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public static boolean compareMessageEquals(@Nonnull Object o1, @Nonnull Object o2) {
+    public static Boolean compareMessageEquals(Comparisons.Type type, @Nonnull Object o1, @Nonnull Object o2) {
         if (!(o1 instanceof Message) || !(o2 instanceof Message)) {
             return false;
         }
-        MessageOrBuilder m1 = (MessageOrBuilder) o1;
-        MessageOrBuilder m2 = (MessageOrBuilder) o2;
 
-        if (m1.getDescriptorForType() == m2.getDescriptorForType()) {
+        if (type != Comparisons.Type.EQUALS && type != Comparisons.Type.NOT_DISTINCT_FROM) {
+            throw new RecordCoreException("unsupported comparison type for message comparison");
+        }
+
+        final MessageOrBuilder m1 = (MessageOrBuilder) o1;
+        final MessageOrBuilder m2 = (MessageOrBuilder) o2;
+
+        // We can't use the protobuf equality implementation with equals as it treats null values as equal.
+        if (m1.getDescriptorForType() == m2.getDescriptorForType() && type == Comparisons.Type.NOT_DISTINCT_FROM) {
             return m1.equals(m2);
         }
 
         if (m1.getDescriptorForType().getFields().size() != m2.getDescriptorForType().getFields().size()) {
             return false;
         }
-        // compare FieldDescriptors one by one
-        for (int i = 1; i <= m1.getDescriptorForType().getFields().size(); i++) {
-            Descriptors.FieldDescriptor f1 = findFieldDescriptorOnMessage(m1, i);
-            Descriptors.FieldDescriptor f2 = findFieldDescriptorOnMessage(m2, i);
-            // do not support repeated or nested fields in the message
-            Verify.verify(!f1.isRepeated() && !f1.isMapField() && f1.getJavaType() != Descriptors.FieldDescriptor.JavaType.MESSAGE);
-            Verify.verify(!f2.isRepeated() && !f2.isMapField() && f2.getJavaType() != Descriptors.FieldDescriptor.JavaType.MESSAGE);
-            if (f1.getJavaType() == f2.getJavaType() && m1.getField(f1).equals(m2.getField(f2))) {
-                if (!m1.getField(f1).equals(m2.getField(f2))) {
-                    return false;
-                }
-            } else {
+
+        // Compare FieldDescriptors one by one
+        for (final var field1Descriptor : m1.getDescriptorForType().getFields()) {
+            final var field2Descriptor = findFieldDescriptorOnMessage(m2, field1Descriptor.getNumber());
+            final Object f1Value = getFieldOnMessage(m1, field1Descriptor);
+            final Object f2Value = getFieldOnMessage(m2, field2Descriptor);
+            final var result = Comparisons.evalComparison(type, f1Value, f2Value);
+            if (result == null) {
+                return null;
+            } else if (!result) {
                 return false;
             }
         }

@@ -1290,6 +1290,15 @@ message PBinaryRelOpValue {
       NOT_DISTINCT_FROM_NULL_NONE = 528;
       NOT_DISTINCT_FROM_NONE_NULL = 529;
       NOT_DISTINCT_FROM_NONE_NONE = 530;
+
+      LT_REC_REC = 531;
+      LTE_REC_REC = 532;
+      GT_REC_REC = 533;
+      GTE_REC_REC = 534;
+      EQ_REC_REC = 535;
+      NEQ_REC_REC = 536;
+      IS_DISTINCT_FROM_REC_REC = 537;
+      NOT_DISTINCT_FROM_REC_REC = 538;
   }
   optional PRelOpValue super = 1;
   optional PBinaryPhysicalOperator operator = 2;
@@ -1342,8 +1351,12 @@ message PUnaryRelOpValue {
 
       IS_NULL_ARRAY = 27;
       IS_NOT_NULL_ARRAY = 28;
+
       IS_NULL_NONE = 29;
       IS_NOT_NULL_NONE = 30;
+
+      IS_NULL_RECORD = 31;
+      IS_NOT_NULL_RECORD = 32;
   }
   optional PRelOpValue super = 1;
   optional PUnaryPhysicalOperator operator = 2;

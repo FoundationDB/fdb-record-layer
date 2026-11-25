@@ -234,13 +234,17 @@ public class Comparisons {
     }
 
     @SuppressWarnings("unchecked")
-    public static int compare(@Nonnull Object fieldValue, @Nonnull Object comparand) {
-        return toComparable(fieldValue).compareTo(toComparable(comparand));
+    public static Integer compare(@Nonnull Object fieldValue, @Nonnull Object comparand) {
+        if (fieldValue instanceof Message) {
+            return MessageHelpers.compareMessages(fieldValue, comparand);
+        } else {
+            return toComparable(fieldValue).compareTo(toComparable(comparand));
+        }
     }
 
-    private static boolean compareEquals(@Nonnull Object value, @Nonnull Object comparand) {
+    private static Boolean compareEquals(@Nonnull Object value, @Nonnull Object comparand) {
         if (value instanceof Message) {
-            return MessageHelpers.compareMessageEquals(value, comparand);
+            return MessageHelpers.compareMessageEquals(Type.EQUALS, value, comparand);
         } else {
             return toClassWithRealEquals(value).equals(toClassWithRealEquals(comparand));
         }
@@ -253,7 +257,7 @@ public class Comparisons {
             return false;
         } else {
             if (value instanceof Message) {
-                return MessageHelpers.compareMessageEquals(value, comparand);
+                return Boolean.TRUE.equals(MessageHelpers.compareMessageEquals(Type.NOT_DISTINCT_FROM, value, comparand));
             } else {
                 return toClassWithRealEquals(Objects.requireNonNull(value)).equals(toClassWithRealEquals(Objects.requireNonNull(comparand)));
             }
@@ -338,7 +342,10 @@ public class Comparisons {
             value = (value instanceof Message) ? value : toClassWithRealEquals(value);
             for (Object comparandItem : (List<?>) comparand) {
                 if (value instanceof Message) {
-                    if (MessageHelpers.compareMessageEquals(value, comparandItem)) {
+                    final Boolean result = MessageHelpers.compareMessageEquals(Type.EQUALS, value, comparandItem);
+                    if (result == null) {
+                        hasNull = true;
+                    } else if (result) {
                         return true;
                     }
                 } else {
@@ -758,7 +765,8 @@ public class Comparisons {
                 if (value == null || comparand == null) {
                     return null;
                 }
-                return !compareEquals(value, comparand);
+                final var equalsResult = compareEquals(value, comparand);
+                return equalsResult == null ? null : !equalsResult;
             case IS_DISTINCT_FROM:
                 return !compareNotDistinctFrom(value, comparand);
             case NOT_DISTINCT_FROM:
@@ -767,22 +775,26 @@ public class Comparisons {
                 if (value == null || comparand == null) {
                     return null;
                 }
-                return compare(value, comparand) < 0;
+                final var lessThanResult = compare(value, comparand);
+                return lessThanResult == null ? null : lessThanResult < 0;
             case LESS_THAN_OR_EQUALS:
                 if (value == null || comparand == null) {
                     return null;
                 }
-                return compare(value, comparand) <= 0;
+                final var lessThanOrEqualsResult = compare(value, comparand);
+                return lessThanOrEqualsResult == null ? null : lessThanOrEqualsResult <= 0;
             case GREATER_THAN:
                 if (value == null || comparand == null) {
                     return null;
                 }
-                return compare(value, comparand) > 0;
+                final var greaterThanResult = compare(value, comparand);
+                return greaterThanResult == null ? null : greaterThanResult > 0;
             case GREATER_THAN_OR_EQUALS:
                 if (value == null || comparand == null) {
                     return null;
                 }
-                return compare(value, comparand) >= 0;
+                final var greaterThanOrEqualsResult = compare(value, comparand);
+                return greaterThanOrEqualsResult == null ? null : greaterThanOrEqualsResult >= 0;
             case LIKE:
                 return compareLike(value, comparand);
             default:

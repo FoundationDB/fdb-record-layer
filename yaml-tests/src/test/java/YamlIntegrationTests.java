@@ -484,6 +484,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void structOperators(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("struct-operators.yamsql");
+    }
+
+    @TestTemplate
     public void subqueryTests(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("subquery-tests.yamsql");
     }
