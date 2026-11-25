@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.record.util.ProtoUtils;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.ArrayRow;
 
@@ -47,7 +48,7 @@ public interface EmbeddedRelationalStruct extends RelationalStruct {
             // Ideally, the name of the struct should be something that the user can specify, however, this actually
             // interferes with the DDL-defined types. Hence, making this random is the way to enforce coercion
             // between the two - rather than confusing the downstream planner.
-            final var name = "ANONYMOUS_STRUCT_" + UUID.randomUUID().toString().replace("-", "_");
+            final var name = ProtoUtils.uniqueTypeName();
             final var type = DataType.StructType.from(name, fields, false);
             return new ImmutableRowStruct(new ArrayRow(elements.toArray()), RelationalStructMetaData.of(type));
         }
