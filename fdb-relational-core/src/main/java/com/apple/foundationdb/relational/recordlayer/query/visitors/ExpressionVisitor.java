@@ -719,16 +719,17 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
 
     @Nonnull
     private Expression visitLikePredicate(@Nonnull Expression operand, @Nonnull RelationalParser.LikePredicateContext ctx) {
-        final LiteralValue<?> escapeValue;
-        if (ctx.escape != null) {
-            final var escapeChar = SemanticAnalyzer.normalizeStringLiteral(ctx.escape.getText());
-            escapeValue = new LiteralValue<>(escapeChar);
-        } else {
-            escapeValue = new LiteralValue<>(null);
-        }
+        // The pattern and the escape character can be any string expressions, e.g. literals or prepared statement
+        // parameters. They are validated when the pattern is evaluated (see PatternForLikeValue).
         final var patternValueBinding = Assert.castUnchecked(ctx.pattern.accept(this), Expression.class);
+        final Expression escapeValueBinding;
+        if (ctx.escape != null) {
+            escapeValueBinding = Assert.castUnchecked(ctx.escape.accept(this), Expression.class);
+        } else {
+            escapeValueBinding = Expression.ofUnnamed(new LiteralValue<>(null));
+        }
         final var patternFunction = getDelegate().resolveFunction("__pattern_for_like", patternValueBinding,
-                Expression.ofUnnamed(escapeValue));
+                escapeValueBinding);
         final var likeFunction = getDelegate().resolveFunction(ctx.LIKE().getText(), operand, patternFunction);
         if (ctx.NOT() != null) {
             return getDelegate().resolveFunction(ctx.NOT().getText(), likeFunction);

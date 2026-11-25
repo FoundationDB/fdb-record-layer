@@ -1278,7 +1278,7 @@ expression
 predicate
     : NOT? BETWEEN left=expressionAtom AND right=expressionAtom           #betweenComparisonPredicate // done
     | NOT? IN inList                                                      #inPredicate // done
-    | NOT? LIKE pattern=constant (ESCAPE escape=STRING_LITERAL)?          #likePredicate // done
+    | NOT? LIKE pattern=expressionAtom (ESCAPE escape=expressionAtom)?    #likePredicate // done
     | IS NOT? testValue=(TRUE | FALSE | NULL_LITERAL)                     #isExpression      // done
     ;
 

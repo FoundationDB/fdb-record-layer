@@ -27,7 +27,8 @@ Parameters
     The string value to test. Must be of type STRING.
 
 ``pattern``
-    A string literal containing the pattern to match. Supports two wildcards:
+    A string expression containing the pattern to match, for example a string literal, a prepared statement
+    parameter (``?``), or a column. Supports two wildcards:
 
     - ``%`` - Matches zero or more characters
     - ``_`` - Matches exactly one character
@@ -37,6 +38,17 @@ Parameters
 
 ``ESCAPE escape_char`` (optional)
     Specifies a single-character escape sequence to treat wildcard characters (``%`` or ``_``) as literals in the pattern.
+    Like the pattern, ``escape_char`` can be any string expression. If it is NULL, the pattern is matched as if there
+    were no ESCAPE clause.
+
+The pattern and the escape character are validated when the query runs, so they can be bound as parameters of a
+prepared statement:
+
+.. code-block:: sql
+
+    SELECT column1
+    FROM table_name
+    WHERE column1 LIKE ? ESCAPE ?
 
 Returns
 =======
