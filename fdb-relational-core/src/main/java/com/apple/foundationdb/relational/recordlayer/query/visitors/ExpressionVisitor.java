@@ -302,6 +302,18 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
                 .allMatch(exp -> exp.toSortOrder() == OrderingPart.RequestedSortOrder.ASCENDING || exp.toSortOrder() == OrderingPart.RequestedSortOrder.ANY);
         Assert.thatUnchecked(allowedSortSpecs, ErrorCode.UNSUPPORTED_SORT, "provided sort specification not supported with window function");
 
+        //
+        // An ORDER BY is not strictly required of a ranking function: with none, every row of a partition is a peer of
+        // every other, and RANK() is 1 throughout -- which is what PostgreSQL and MySQL compute, while Oracle and SQL
+        // Server reject it. We do not support it, because the ranking a rank index stores is the ORDER BY, so there
+        // would be no column to rank by. CompileTimeWindowValue rejects it too, but that is the record layer and its
+        // rejection would reach the caller as a RecordCoreException rather than as a SQL error with a code.
+        //
+        if (functionName.equalsIgnoreCase(CompileTimeWindowValue.WindowFunction.RANK.getFunctionName())) {
+            Assert.thatUnchecked(!Iterables.isEmpty(orderByExpressions), ErrorCode.UNSUPPORTED_QUERY,
+                    "a ranking function without an ORDER BY in its OVER clause is not supported");
+        }
+
         // The partitioning and ordering columns are carried on the window specification; the window options (e.g.
         // ef_search) are carried on the call-site arguments' options map. Window functions that take direct positional
         // arguments -- RANK over the expressions whose rank is computed -- pass them through as ordinary arguments;

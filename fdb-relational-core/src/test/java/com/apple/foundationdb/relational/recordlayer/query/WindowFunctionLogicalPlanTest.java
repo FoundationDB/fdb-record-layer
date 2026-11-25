@@ -28,8 +28,10 @@ import com.apple.foundationdb.record.query.plan.cascades.values.CompileTimeWindo
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.WindowFrameSpecification;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.ddl.ThrowingQueryFactory;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.recordlayer.Utils;
 import com.apple.foundationdb.relational.recordlayer.ddl.ThrowingMetadataOperationsFactory;
@@ -277,13 +279,17 @@ class WindowFunctionLogicalPlanTest {
     }
 
     /**
-     * Without an {@code ORDER BY} there is nothing to rank by, and the standard requires one for every ranking
-     * function.
+     * Without an {@code ORDER BY} every row of a partition is a peer of every other and the rank is 1 throughout,
+     * which is what PostgreSQL and MySQL compute. We reject it instead: the ranking a rank index stores is the
+     * {@code ORDER BY}, so there would be no column to rank by.
      */
     @Test
     void rankWithoutAnOrderByIsRejected() {
+        // the SQL layer rejects it, so the caller gets an error code rather than a record layer exception
         assertThatThrownBy(() -> windowValuesOf("select rank() over (partition by b) from t"))
-                .isInstanceOf(RecordCoreException.class)
-                .hasMessageContaining("needs an ORDER BY in its OVER clause");
+                .isInstanceOf(UncheckedRelationalException.class)
+                .hasMessageContaining("without an ORDER BY in its OVER clause is not supported")
+                .extracting(e -> ((UncheckedRelationalException)e).unwrap().getErrorCode())
+                .isEqualTo(ErrorCode.UNSUPPORTED_QUERY);
     }
 }
