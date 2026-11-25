@@ -439,19 +439,19 @@ public class GuardiannTestHelpers {
     }
 
     /**
-     * Set-based recall@k for a single query: {@code |dedup(results) ∩ groundTruth| / |groundTruth|}.
-     * Deduplicating the result set by primary key matters when the search can surface multiple
-     * references to the same primary (e.g. a primary and its replicas both appearing in the
-     * top-k); without dedup, a single in-truth primary would otherwise be counted once per
-     * duplicate.
+     * Logs, at debug level, the recall, nDCG and Kendall similarity of each query that had ground truth.
      */
-    private static double singleQueryRecall(@Nonnull final Set<Integer> groundTruthIndices,
-                                            @Nonnull final List<Tuple> resultPrimaryKeys) {
-        final Set<Integer> resultIndices = resultPrimaryKeys.stream()
-                .map(primaryKey -> (int) primaryKey.getLong(0))
-                .collect(ImmutableSet.toImmutableSet());
-        final long hits = resultIndices.stream().filter(groundTruthIndices::contains).count();
-        return (double) hits / groundTruthIndices.size();
+    private static void logPerQueryMetrics(@Nonnull final String caller, @Nonnull final RetrievalMetrics metrics,
+                                           final int k) {
+        final List<QueryRetrievalMetrics> perQuery = metrics.perQuery();
+        for (int i = 0; i < perQuery.size(); i++) {
+            if (perQuery.get(i).isDefined()) {
+                logger.debug("{}: recall@{} = {}, nDCG@{} = {}, KendallSimilarity@{} = {} for query {}",
+                        caller, k, String.format(Locale.ROOT, "%.4f", perQuery.get(i).recall()),
+                        k, String.format(Locale.ROOT, "%.4f", perQuery.get(i).ndcg()),
+                        k, String.format(Locale.ROOT, "%.4f", perQuery.get(i).kendallSimilarity()), i);
+            }
+        }
     }
 
     /**
@@ -489,8 +489,8 @@ public class GuardiannTestHelpers {
      * {@code minMeanRecall}. Queries whose ground-truth set is empty (e.g. when {@code maxIndex}
      * excluded every truth index for that query) are skipped.
      *
-     * <p>Recall is computed via {@link #singleQueryRecall} — deduplicated result-set intersection
-     * with ground truth.
+     * <p>Recall is that of {@link PrimaryKeyRetrievalMetricsCalculator}: the share of each query's first {@code k}
+     * ground-truth records found among its first {@code k} distinct results, matched by primary key.
      *
      * @param db the database
      * @param guardiann the structure to search
@@ -512,8 +512,8 @@ public class GuardiannTestHelpers {
     /**
      * As {@link #assertRecallAtKAtLeast(Database, Guardiann, List, List, int, double)}, but searching through
      * {@code searcher} rather than a raw {@link Guardiann}, so an index maintained elsewhere (e.g. by a record store)
-     * can be checked the same way. A result's index is taken to be {@code (int) primaryKey.getLong(0)}, the convention
-     * of the ground-truth files.
+     * can be checked the same way. A ground-truth index {@code i} is the record with primary key
+     * {@code Tuple.from((long) i)}, as {@link VecsDatasetLoaders#loadVectors} keys the base vectors.
      *
      * @param searcher runs a top-{@code k} search for a query vector and returns the primary keys found, best first
      * @param queries pre-loaded query vectors (see {@link VecsDatasetLoaders#loadQueryVectors})
@@ -529,24 +529,15 @@ public class GuardiannTestHelpers {
                                               final double minMeanRecall) {
         Verify.verify(queries.size() == groundTruth.size(),
                 "queries (%s) and groundTruth (%s) must align", queries.size(), groundTruth.size());
-        double sumRecall = 0.0;
-        int countedQueries = 0;
-        for (int i = 0; i < queries.size(); i++) {
-            final Set<Integer> truth = ImmutableSet.copyOf(groundTruth.get(i));
-            if (truth.isEmpty()) {
-                continue;
-            }
-            final RealVector q = queries.get(i);
-            final double recall = singleQueryRecall(truth, searcher.apply(q, k));
-            logger.debug("assertRecallAtKAtLeast: recall@{} = {} for query {}",
-                    k, String.format(Locale.ROOT, "%.4f", recall), i);
-            sumRecall += recall;
-            countedQueries++;
-        }
+        final RetrievalMetrics metrics =
+                new PrimaryKeyRetrievalMetricsCalculator().compute(searcher, queries, groundTruth, k);
+        logPerQueryMetrics("assertRecallAtKAtLeast", metrics, k);
+
+        final int countedQueries = metrics.countedQueries();
         assertThat(countedQueries)
                 .as("at least one query must have non-empty ground truth")
                 .isGreaterThan(0);
-        final double meanRecall = sumRecall / countedQueries;
+        final double meanRecall = metrics.meanRecall();
         logger.info("assertRecallAtKAtLeast: mean recall@{} = {} over {} queries (threshold {})",
                 k, String.format(Locale.ROOT, "%.4f", meanRecall), countedQueries, minMeanRecall);
         assertThat(meanRecall)
@@ -561,9 +552,8 @@ public class GuardiannTestHelpers {
      * universe (insert/delete churn) so the static {@code .ivecs} ground truth no longer applies.
      *
      * <p>Implementation note: for a Euclidean index pass {@link Metric#EUCLIDEAN_SQUARE_METRIC} — the
-     * monotonic-square shortcut to skip a {@code sqrt} that would not change the ordering. Results
-     * are compared with the kNN search via {@link #singleQueryRecall} (deduplicated set
-     * intersection) so the threshold is comparable to the static-truth helper.
+     * monotonic-square shortcut to skip a {@code sqrt} that would not change the ordering. Recall is that of
+     * {@link PrimaryKeyRetrievalMetricsCalculator}, as for the static-truth helper, so the thresholds are comparable.
      *
      * @param db the database
      * @param guardiann the structure to search
@@ -589,7 +579,7 @@ public class GuardiannTestHelpers {
      * As {@link #assertRecallAtKAtLeastDynamic(Database, Guardiann, Metric, List, Map, int, double)}, but searching
      * through {@code searcher} rather than a raw {@link Guardiann}, so an index maintained elsewhere (e.g. by a record
      * store) can be checked the same way. The primary keys in {@code active} and those {@code searcher} returns are
-     * matched as {@code (int) primaryKey.getLong(0)}.
+     * matched as they are.
      *
      * @param searcher runs a top-{@code k} search for a query vector and returns the primary keys found, best first
      * @param metric the metric the brute-force ground truth ranks {@code active} by
@@ -609,26 +599,15 @@ public class GuardiannTestHelpers {
         Verify.verify(active.size() >= k,
                 "active set (%s) must have at least k=%s entries for a meaningful recall check",
                 active.size(), k);
-        double sumRecall = 0.0d;
-        int countedQueries = 0;
-        for (int i = 0; i < queries.size(); i++) {
-            final RealVector query = queries.get(i);
-            final Set<Integer> truth = bruteForceTopK(metric, query, active, k).stream()
-                    .map(entry -> (int) entry.primaryKey().getLong(0))
-                    .collect(ImmutableSet.toImmutableSet());
-            if (truth.isEmpty()) {
-                continue;
-            }
-            final double recall = singleQueryRecall(truth, searcher.apply(query, k));
-            logger.debug("assertRecallAtKAtLeastDynamic: recall@{} = {} for query {}",
-                    k, String.format(Locale.ROOT, "%.4f", recall), i);
-            sumRecall += recall;
-            countedQueries++;
-        }
+        final RetrievalMetrics metrics =
+                new PrimaryKeyRetrievalMetricsCalculator().computeDynamic(searcher, metric, queries, active, k);
+        logPerQueryMetrics("assertRecallAtKAtLeastDynamic", metrics, k);
+
+        final int countedQueries = metrics.countedQueries();
         assertThat(countedQueries)
                 .as("at least one query must produce non-empty truth (active=%s, k=%s)", active.size(), k)
                 .isGreaterThan(0);
-        final double meanRecall = sumRecall / countedQueries;
+        final double meanRecall = metrics.meanRecall();
         logger.info("assertRecallAtKAtLeastDynamic: mean recall@{} = {} over {} queries (active={}, threshold={})",
                 k, String.format(Locale.ROOT, "%.4f", meanRecall),
                 countedQueries, active.size(), minMeanRecall);
