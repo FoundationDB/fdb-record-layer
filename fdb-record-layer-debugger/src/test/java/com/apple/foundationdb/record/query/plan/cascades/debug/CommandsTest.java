@@ -642,6 +642,11 @@ class CommandsTest {
             return false;
         }
 
+        @Override
+        public boolean requiresExistential() {
+            return false;
+        }
+
         @Nonnull
         @Override
         public RegularMatchInfo getRegularMatchInfo() {

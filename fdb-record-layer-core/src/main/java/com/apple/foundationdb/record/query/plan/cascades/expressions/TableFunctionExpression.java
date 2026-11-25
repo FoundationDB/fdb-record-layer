@@ -152,41 +152,22 @@ public class TableFunctionExpression extends AbstractRelationalExpressionWithout
                                           @Nonnull final AliasMap bindingAliasMap,
                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                           @Nonnull final EvaluationContext evaluationContext) {
-        if (!(candidateExpression instanceof TableFunctionExpression candidateTableFunctionExpression) ||
-                !isSubsumedBy(value, candidateTableFunctionExpression.getValue(), bindingAliasMap)) {
+        if (!(candidateExpression instanceof TableFunctionExpression candidateTableFunctionExpression)) {
+            return ImmutableList.of();
+        }
+        final var candidateValue = candidateTableFunctionExpression.getValue();
+        if (!value.impliesCandidateValue(candidateValue, bindingAliasMap)) {
             return ImmutableList.of();
         }
         final var maxMatchMap =
                 MaxMatchMap.identityOf(getResultValue(), candidateExpression.getResultValue(),
                         Quantifiers.aliases(candidateExpression.getQuantifiers()),
                         ValueEquivalence.fromAliasMap(bindingAliasMap));
-        return RegularMatchInfo.tryFromMatchMap(bindingAliasMap, partialMatchMap, maxMatchMap)
+        boolean requiresExistential = candidateValue instanceof final ExplodeValue candidateExplodeValue
+                && candidateExplodeValue.isDistinct();
+        return RegularMatchInfo.tryFromMatchMap(bindingAliasMap, partialMatchMap, maxMatchMap, requiresExistential)
                 .map(ImmutableList::of)
                 .orElse(ImmutableList.of());
-    }
-
-    /**
-     * Whether the candidate's streaming value produces everything the query's may produce.
-     */
-    private static boolean isSubsumedBy(@Nonnull final StreamingValue queryValue,
-                                        @Nonnull final StreamingValue candidateValue,
-                                        @Nonnull final AliasMap bindingAliasMap) {
-        if (queryValue.semanticEquals(candidateValue, bindingAliasMap)) {
-            return true;
-        }
-        // An ExplodeValue that does not preserve its order is subsumed by an explode of the same collection that
-        // does, such as the one an index on an unnested record type is expanded with. Both flow the same
-        // {@code (element, ordinal)} struct, one per element of the collection, and the query does not observe its
-        // ordinals. A sorted query explode is not, as the candidate does not produce its elements in the order the
-        // query asks for.
-        return queryValue instanceof ExplodeValue queryExplodeValue &&
-                !queryExplodeValue.preservesOrder() &&
-                !queryExplodeValue.isSorted() &&
-                candidateValue instanceof ExplodeValue candidateExplodeValue &&
-                candidateExplodeValue.preservesOrder() &&
-                queryExplodeValue.getCollectionValue().semanticEquals(candidateExplodeValue.getCollectionValue(),
-                        bindingAliasMap) &&
-                queryExplodeValue.getElementType().equals(candidateExplodeValue.getElementType());
     }
 
     @Nonnull
