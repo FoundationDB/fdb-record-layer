@@ -35,11 +35,9 @@ import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RangeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.values.translation.ToUniqueAliasesTranslationMap;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.assertj.core.api.AutoCloseableSoftAssertions;
 
@@ -165,11 +163,10 @@ public class RuleTestHelper {
 
     @Nonnull
     public TestRuleExecution run(RelationalExpression original, EvaluationContext evaluationContext) {
-        // copy the graph handed in so the caller can modify it at will afterwards and won't see the effects of
-        // rewriting and planning
+        // Copy the graph handed in, so that the caller can modify it at will afterward and won't see the effects of
+        // rewriting and planning.
         final var copiedOriginal =
-                Iterables.getOnlyElement(References.rebaseGraphs(ImmutableList.of(referenceOf(original)),
-                        memoizer(), new ToUniqueAliasesTranslationMap(), false)).get();
+                References.instantiate(referenceOf(original), memoizer()).reference().get();
         ensureCorrectStage(copiedOriginal);
         if (rule instanceof ImplementationCascadesRule) {
             //
@@ -271,13 +268,10 @@ public class RuleTestHelper {
                                           RelationalExpression... expected) {
         final ImmutableList.Builder<RelationalExpression> expectedListBuilder = ImmutableList.builder();
         for (RelationalExpression expression : expected) {
-            //
-            // Copy the expected as the caller can construct the expected from parts of the original.
-            // we just want to have our own unshared version of it.
-            //
+            // Instantiate the expected expression to get a version that shares nothing with the caller’s graph,
+            // as the caller may have built it from parts of the original.
             final var copiedExpected =
-                    Iterables.getOnlyElement(References.rebaseGraphs(ImmutableList.of(referenceOf(expression)),
-                            memoizer(), new ToUniqueAliasesTranslationMap(), false)).get();
+                    References.instantiate(referenceOf(expression), memoizer()).reference().get();
             ensureCorrectStage(copiedExpected);
             expectedListBuilder.add(copiedExpected);
         }

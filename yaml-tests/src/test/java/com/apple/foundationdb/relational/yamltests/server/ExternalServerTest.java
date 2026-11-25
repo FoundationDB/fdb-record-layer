@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2025 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.yamltests.server;
 
 import com.apple.foundationdb.test.FDBTestEnvironment;
 import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -42,11 +43,16 @@ class ExternalServerTest {
 
     @BeforeEach
     void setUp() throws IOException {
-        this.currentServerPath = getCurrentServerPath();
+        final File externalServerDirectory = ExternalServer.getExternalServerDirectory();
+        Assumptions.assumeTrue(
+                externalServerDirectory != null,
+                "The system property `" + ExternalServer.EXTERNAL_SERVER_PROPERTY_NAME + "` is not set");
+        ExternalServer.killStaleServersOnce(externalServerDirectory);
+        this.currentServerPath = getCurrentServerPath(externalServerDirectory);
     }
 
-    private static File getCurrentServerPath() throws IOException {
-        final List<File> availableServers = ExternalServer.getAvailableServers();
+    private static File getCurrentServerPath(final File externalServerDirectory) throws IOException {
+        final List<File> availableServers = ExternalServer.listAvailableServers(externalServerDirectory);
         for (File path : availableServers) {
             if (new ExternalServer(path, FDBTestEnvironment.randomClusterFile())
                     .getVersion().equals(SemanticVersion.current())) {

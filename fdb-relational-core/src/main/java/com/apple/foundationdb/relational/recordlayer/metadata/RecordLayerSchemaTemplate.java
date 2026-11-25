@@ -441,7 +441,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
     @Nonnull
     private Collection<? extends InvokedRoutine> computeTemporaryInvokedRoutines() {
         return invokedRoutines.stream().filter(RecordLayerInvokedRoutine::isTemporary)
-                .sorted(Comparator.comparing(RecordLayerInvokedRoutine::getDescription)).collect(ImmutableList.toImmutableList());
+                .sorted(Comparator.comparing(RecordLayerInvokedRoutine::getNormalizedDescription)).collect(ImmutableList.toImmutableList());
     }
 
     @Nonnull

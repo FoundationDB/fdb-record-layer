@@ -959,6 +959,91 @@ public class PreparedStatementTests {
         }
     }
 
+    @Test
+    void withPlanCacheDifferentParameterNamesShareThePlan() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
+            }
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE rest_no > ?val OPTIONS(LOG QUERY)")) {
+                ps.setLong("val", 12);
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow().hasColumn("REST_NO", 13L)
+                            .hasNextRow().hasColumn("REST_NO", 14L)
+                            .hasNoNextRow();
+                }
+            }
+            Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"miss\"");
+            // Another name and another value: the plan is shared, the value comes from this binding.
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE rest_no > ?other OPTIONS(LOG QUERY)")) {
+                ps.setLong("other", 13);
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow().hasColumn("REST_NO", 14L)
+                            .hasNoNextRow();
+                }
+            }
+            Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"hit\"");
+        }
+    }
+
+    @Test
+    void withPlanCacheRepeatedParameterNameDoesNotServeDistinctNames() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
+            }
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE rest_no > ?v AND rest_no < ?v OPTIONS(LOG QUERY)")) {
+                ps.setLong("v", 12);
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNoNextRow();
+                }
+            }
+            Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"miss\"");
+            // Same canonical form, but the values differ, so the plan built for one shared value must not be reused.
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE rest_no > ?lo AND rest_no < ?hi OPTIONS(LOG QUERY)")) {
+                ps.setLong("lo", 10);
+                ps.setLong("hi", 13);
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow().hasColumn("REST_NO", 11L)
+                            .hasNextRow().hasColumn("REST_NO", 12L)
+                            .hasNoNextRow();
+                }
+            }
+            Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"miss\"");
+        }
+    }
+
+    @Test
+    void withPlanCacheDistinctParameterNamesServeRepeatedName() throws Exception {
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.execute("INSERT INTO RestaurantComplexRecord(rest_no) VALUES (10), (11), (12), (13), (14)");
+            }
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE rest_no > ?lo AND rest_no < ?hi OPTIONS(LOG QUERY)")) {
+                ps.setLong("lo", 10);
+                ps.setLong("hi", 13);
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet)
+                            .hasNextRow().hasColumn("REST_NO", 11L)
+                            .hasNextRow().hasColumn("REST_NO", 12L)
+                            .hasNoNextRow();
+                }
+            }
+            Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"miss\"");
+            // A plan built for two distinct values does not assume they differ, so it also serves equal ones.
+            try (var ps = ddl.setSchemaAndGetConnection().prepareStatement("SELECT * FROM RestaurantComplexRecord WHERE rest_no > ?v AND rest_no < ?v OPTIONS(LOG QUERY)")) {
+                ps.setLong("v", 12);
+                try (final RelationalResultSet resultSet = ps.executeQuery()) {
+                    ResultSetAssert.assertThat(resultSet).hasNoNextRow();
+                }
+            }
+            Assertions.assertThat(logAppender.getLastLogEventMessage()).contains("planCache=\"hit\"");
+        }
+    }
+
     @Disabled
     @Test
     // TODO (Prepared Statement does not cast fields if set with the wrong types)

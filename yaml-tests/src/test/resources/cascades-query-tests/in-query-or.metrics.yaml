@@ -50,15 +50,15 @@ in-query-or:
         9) order by num_value_3_indexed
     ref: in-query-or.yamsql:213
     explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED <,>) | FLATMAP q0 -> { TF
-        explode(arrayDistinct(@c7)) | FILTER q0.NUM_VALUE_2 EQUALS _._0 AS q1 RETURN
+        explode(arrayDistinct(@c7)) | FILTER _._0 EQUALS q0.NUM_VALUE_2 AS q1 RETURN
         q0 }
-    task_count: 548
-    task_total_time_ms: 21
-    transform_count: 178
-    transform_time_ms: 10
-    transform_yield_count: 59
+    task_count: 559
+    task_total_time_ms: 12
+    transform_count: 179
+    transform_time_ms: 6
+    transform_yield_count: 60
     insert_time_ms: 1
-    insert_new_count: 57
+    insert_new_count: 58
     insert_reused_count: 3
 in-query-or-prepared:
 -   query: EXPLAIN select * from my_simple_record where num_value_2 in ?

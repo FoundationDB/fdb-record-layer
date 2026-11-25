@@ -282,13 +282,11 @@ public class RecordQueryScoreForRankPlan extends AbstractRelationalExpressionWit
     @Nonnull
     @Override
     public PRecordQueryScoreForRankPlan toProto(@Nonnull final PlanSerializationContext serializationContext) {
-        final PRecordQueryScoreForRankPlan.Builder builder =
-                PRecordQueryScoreForRankPlan.newBuilder()
-                        .setInner(inner.toProto(serializationContext));
+        final PRecordQueryScoreForRankPlan.Builder builder = PRecordQueryScoreForRankPlan.newBuilder();
+        builder.setInner(inner.toProto(serializationContext));
         for (final ScoreForRank rank : ranks) {
             builder.addRanks(rank.toProto(serializationContext));
         }
-
         return builder.build();
     }
 
@@ -301,12 +299,14 @@ public class RecordQueryScoreForRankPlan extends AbstractRelationalExpressionWit
     @Nonnull
     public static RecordQueryScoreForRankPlan fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                                         @Nonnull final PRecordQueryScoreForRankPlan recordQueryScoreForRankPlanProto) {
+        final Quantifier.Physical inner = Quantifier.Physical.fromProto(serializationContext,
+                Objects.requireNonNull(recordQueryScoreForRankPlanProto.getInner()));
         final ImmutableList.Builder<ScoreForRank> ranksBuilder = ImmutableList.builder();
         for (int i = 0; i < recordQueryScoreForRankPlanProto.getRanksCount(); i++) {
             ranksBuilder.add(ScoreForRank.fromProto(serializationContext, recordQueryScoreForRankPlanProto.getRanks(i)));
         }
-        return new RecordQueryScoreForRankPlan(Quantifier.Physical.fromProto(serializationContext, Objects.requireNonNull(recordQueryScoreForRankPlanProto.getInner())),
-                ranksBuilder.build());
+        final ImmutableList<ScoreForRank> ranks = ranksBuilder.build();
+        return new RecordQueryScoreForRankPlan(inner, ranks);
     }
 
     /**
@@ -400,14 +400,15 @@ public class RecordQueryScoreForRankPlan extends AbstractRelationalExpressionWit
         @Nonnull
         public static ScoreForRank fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                              @Nonnull final PScoreForRank scoreForRankProto) {
+            final BindingFunction bindingFunction = BindingFunction.fromProto(serializationContext, Objects.requireNonNull(scoreForRankProto.getBindingFunction()));
+            final IndexAggregateFunction function = IndexAggregateFunction.fromProto(serializationContext, Objects.requireNonNull(scoreForRankProto.getFunction()));
             final ImmutableList.Builder<Comparisons.Comparison> comparisonsBuilder = ImmutableList.builder();
             for (int i = 0; i < scoreForRankProto.getComparisonsCount(); i++) {
                 comparisonsBuilder.add(Comparisons.Comparison.fromComparisonProto(serializationContext, scoreForRankProto.getComparisons(i)));
             }
-            return new ScoreForRank(Objects.requireNonNull(scoreForRankProto.getBindingName()),
-                    BindingFunction.fromProto(serializationContext, Objects.requireNonNull(scoreForRankProto.getBindingFunction())),
-                    IndexAggregateFunction.fromProto(serializationContext, Objects.requireNonNull(scoreForRankProto.getFunction())),
-                    comparisonsBuilder.build());
+            final ImmutableList<Comparisons.Comparison> comparisons = comparisonsBuilder.build();
+            return new ScoreForRank(Objects.requireNonNull(scoreForRankProto.getBindingName()), bindingFunction,
+                    function, comparisons);
         }
     }
 

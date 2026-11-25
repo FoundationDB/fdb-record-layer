@@ -210,7 +210,7 @@ test_block:
       # in-union; the sort is served by the NUM_VALUE_3_INDEXED index and the IN stays a filter.
       - query: select * from my_simple_record where num_value_2 in (1, 3, 5, 7, 9)
                order by num_value_3_indexed
-      - explain: "ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(@c7)) | FILTER q0.NUM_VALUE_2 EQUALS _._0 AS q1 RETURN q0 }"
+      - explain: "ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(@c7)) | FILTER _._0 EQUALS q0.NUM_VALUE_2 AS q1 RETURN q0 }"
       - unorderedResult: [{REC_NO: 1, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 999, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 1, REPEATER: [0]},
                           {REC_NO: 4, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 996, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3]},
                           {REC_NO: 7, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 993, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 2, REPEATER: [0, 1, 2, 3, 4, 5, 6]},

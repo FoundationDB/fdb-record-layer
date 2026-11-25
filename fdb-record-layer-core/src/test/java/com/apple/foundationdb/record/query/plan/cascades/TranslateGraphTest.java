@@ -27,11 +27,14 @@ import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQ
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.OuterJoinExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.ToUniqueAliasesTranslationMap;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import org.junit.jupiter.api.Assertions;
 
@@ -46,6 +49,7 @@ import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQuery
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.reference;
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.resultColumn;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.ReferencesAndDependenciesProperty.referencesAndDependencies;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TranslateGraphTest extends FDBRecordStoreQueryTestBase {
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
@@ -184,6 +188,177 @@ public class TranslateGraphTest extends FDBRecordStoreQueryTestBase {
         // diamond shape must be preserved
         Assertions.assertSame(translatedQuantifierMap.get(snapshotAliasMap.getTarget(fullScanQuantifierForRestaurant.getAlias())).getRangesOver(),
                 translatedQuantifierMap.get(snapshotAliasMap.getTarget(fullScanQuantifierForReviewer.getAlias())).getRangesOver());
+    }
+
+    /**
+     * Tests that instantiating a graph copies every reference of the graph, including the leaf that is shared by two
+     * quantifiers, keeps the shape of the graph intact, and renames the aliases of all quantifiers.
+     */
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void instantiateGraphWithDiamond() {
+        final var metaData = setUp().getRecordMetaData();
+        final var fullScanReference = reference(fullScanExpression(metaData));
+        final var restaurantQun = fullTypeScan(metaData, "RestaurantRecord", forEach(fullScanReference));
+        final var reviewerQun = fullTypeScan(metaData, "RestaurantReviewer", forEach(fullScanReference));
+
+        final var graphExpansionBuilder = GraphExpansion.builder();
+        graphExpansionBuilder.addQuantifier(restaurantQun);
+        graphExpansionBuilder.addQuantifier(reviewerQun);
+        graphExpansionBuilder.addResultColumn(resultColumn(
+                QuantifiedObjectValue.of(restaurantQun.getAlias(), restaurantQun.getFlowedObjectType()), "restaurant"));
+        graphExpansionBuilder.addResultColumn(resultColumn(
+                QuantifiedObjectValue.of(reviewerQun.getAlias(), reviewerQun.getFlowedObjectType()), "reviewer"));
+        final var expression = LogicalSortExpression.unsorted(
+                Quantifier.forEach(Reference.initialOf(graphExpansionBuilder.build().buildSelect())));
+        final var reference = Reference.initialOf(expression);
+
+        final var instantiation = References.instantiate(reference);
+        final var instance = instantiation.reference();
+
+        assertThat(expression.semanticEquals(instance.get())).isTrue();
+
+        final var originalReferences = Traversal.withRoot(reference).getRefs();
+        final var instanceReferences = Traversal.withRoot(instance).getRefs();
+        assertThat(originalReferences).contains(fullScanReference);
+        assertThat(instanceReferences).doesNotContainAnyElementsOf(originalReferences);
+        // Verify that the diamond over the full scan is preserved by the copy.
+        assertThat(instanceReferences).hasSameSizeAs(originalReferences);
+
+        final var aliasMap = instantiation.aliasMap();
+        for (final var quantifier : collectQuantifiers(reference)) {
+            assertThat(aliasMap.containsSource(quantifier.getAlias())).isTrue();
+            assertThat(aliasMap.getTarget(quantifier.getAlias())).isNotEqualTo(quantifier.getAlias());
+        }
+    }
+
+    /**
+     * Tests that two instances of the same graph have no reference and no quantifier alias in common.
+     */
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void instantiateGraphTwice() {
+        final var metaData = setUp().getRecordMetaData();
+        final var reference = Reference.initialOf(LogicalSortExpression.unsorted(
+                fullTypeScan(metaData, "RestaurantRecord")));
+
+        final var instance1 = References.instantiate(reference).reference();
+        final var instance2 = References.instantiate(reference).reference();
+
+        assertThat(Traversal.withRoot(instance1).getRefs())
+                .doesNotContainAnyElementsOf(Traversal.withRoot(instance2).getRefs());
+        assertThat(collectQuantifiers(instance1).stream().map(Quantifier::getAlias))
+                .doesNotContainAnyElementsOf(collectQuantifiers(instance2).stream().map(Quantifier::getAlias).toList());
+    }
+
+    /**
+     * Tests that instantiating a graph copies references that have exploratory members only and references that have
+     * both exploratory and final members, and keeps the members of each kind.
+     */
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void instantiateGraphWithExploratoryMembers() {
+        final var metaData = setUp().getRecordMetaData();
+        final var exploratoryOnlyReference =
+                Reference.ofExploratoryExpression(PlannerStage.INITIAL, fullScanExpression(metaData));
+        final var mixedReference = Reference.of(PlannerStage.INITIAL,
+                ImmutableList.of(fullScanExpression(metaData)), ImmutableList.of(fullScanExpression(metaData)));
+        final var restaurantQun = fullTypeScan(metaData, "RestaurantRecord", forEach(exploratoryOnlyReference));
+        final var reviewerQun = fullTypeScan(metaData, "RestaurantReviewer", forEach(mixedReference));
+
+        final var graphExpansionBuilder = GraphExpansion.builder();
+        graphExpansionBuilder.addQuantifier(restaurantQun);
+        graphExpansionBuilder.addQuantifier(reviewerQun);
+        graphExpansionBuilder.addResultColumn(resultColumn(
+                QuantifiedObjectValue.of(restaurantQun.getAlias(), restaurantQun.getFlowedObjectType()), "restaurant"));
+        final var reference = Reference.initialOf(graphExpansionBuilder.build().buildSelect());
+
+        final var instanceReferences = Traversal.withRoot(References.instantiate(reference).reference()).getRefs();
+
+        assertThat(instanceReferences).doesNotContainAnyElementsOf(Traversal.withRoot(reference).getRefs());
+        assertThat(instanceReferences).filteredOn(ref -> ref.getExploratoryExpressions().size() == 1
+                        && ref.getFinalExpressions().isEmpty())
+                .hasSize(1);
+        assertThat(instanceReferences).filteredOn(ref -> ref.getExploratoryExpressions().size() == 1
+                        && ref.getFinalExpressions().size() == 1)
+                .hasSize(1);
+    }
+
+    /**
+     * Tests that the instance of a graph inherits the constraints of the reference it is created from, and that
+     * pushing a constraint into the instance does not change the constraints of the original.
+     */
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void instantiateGraphDoesNotShareConstraints() {
+        final var metaData = setUp().getRecordMetaData();
+        final var reference = Reference.initialOf(LogicalSortExpression.unsorted(
+                fullTypeScan(metaData, "RestaurantRecord")));
+        reference.getConstraintsMap().pushProperty(RequestedOrderingConstraint.REQUESTED_ORDERING,
+                ImmutableSet.of(RequestedOrdering.preserve()));
+
+        final var instance = References.instantiate(reference).reference();
+        assertThat(instance.getConstraintsMap().getConstraintOptional(RequestedOrderingConstraint.REQUESTED_ORDERING))
+                .hasValueSatisfying(orderings -> assertThat(orderings).hasSize(1));
+
+        instance.getConstraintsMap().pushProperty(RequestedOrderingConstraint.REQUESTED_ORDERING,
+                ImmutableSet.of(RequestedOrdering.ofParts(ImmutableList.of(), RequestedOrdering.Distinctness.DISTINCT,
+                        false, ImmutableSet.of())));
+
+        assertThat(instance.getConstraintsMap().getConstraintOptional(RequestedOrderingConstraint.REQUESTED_ORDERING))
+                .hasValueSatisfying(orderings -> assertThat(orderings).hasSize(2));
+        assertThat(reference.getConstraintsMap().getConstraintOptional(RequestedOrderingConstraint.REQUESTED_ORDERING))
+                .hasValueSatisfying(orderings -> assertThat(orderings).hasSize(1));
+    }
+
+    /**
+     * Tests that translating the correlations of an outer join with a translation map that only defines identities
+     * returns the outer join itself if its quantifiers are the same, and a new one if a quantifier is over another
+     * reference (but has the same alias).
+     */
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void translateCorrelationsOfOuterJoinWithIdentityMap() {
+        final var metaData = setUp().getRecordMetaData();
+        final var preservedQun = fullTypeScan(metaData, "RestaurantRecord").narrow(Quantifier.ForEach.class);
+        final var nullSupplyingQun = fullTypeScan(metaData, "RestaurantReviewer").narrow(Quantifier.ForEach.class);
+        final var outerJoin = new OuterJoinExpression(preservedQun, nullSupplyingQun, ImmutableList.of(),
+                QuantifiedObjectValue.of(preservedQun.getAlias(), preservedQun.getFlowedObjectType()));
+
+        assertThat(outerJoin.translateCorrelations(TranslationMap.empty(), false,
+                ImmutableList.of(preservedQun, nullSupplyingQun))).isSameAs(outerJoin);
+
+        final var copiedPreservedQun = preservedQun.overNewReference(reference(fullScanExpression(metaData)));
+        final var translatedOuterJoin = outerJoin.translateCorrelations(TranslationMap.empty(), false,
+                ImmutableList.of(copiedPreservedQun, nullSupplyingQun));
+        assertThat(translatedOuterJoin).isNotSameAs(outerJoin);
+        assertThat(translatedOuterJoin.getQuantifiers().get(0)).isSameAs(copiedPreservedQun);
+    }
+
+    /**
+     * Tests that translating the correlations in a graph re-targets the alias that the graph is correlated to, while
+     * the sub-graph that is not correlated to it is shared between the original graph and the translated one.
+     */
+    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
+    void translateCorrelationsInGraphsTest() {
+        final var metaData = setUp().getRecordMetaData();
+        final var sourceQun = fullTypeScan(metaData, "RestaurantRecord");
+        final var sourceAlias = sourceQun.getAlias();
+        final var targetAlias = CorrelationIdentifier.uniqueId();
+
+        final var innerQun = fullTypeScan(metaData, "RestaurantReviewer");
+        final var graphExpansionBuilder = GraphExpansion.builder();
+        graphExpansionBuilder.addQuantifier(innerQun);
+        graphExpansionBuilder.addPredicate(new ValuePredicate(
+                FieldValue.ofFieldName(QuantifiedObjectValue.of(innerQun.getAlias(), innerQun.getFlowedObjectType()), "name"),
+                new Comparisons.ValueComparison(Comparisons.Type.EQUALS,
+                        FieldValue.ofFieldName(QuantifiedObjectValue.of(sourceAlias, sourceQun.getFlowedObjectType()), "name"))));
+        graphExpansionBuilder.addResultColumn(resultColumn(
+                QuantifiedObjectValue.of(innerQun.getAlias(), innerQun.getFlowedObjectType()), "reviewer"));
+        final var reference = Reference.initialOf(graphExpansionBuilder.build().buildSelect());
+        assertThat(reference.getCorrelatedTo()).containsExactly(sourceAlias);
+
+        final var translatedReference = reference.translateGraph(Memoizer.noMemoization(PlannerStage.INITIAL),
+                TranslationMap.ofAliases(sourceAlias, targetAlias), false);
+
+        assertThat(translatedReference).isNotSameAs(reference);
+        assertThat(translatedReference.getCorrelatedTo()).containsExactly(targetAlias);
+        assertThat(Traversal.withRoot(translatedReference).getRefs()).contains(innerQun.getRangesOver());
     }
 
     @Nonnull
