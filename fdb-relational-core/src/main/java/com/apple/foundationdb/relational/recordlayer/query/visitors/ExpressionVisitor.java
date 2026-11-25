@@ -41,7 +41,6 @@ import com.apple.foundationdb.record.query.plan.cascades.values.RowNumberValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.WindowFrameSpecification;
 import com.apple.foundationdb.record.query.plan.cascades.values.CompileTimeWindowValue;
-import com.apple.foundationdb.record.query.plan.cascades.values.WindowValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.WindowedValue;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;

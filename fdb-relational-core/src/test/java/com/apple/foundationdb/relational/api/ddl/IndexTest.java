@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.api.ddl;
 
 import com.apple.foundationdb.linear.Metric;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.VectorIndexHelper;
@@ -95,6 +96,22 @@ public class IndexTest {
     void shouldFailWith(@Nonnull final String query, @Nonnull final ErrorCode errorCode,
                         @Nonnull final String errorMessage) throws Exception {
         DdlTestUtil.shouldFailWith(connection, database.getSchemaTemplateName(), "/IndexTest", query, errorCode, errorMessage);
+    }
+
+    /**
+     * As {@link #shouldFailWith}, except that the rejection comes from the record layer rather than the SQL layer and
+     * so arrives as a {@link RecordCoreException} with no error code attached.
+     */
+    void shouldFailWithCoreException(@Nonnull final String query, @Nonnull final String errorMessage) throws Exception {
+        connection.setAutoCommit(false);
+        connection.getUnderlyingEmbeddedConnection().createNewTransaction();
+        final var exception = Assertions.assertThrows(RecordCoreException.class, () ->
+                DdlTestUtil.getPlanGenerator(connection.getUnderlyingEmbeddedConnection(),
+                        database.getSchemaTemplateName(), "/IndexTest").getPlan(query));
+        Assertions.assertTrue(exception.getMessage().contains(errorMessage),
+                "expected '" + exception.getMessage() + "' to contain '" + errorMessage + "'");
+        connection.rollback();
+        connection.setAutoCommit(true);
     }
 
     void shouldWorkWithInjectedFactory(@Nonnull final String query, @Nonnull final MetadataOperationsFactory metadataOperationsFactory)
@@ -1643,7 +1660,7 @@ public class IndexTest {
     void createRankIndexOverPartition() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(id bigint, grp bigint, score bigint, primary key(id)) " +
-                "CREATE INDEX mv1 AS SELECT rank(score) OVER (PARTITION BY grp) FROM T1";
+                "CREATE INDEX mv1 AS SELECT rank() OVER (PARTITION BY grp ORDER BY score) FROM T1";
         indexIs(stmt, field("SCORE").groupBy(field("GRP")), IndexTypes.RANK);
     }
 
@@ -1651,18 +1668,18 @@ public class IndexTest {
     void createRankIndexOverTwoPartitionColumns() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(id bigint, grp1 bigint, grp2 bigint, score bigint, primary key(id)) " +
-                "CREATE INDEX mv1 AS SELECT rank(score) OVER (PARTITION BY grp1, grp2) FROM T1";
+                "CREATE INDEX mv1 AS SELECT rank() OVER (PARTITION BY grp1, grp2 ORDER BY score) FROM T1";
         indexIs(stmt, field("SCORE").groupBy(field("GRP1"), field("GRP2")), IndexTypes.RANK);
     }
 
     /**
-     * Ranking two columns ranks the pair, so both of them are grouped by the partitioning column.
+     * Ordering by two columns ranks the pair, so both of them are grouped by the partitioning column.
      */
     @Test
     void createRankIndexOverTwoRankedColumns() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(id bigint, grp bigint, score1 bigint, score2 bigint, primary key(id)) " +
-                "CREATE INDEX mv1 AS SELECT rank(score1, score2) OVER (PARTITION BY grp) FROM T1";
+                "CREATE INDEX mv1 AS SELECT rank() OVER (PARTITION BY grp ORDER BY score1, score2) FROM T1";
         indexIs(stmt, concat(field("SCORE1"), field("SCORE2")).groupBy(field("GRP")), IndexTypes.RANK);
     }
 
@@ -1673,7 +1690,7 @@ public class IndexTest {
     void createRankIndexWithoutPartition() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(id bigint, score bigint, primary key(id)) " +
-                "CREATE INDEX mv1 AS SELECT rank(score) OVER () FROM T1";
+                "CREATE INDEX mv1 AS SELECT rank() OVER (ORDER BY score) FROM T1";
         indexIs(stmt, field("SCORE").ungrouped(), IndexTypes.RANK);
     }
 
@@ -1685,7 +1702,7 @@ public class IndexTest {
     void createRankIndexWithAnExtraColumnFails() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(id bigint, grp bigint, score bigint, primary key(id)) " +
-                "CREATE INDEX mv1 AS SELECT rank(score) OVER (PARTITION BY grp), grp FROM T1";
+                "CREATE INDEX mv1 AS SELECT rank() OVER (PARTITION BY grp ORDER BY score), grp FROM T1";
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION,
                 "Unsupported index definition, a window function has to be the only column of the projection");
     }
@@ -1694,28 +1711,32 @@ public class IndexTest {
     void createRankIndexOverTwoRankFunctionsFails() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(id bigint, grp bigint, score bigint, primary key(id)) " +
-                "CREATE INDEX mv1 AS SELECT rank(score) OVER (PARTITION BY grp), rank(grp) OVER (PARTITION BY score) FROM T1";
+                "CREATE INDEX mv1 AS SELECT rank() OVER (PARTITION BY grp ORDER BY score), " +
+                "rank() OVER (PARTITION BY score ORDER BY grp) FROM T1";
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION,
                 "Unsupported index definition, more than one window function found");
     }
 
     /**
-     * The stored ranking is by the ranked columns, so an {@code ORDER BY} of its own cannot be honoured.
+     * The ranked column comes from the {@code ORDER BY} of the {@code OVER} clause, so a definition without one says
+     * nothing about what to rank.
      */
     @Test
-    void createRankIndexWithWindowOrderByFails() throws Exception {
+    void createRankIndexWithoutWindowOrderByFails() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(id bigint, grp bigint, score bigint, primary key(id)) " +
-                "CREATE INDEX mv1 AS SELECT rank(score) OVER (PARTITION BY grp ORDER BY score) FROM T1";
-        shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION,
-                "Unsupported index definition, a window function cannot have an order by clause in an index definition");
+                "CREATE INDEX mv1 AS SELECT rank() OVER (PARTITION BY grp) FROM T1";
+        // the check is CompileTimeWindowValue's, and the SQL layer passes it through rather than translating it into
+        // a RelationalException with an error code of its own
+        shouldFailWithCoreException(stmt, "a window function needs an ORDER BY in its OVER clause");
     }
 
     @Test
     void createRankIndexWithFrameFails() throws Exception {
         final String stmt = "CREATE SCHEMA TEMPLATE test_template " +
                 "CREATE TABLE T1(id bigint, grp bigint, score bigint, primary key(id)) " +
-                "CREATE INDEX mv1 AS SELECT rank(score) OVER (PARTITION BY grp ROWS UNBOUNDED PRECEDING) FROM T1";
+                "CREATE INDEX mv1 AS SELECT rank() OVER (PARTITION BY grp ORDER BY score " +
+                "ROWS UNBOUNDED PRECEDING) FROM T1";
         shouldFailWith(stmt, ErrorCode.UNSUPPORTED_OPERATION,
                 "Unsupported index definition, a window function cannot have a frame specification in an index definition");
     }
