@@ -73,7 +73,7 @@ public class ValueIndexExpansionVisitor extends KeyExpressionExpansionVisitor im
     }
 
     /**
-     * {@inheritDoc} A value index stores one entry per distinct element of a record.
+     * {@inheritDoc} A value index keeps one entry for each distinct element of a record.
      */
     @Override
     protected boolean isFanOutDistinct() {

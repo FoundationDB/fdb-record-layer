@@ -86,11 +86,12 @@ import java.util.stream.IntStream;
  * order is a property of the explode rather than of its collection, so it does not have to be recovered from whatever
  * computes the collection. Only an explode that does not preserve the order of its collection can be sorted.
  *
- * <p>An explode that is {@linkplain #isDistinct() distinct} stands for every distinct element of its collection once,
- * as an index that fans out a repeated field stores one entry per distinct element of a record. It only models a match
- * candidate for the planner, so it is neither evaluated, nor serialized, nor part of the hashes. Its ordinals would
- * number the distinct elements rather than the positions in the array, so a distinct explode neither preserves the
- * order of its collection nor is sorted.
+ * <p>An explode that is {@linkplain #isDistinct() distinct} gives each distinct element of its collection one time.
+ * It shows a value index on a repeated field, which keeps one entry for each distinct element of a record. Only the
+ * planner uses a distinct explode, in a match candidate. Thus it is not evaluated, not serialized, and not part of the
+ * hashes. A distinct explode does not preserve the order of its collection and is not sorted, because its ordinals
+ * count the distinct elements and not the positions in the array. For how the planner matches a distinct explode, see
+ * {@link com.apple.foundationdb.record.query.plan.cascades.MatchInfo#requiresExistential()}.
  */
 @API(API.Status.EXPERIMENTAL)
 public class ExplodeValue extends AbstractValue implements StreamingValue, CreatesDynamicTypesValue {
@@ -130,8 +131,8 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
     private final boolean reverse;
 
     /**
-     * Whether the explode stands for every distinct element of its collection once rather than every element. Only set
-     * on the explode of a match candidate, so that it does not compare equal to the explode of a query.
+     * Whether the explode gives each distinct element of its collection one time, and not each element. Only the
+     * explode of a match candidate can be distinct. Thus a distinct explode is never equal to the explode of a query.
      */
     private final boolean distinct;
 
@@ -408,22 +409,20 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
                 !collectionValue.semanticEquals(candidateExplodeValue.getCollectionValue(), bindingAliasMap)) {
             return false;
         }
-        // Only the explode a match candidate is expanded with can be distinct, never the explode of a query.
+        // Only the explode of a match candidate can be distinct. The explode of a query is never distinct.
         Verify.verify(!distinct, "the explode of a query cannot be distinct");
-        // An index that fans out a repeated field stores one entry per distinct element of a record, so the explode it
-        // is expanded with is distinct. It subsumes an explode of the same collection that is not, but only produces
-        // each distinct element once, so the match requires an existential: it is sound only if it ends up under an
-        // existential quantifier, which is up to the matches of the parents.
+        // A distinct candidate explode gives each distinct element one time. This explode gives each element. Thus the
+        // match is correct only under an existential quantifier. The matches of the parents make sure of this, see
+        // MatchInfo#requiresExistential().
         if (candidateExplodeValue.isDistinct()) {
-            // Its ordinals number the distinct elements rather than the positions in the array, and it does not
-            // produce the elements in any particular order, so it only subsumes an explode that neither preserves
-            // its order nor is sorted.
+            // The ordinals of a distinct explode count the distinct elements, not the positions in the array. A
+            // distinct explode also gives the elements in no specified order. Thus it can only replace an explode
+            // that does not preserve its order and is not sorted.
             return !preserveOrder && !sorted;
         }
-        // An explode that does not preserve its order is subsumed by an explode of the same collection that does. Both
-        // flow the same (element, ordinal) struct, one per element of the collection, and the query does not observe
-        // its ordinals. A sorted explode is not, as the candidate does not produce its elements in the order the query
-        // asks for.
+        // An explode that preserves its order can replace an explode of the same collection that does not. Both give
+        // one (element, ordinal) struct for each element, and this explode does not use its ordinals. A candidate
+        // explode cannot replace a sorted explode, because the candidate does not give the elements in that order.
         return equalsWithoutChildren(candidateExplodeValue).isTrue() ||
                 (!preserveOrder && !sorted && candidateExplodeValue.preservesOrder());
     }

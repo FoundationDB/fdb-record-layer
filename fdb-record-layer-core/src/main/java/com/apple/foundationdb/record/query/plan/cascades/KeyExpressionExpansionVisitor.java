@@ -381,9 +381,9 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
     }
 
     /**
-     * Whether a field that fans out is exploded {@linkplain ExplodeValue#isDistinct() distinct}, which it is if the
-     * expanded index stores one entry per distinct element of a record: repeated elements produce the same entry key
-     * of such an index, so they share one entry.
+     * Whether the expansion makes a {@linkplain ExplodeValue#isDistinct() distinct} explode for a field that fans
+     * out. This is correct for an index that keeps one entry for each distinct element of a record: equal elements
+     * give the same entry key, so they use one entry. See {@link MatchInfo#requiresExistential()}.
      *
      * @return {@code true} if a field that fans out is exploded distinct
      */

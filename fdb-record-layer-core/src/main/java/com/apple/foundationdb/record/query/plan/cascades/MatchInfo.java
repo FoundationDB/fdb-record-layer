@@ -25,7 +25,9 @@ import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
@@ -70,10 +72,30 @@ public interface MatchInfo {
     RegularMatchInfo getRegularMatchInfo();
 
     /**
-     * {@return whether the match is only sound under an existential quantifier that has not absorbed it yet}
-     * The match then has a distinct explode underneath, whose candidate produces every distinct row of the query
-     * once rather than every row. Such a match is not complete, as only the existence of a row is observed through
-     * an existential quantifier.
+     * {@return whether this match is correct only under an existential quantifier}
+     *
+     * <p>A match that has this flag is correct only if an existential quantifier is above it. An existential
+     * quantifier does not count the rows. It only finds if a row exists.
+     *
+     * <p>One instance is the match of a distinct explode (see {@link ExplodeValue#isDistinct()}), which can only match
+     * a query explode under an {@code EXISTS}. For example, the table {@code T5} has a {@code numbers} array and
+     * an index on its elements. The row {@code (1, [5, 5, 7])} has one index entry for 5 and one for 7, but an explode
+     * of {@code numbers} gives 5, 5 and 7. Thus the index can replace the explode only in a query such as:
+     * <pre>{@code
+     * SELECT id FROM T5 AS row WHERE EXISTS (SELECT 1 FROM row.numbers AS number WHERE number = 5)
+     * }</pre>
+     * {@link TableFunctionExpression#subsumedBy} matches the query explode to the distinct explode of the index and
+     * sets the flag in the {@link MatchInfo}. The flag then moves up with the match, and each parent decides if it
+     * can be swallowed:
+     * <ul>
+     *     <li>The select of the subquery ranges over the explode with a for-each quantifier. This has a different
+     *     semantics from what the match has to offer. Hence, the flag is kept.</li>
+     *     <li>The outer select ranges over the subquery with an existential quantifier, because of the
+     *     {@code EXISTS}. It only finds if the subquery has a row, so the missing rows do not change its result. The
+     *     flag is kept.</li>
+     * </ul>
+     * The complete match does not have the flag, so the planner uses the index. Without the {@code EXISTS}, no
+     * existential quantifier clears the flag, and the planner does not use the index.
      */
     boolean requiresExistential();
 
@@ -187,7 +209,7 @@ public interface MatchInfo {
         private final QueryPlanConstraint additionalPlanConstraint;
 
         /**
-         * Whether the match is only sound under an existential quantifier.
+         * Whether the match is correct only under an existential quantifier. See {@link MatchInfo#requiresExistential()}.
          */
         private final boolean requiresExistential;
 
@@ -364,7 +386,9 @@ public interface MatchInfo {
                                                    @Nonnull final GroupByMappings additionalGroupByMappings,
                                                    @Nullable final List<Value> rollUpToGroupingValues,
                                                    @Nonnull final QueryPlanConstraint additionalPlanConstraint) {
-            // bail out if any of the partial match requires an existential
+            // Only a select expression can make a match that requires an existential correct. Thus this overload, for
+            // all other expressions, does not accept a child match that requires one. See
+            // MatchInfo#requiresExistential().
             if (partialMatchMap.values()
                     .stream()
                     .anyMatch(partialMatch -> Objects.requireNonNull(partialMatch.get()).getMatchInfo()
