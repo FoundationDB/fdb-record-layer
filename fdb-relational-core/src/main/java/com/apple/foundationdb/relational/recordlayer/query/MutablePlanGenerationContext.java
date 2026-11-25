@@ -57,6 +57,7 @@ import java.sql.Struct;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -95,6 +96,12 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
     private boolean shouldProcessLiteral;
 
     private boolean forExplain;
+
+    /**
+     * The 1-based indexes of the unnamed parameters of the statement being planned, by the index of their token.
+     */
+    @Nonnull
+    private Map<Integer, Integer> unnamedParameterIndexes;
 
     @Nullable
     private byte[] continuation;
@@ -305,6 +312,7 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
                 .map(constant -> constant.getKind().getConstantObjectValue()).toList());
         shouldProcessLiteral = true;
         forExplain = false;
+        unnamedParameterIndexes = Map.of();
         continuation = null;
         equalityConstraints = ImmutableList.builder();
     }
@@ -435,6 +443,16 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         this.forExplain = forExplain;
     }
 
+    /**
+     * Sets the indexes of the unnamed parameters of the statement being planned, which unnamed parameters are bound by.
+     *
+     * @param unnamedParameterIndexes the 1-based index of every unnamed parameter, by the index of its token
+     * @see ParseHelpers#unnamedParameterIndexes
+     */
+    public void setUnnamedParameterIndexes(@Nonnull Map<Integer, Integer> unnamedParameterIndexes) {
+        this.unnamedParameterIndexes = unnamedParameterIndexes;
+    }
+
     @Nonnull
     public Value processQueryLiteral(@Nonnull Type type, @Nullable Object literal, int tokenIndex) {
         return processQueryLiteralOrParameter(type, literal, null, null, tokenIndex);
@@ -538,17 +556,18 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
         return processPreparedStatementParameter(value, getObjectType(value), null, param, tokenIndex);
     }
 
+    /**
+     * Processes an unnamed prepared statement parameter ({@code ?}). The parameter is bound by its position in the
+     * statement text, so the result does not depend on the order in which the clauses of the statement are visited.
+     *
+     * @param tokenIndex the index of the parameter token in the statement
+     * @return the value representing the parameter in the plan
+     */
     @Nonnull
     public Value processUnnamedPreparedParam(int tokenIndex) {
-        // TODO (Make prepared statement parameters stateless)
-        final int currentUnnamedParameterIndex = preparedParams.currentUnnamedParamIndex();
-        final Object param;
-        if (!shouldProcessLiteral()) {
-            param = PreparedParams.copyOf(preparedParams, true).nextUnnamedParamValue();
-        } else {
-            param = preparedParams.nextUnnamedParamValue();
-        }
-        return processPreparedStatementParameter(param, getObjectType(param), currentUnnamedParameterIndex, null, tokenIndex);
+        final int unnamedParameterIndex = unnamedParameterIndexes.get(tokenIndex);
+        final Object param = preparedParams.unnamedParamValue(unnamedParameterIndex);
+        return processPreparedStatementParameter(param, getObjectType(param), unnamedParameterIndex, null, tokenIndex);
     }
 
     @Nonnull

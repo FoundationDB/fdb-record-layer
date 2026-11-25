@@ -290,6 +290,7 @@ public final class PlanGenerator {
                 currentPlanHashMode, ast.getQuery(), ast.getQueryCacheKey().getCanonicalQueryString(), parameterHash,
                 ast.getQueryExecutionContext().getEvaluationConstants());
         planGenerationContext.setForExplain(ast.getQueryExecutionContext().isForExplain());
+        planGenerationContext.setUnnamedParameterIndexes(ParseHelpers.unnamedParameterIndexes(ast.getParseTree()));
         final var metadata = Assert.castUnchecked(planContext.getSchemaTemplate(), RecordLayerSchemaTemplate.class);
         try (var ignored = new PlannerEventStatsCollector.DefaultStatsCollectorController()) {
             final var maybePlan = planContext.getMetricsCollector().clock(RelationalMetric.RelationalEvent.GENERATE_LOGICAL_PLAN, () ->
