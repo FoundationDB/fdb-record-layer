@@ -1378,4 +1378,267 @@ class TypeTest {
                 .isNotSameAs(enumType)
                 .satisfies(t -> assertThat(t.getName()).isEqualTo("DifferentName"));
     }
+
+    @Nonnull
+    static Stream<Arguments> maximumTypeTestCases() {
+        final Type intType = Type.primitiveType(Type.TypeCode.INT, false);
+        final Type longType = Type.primitiveType(Type.TypeCode.LONG, false);
+        final Type floatType = Type.primitiveType(Type.TypeCode.FLOAT, false);
+        final Type doubleType = Type.primitiveType(Type.TypeCode.DOUBLE, false);
+        final Type stringType = Type.primitiveType(Type.TypeCode.STRING, false);
+        final Type bytesType = Type.primitiveType(Type.TypeCode.BYTES, false);
+        final Type booleanType = Type.primitiveType(Type.TypeCode.BOOLEAN, false);
+
+        final Type.Enum e1WithAb =  Type.Enum.fromValuesWithName("E1", false, ImmutableList.of(
+                Type.Enum.EnumValue.from("A", 1), Type.Enum.EnumValue.from("B", 1)));
+        final Type.Enum e2WithCd =  Type.Enum.fromValuesWithName("E2", false, ImmutableList.of(
+                Type.Enum.EnumValue.from("C", 1), Type.Enum.EnumValue.from("D", 1)));
+
+        final var intArray = new Type.Array(false, intType);
+        final var longArray = new Type.Array(false, longType);
+        final var floatArray = new Type.Array(false, floatType);
+        final var doubleArray = new Type.Array(false, doubleType);
+
+        final var intField = Type.Record.Field.unnamedOf(intType);
+        final var intFieldA = intField.withName(Optional.of("a"));
+        final var intFieldB = intField.withName(Optional.of("b"));
+        final var intFieldC = intField.withName(Optional.of("c"));
+        final var intFieldD = intField.withName(Optional.of("d"));
+
+        final var longField =  Type.Record.Field.unnamedOf(longType);
+        final var floatField =  Type.Record.Field.unnamedOf(floatType);
+        final var doubleField =  Type.Record.Field.unnamedOf(doubleType);
+        final var stringField =  Type.Record.Field.unnamedOf(stringType);
+
+        final var r1WithAb = Type.Record.fromFieldsWithName("R1", false, ImmutableList.of(intFieldA, intFieldB));
+        final var r1WithCd = Type.Record.fromFieldsWithName("R1", false, ImmutableList.of(intFieldC, intFieldD));
+        final var r2WithAb = r1WithAb.withName("R2");
+
+        final var unnamedWithAb = Type.Record.fromFields(false, r1WithAb.getFields());
+        final var unnamedWithCd = Type.Record.fromFields(false, r1WithCd.getFields());
+        final var unnamedWithGeneratedNames = Type.Record.fromFields(false, ImmutableList.of(intField, intField));
+        final var recordWithGeneratedNameWithAb = unnamedWithAb.withName(ProtoUtils.uniqueTypeName());
+
+        final var r1WithAbc = Type.Record.fromFieldsWithName("R1", false, ImmutableList.of(intFieldA, intFieldB, intFieldC));
+        final var r2WithAbc = r1WithAbc.withName("R2");
+        final var unnamedWithAbc = Type.Record.fromFields(false, r1WithAbc.getFields());
+
+        return Stream.of(
+                Arguments.argumentSet("int, int -> int", intType, intType, intType),
+                Arguments.argumentSet("int, float -> float", intType, floatType, floatType),
+                Arguments.argumentSet("int, long -> long", intType, longType, longType),
+                Arguments.argumentSet("long, double -> double", longType, doubleType, doubleType),
+                Arguments.argumentSet("int, string -> undefined", intType, stringType, null),
+                Arguments.argumentSet("string, bytes -> undefined", stringType, bytesType, null),
+                Arguments.argumentSet("boolean, int -> undefined", booleanType, intType, null),
+                Arguments.argumentSet("record, array -> undefined", unnamedWithAb, new Type.Array(unnamedWithAb), null),
+                Arguments.argumentSet("int, record -> undefined", intType, unnamedWithAb, null),
+                Arguments.argumentSet("array(int), int -> undefined", intArray, intType, null),
+
+                // NULL and NONE
+                Arguments.argumentSet("null, null -> null", Type.nullType(), Type.nullType(), Type.nullType()),
+                Arguments.argumentSet("null, int -> int?", Type.nullType(), intType, intType.withNullability(true)),
+                Arguments.argumentSet("null, R1 -> R1?", Type.nullType(), r1WithAb, r1WithAb.withNullability(true)),
+                Arguments.argumentSet("null, array(int) -> array(int)?", Type.nullType(), intArray, intArray.withNullability(true)),
+                Arguments.argumentSet("none, none -> none", Type.noneType(), Type.noneType(), Type.noneType()),
+                Arguments.argumentSet("none, array(int) -> array(int)", Type.noneType(), intArray, intArray),
+
+                // UUID and enums
+                Arguments.argumentSet("uuid, uuid? -> uuid?", Type.uuidType(false), Type.uuidType(true), Type.uuidType(true)),
+                Arguments.argumentSet("enum, same enum -> enum", e1WithAb, e1WithAb, e1WithAb),
+                Arguments.argumentSet("enum, enum with different values -> undefined", e1WithAb, e2WithCd, null),
+
+                // Records: field names and type names are combined correctly
+                Arguments.argumentSet("record(a, b), record(a, b) -> record(a, b)", unnamedWithAb, unnamedWithAb, unnamedWithAb),
+                Arguments.argumentSet("record(a, b), record(c, d) -> record(_0, _1)", unnamedWithAb, unnamedWithCd, unnamedWithGeneratedNames),
+                Arguments.argumentSet("record(a, b), record(_0, _1) -> record(a, b)", unnamedWithAb, unnamedWithGeneratedNames, unnamedWithAb),
+                Arguments.argumentSet("record(a, b) as R1, record(a, b) -> record(a, b) as R1", r1WithAb, unnamedWithAb, r1WithAb),
+                Arguments.argumentSet("record(a, b) as R1, record(a, b) as R2 -> record(a, b)", r1WithAb, r2WithAb, unnamedWithAb),
+                Arguments.argumentSet("record(a, b) as R1, record(a, b) as R1 -> R1", r1WithAb, r1WithAb, r1WithAb),
+                Arguments.argumentSet("record(a, b) as R1, record(c, d) as R1 -> record(_0, _1)", r1WithAb, r1WithCd, unnamedWithGeneratedNames),
+                Arguments.argumentSet("record(a, b, c) as R2, record(a, b, c) -> R2", r2WithAbc, unnamedWithAbc, r2WithAbc),
+                Arguments.argumentSet("record(a, b, c), record(a, b) -> null", unnamedWithAbc, unnamedWithAb, null),
+
+                Arguments.argumentSet("record(a, b), record(a, c) -> record(a, _1)",
+                        unnamedWithAb,
+                        Type.Record.fromFields(ImmutableList.of(intFieldA, intFieldC)),
+                        Type.Record.fromFields(ImmutableList.of(intFieldA, intField))),
+
+                Arguments.argumentSet("record(record(a, b) as R1 as x), record((record(a, b) as R1 as y) -> record((record(a, b) as R1)",
+                        Type.Record.fromFields(ImmutableList.of(Type.Record.Field.of(r1WithAb, Optional.of("x")))),
+                        Type.Record.fromFields(ImmutableList.of(Type.Record.Field.of(r1WithAb, Optional.of("y")))),
+                        Type.Record.fromFields(ImmutableList.of(Type.Record.Field.unnamedOf(r1WithAb)))),
+
+                Arguments.argumentSet("record(record(a, b) as R1 as x) as T, record(record(a, b) as R1 as x) as T -> record(record(a, b) as R1) as T",
+                        Type.Record.fromFieldsWithName("T", false, ImmutableList.of(Type.Record.Field.of(r1WithAb, Optional.of("x")))),
+                        Type.Record.fromFieldsWithName("T", false, ImmutableList.of(Type.Record.Field.of(r1WithAb, Optional.of("x")))),
+                        Type.Record.fromFieldsWithName("T", false, ImmutableList.of(Type.Record.Field.of(r1WithAb, Optional.of("x"))))),
+
+                Arguments.argumentSet("record(record(a, b) as R1 as x) as T1, record(record(a, b) as R1 as y) as T2 -> record(record(a, b) as R1)",
+                        Type.Record.fromFieldsWithName("T1", false, ImmutableList.of(Type.Record.Field.of(r1WithAb, Optional.of("x")))),
+                        Type.Record.fromFieldsWithName("T2", false, ImmutableList.of(Type.Record.Field.of(r1WithAb, Optional.of("y")))),
+                        Type.Record.fromFields(false, ImmutableList.of(Type.Record.Field.unnamedOf(r1WithAb)))),
+
+                // Records: a deeply nested record with different type names leads to the resulting record type to be unnamed
+                Arguments.argumentSet(
+                        "record(record(record(a) as R1 as y) as R2 as x) as T1, " +
+                                "record(record(record(a) as R3 as y) as R2 as x) " +
+                                "-> record(record(record(a) as y) as x)",
+                        Type.Record.fromFieldsWithName("T1", true,
+                                ImmutableList.of(Type.Record.Field.of(
+                                        Type.Record.fromFieldsWithName("R2", true, ImmutableList.of(
+                                                Type.Record.Field.of(
+                                                        Type.Record.fromFieldsWithName("R1", true, ImmutableList.of(intFieldA)),
+                                                        Optional.of("y")))),
+                                        Optional.of("x")))),
+                        Type.Record.fromFields(
+                                ImmutableList.of(Type.Record.Field.of(
+                                        Type.Record.fromFieldsWithName("R2", true, ImmutableList.of(
+                                                Type.Record.Field.of(
+                                                        Type.Record.fromFieldsWithName("R3", true, ImmutableList.of(intFieldA)),
+                                                        Optional.of("y")))),
+                                        Optional.of("x")))),
+                        Type.Record.fromFields(
+                                ImmutableList.of(Type.Record.Field.of(
+                                        Type.Record.fromFields(ImmutableList.of(
+                                                Type.Record.Field.of(
+                                                        Type.Record.fromFields(ImmutableList.of(intFieldA)),
+                                                        Optional.of("y")))),
+                                        Optional.of("x"))))),
+
+
+                Arguments.argumentSet("record(record(a, b) as R1 as x), record(record(a, b) as R2 as y) -> record(record(a, b))",
+                        Type.Record.fromFields(ImmutableList.of(Type.Record.Field.of(r1WithAb, Optional.of("x")))),
+                        Type.Record.fromFields(ImmutableList.of(Type.Record.Field.of(r2WithAb, Optional.of("y")))),
+                        Type.Record.fromFields(ImmutableList.of(Type.Record.Field.unnamedOf(unnamedWithAb)))),
+
+                Arguments.argumentSet("record(record(a, b) as R1 as x), record(record(a, b)) -> record(record(a, b) as R1 as x)",
+                        Type.Record.fromFields(ImmutableList.of(Type.Record.Field.of(r1WithAb, Optional.of("x")))),
+                        Type.Record.fromFields(ImmutableList.of(Type.Record.Field.unnamedOf(unnamedWithAb))),
+                        Type.Record.fromFields(ImmutableList.of(Type.Record.Field.of(r1WithAb, Optional.of("x"))))),
+
+
+                // Records: generated type names are treated as unnamed
+                Arguments.argumentSet("record(a, b) as <generated name>, record(a, b) as R1 -> R1",
+                        r1WithAb.withName(ProtoUtils.uniqueTypeName()), r1WithAb, r1WithAb),
+                Arguments.argumentSet("record(a, b) as <generated name>, record(a, b) as <different generated name> -> record(a, b)",
+                        r1WithAb.withName(ProtoUtils.uniqueTypeName()),
+                        r1WithAb.withName(ProtoUtils.uniqueTypeName()),
+                        unnamedWithAb),
+                Arguments.argumentSet("record(a, b) as <generated name>, record(a, b) as <same generated name> -> record(a, b)",
+                        recordWithGeneratedNameWithAb,
+                        recordWithGeneratedNameWithAb,
+                        unnamedWithAb),
+
+                // Records: field types are promoted correctly
+                Arguments.argumentSet("record(int, int), record(float, float) -> record(float, float)",
+                        Type.Record.fromFields(ImmutableList.of(intField, intField)),
+                        Type.Record.fromFields(ImmutableList.of(floatField, floatField)),
+                        Type.Record.fromFields(ImmutableList.of(floatField, floatField))),
+                Arguments.argumentSet("record(int, float), record(float, double) -> record(float, double)",
+                        Type.Record.fromFields(ImmutableList.of(intField, floatField)),
+                        Type.Record.fromFields(ImmutableList.of(floatField, doubleField)),
+                        Type.Record.fromFields(ImmutableList.of(floatField, doubleField))),
+                Arguments.argumentSet("record(int, long), record(int, int) -> record(int, long)",
+                        Type.Record.fromFields(ImmutableList.of(intField, longField)),
+                        Type.Record.fromFields(ImmutableList.of(intField, intField)),
+                        Type.Record.fromFields(ImmutableList.of(intField, longField))),
+                Arguments.argumentSet("record(int, array(float)), record(int, array(double)) -> record(int, array(double))",
+                        Type.Record.fromFields(ImmutableList.of(intField, Type.Record.Field.unnamedOf(floatArray))),
+                        Type.Record.fromFields(ImmutableList.of(intField, Type.Record.Field.unnamedOf(doubleArray))),
+                        Type.Record.fromFields(ImmutableList.of(intField, Type.Record.Field.unnamedOf(doubleArray)))),
+                Arguments.argumentSet("record(int, string), record(float, int) -> undefined",
+                        Type.Record.fromFields(ImmutableList.of(intField, stringField)),
+                        Type.Record.fromFields(ImmutableList.of(floatField, intField)),
+                        null),
+
+                // Records: field indexes
+                Arguments.argumentSet("record(a@5, b@6), record(a@7, b@8) -> record(a@1, b@2)",
+                        Type.Record.fromFields(ImmutableList.of(
+                                intFieldA.withIndex(Optional.of(5)),
+                                intFieldB.withIndex(Optional.of(6)))),
+                        Type.Record.fromFields(ImmutableList.of(
+                                intFieldA.withIndex(Optional.of(7)),
+                                intFieldB.withIndex(Optional.of(8)))),
+                        Type.Record.fromFields(ImmutableList.of(
+                                intFieldA.withIndex(Optional.of(1)),
+                                intFieldB.withIndex(Optional.of(2))))),
+
+                // Nullability is combined correctly
+                Arguments.argumentSet("int, int? -> int?",
+                        intType, intType.withNullability(true), intType.withNullability(true)),
+                Arguments.argumentSet("int?, long -> long?",
+                        intType.withNullability(true), longType, longType.withNullability(true)),
+                Arguments.argumentSet("enum, enum? -> enum?", e1WithAb, e1WithAb.withNullability(true), e1WithAb.withNullability(true)),
+                Arguments.argumentSet("record(a, b?), record(a, b)? -> record(a, b?)?",
+                        Type.Record.fromFields(ImmutableList.of(intFieldA, intFieldB.withNullability(true))),
+                        Type.Record.fromFields(true, ImmutableList.of(intFieldA, intFieldB)),
+                        Type.Record.fromFields(true, ImmutableList.of(intFieldA, intFieldB.withNullability(true)))),
+                Arguments.argumentSet("R1, R1? -> R1?",
+                        r1WithAb, r1WithAb.withNullability(true), r1WithAb.withNullability(true)),
+                Arguments.argumentSet("R1, record(a, b)? -> R1?",
+                        r1WithAb, unnamedWithAb.withNullability(true), r1WithAb.withNullability(true)),
+                Arguments.argumentSet("record(a, b)?, R1 -> R1?", unnamedWithAb.withNullability(true), r1WithAb,
+                        r1WithAb.withNullability(true)),
+                Arguments.argumentSet("array(int), array(int)? -> array(int)?",
+                        intArray, intArray.withNullability(true), intArray.withNullability(true)),
+                Arguments.argumentSet("array(int?), array(int)? -> array(int?)?",
+                        new Type.Array(true, intType.withNullability(true)),
+                        intArray,
+                        new Type.Array(true, intType.withNullability(true))),
+
+                // Arrays: element types are promoted correctly
+                Arguments.argumentSet("array(int), array(long) -> array(long)", intArray, longArray, longArray),
+                Arguments.argumentSet("array(double), array(int) -> array(double)", doubleArray, intArray, doubleArray),
+                Arguments.argumentSet("array(double), array(float) -> array(double)", doubleArray, floatArray, doubleArray),
+                Arguments.argumentSet("array(int), array(string) -> undefined", intArray, new Type.Array(false, stringType), null),
+                Arguments.argumentSet("array(record(a, b) as R1), array(record(a, b)) -> array(R1)",
+                        new Type.Array(false, r1WithAb),
+                        new Type.Array(false, unnamedWithAb),
+                        new Type.Array(false, r1WithAb)),
+                Arguments.argumentSet("array(record(a, b) as R1), array(record(a, b) as R2) -> array(record(a, b))",
+                        new Type.Array(false, r1WithAb),
+                        new Type.Array(false, r2WithAb),
+                        new Type.Array(false, unnamedWithAb)),
+                Arguments.argumentSet("array(record(a, b, c) as R1), array(record(a, b) as R1) -> undefined",
+                        new Type.Array(false, r1WithAbc),
+                        new Type.Array(false, r1WithAb),
+                        null)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("maximumTypeTestCases")
+    void testMaximumType(@Nonnull final Type t1, @Nonnull final Type t2, @Nullable final Type expected) {
+        assertTypeEquals(Type.maximumType(t1, t2), expected);
+        assertTypeEquals(Type.maximumType(t2, t1), expected);
+    }
+
+    /**
+     * Asserts that two types are equal, additionally checking the names of all (nested) record types, which are not
+     * considered by {@link Type.Record#equals(Object)}.
+     */
+    private static void assertTypeEquals(@Nullable final Type actual, @Nullable final Type expected) {
+        if (expected == null) {
+            assertThat(actual).isNull();
+            return;
+        }
+
+        assertThat(actual).isNotNull().isEqualTo(expected);
+        if (expected.isRecord()) {
+            final var actualRecord = (Type.Record)Objects.requireNonNull(actual);
+            final var expectedRecord = (Type.Record)expected;
+            assertThat(actualRecord.isNamed()).isEqualTo(expectedRecord.isNamed());
+            if (expectedRecord.isNamed()) {
+                assertThat(actualRecord.getName()).isEqualTo(expectedRecord.getName());
+            }
+            final var actualFields = actualRecord.getFields();
+            final var expectedFields = expectedRecord.getFields();
+            for (int i = 0; i < expectedFields.size(); i++) {
+                assertTypeEquals(actualFields.get(i).getFieldType(), expectedFields.get(i).getFieldType());
+            }
+        } else if (expected.isArray()) {
+            assertTypeEquals(((Type.Array)actual).getElementType(), ((Type.Array)expected).getElementType());
+        }
+    }
 }

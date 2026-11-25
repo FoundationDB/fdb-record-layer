@@ -141,8 +141,10 @@ test_block:
   tests:
     -
       - query: select coalesce(st, (5, 'e', 5.0)) from C where c1 = 4
-      - result: [
-          {{ _0: 5, _1: 'e', _2: 5.0}}]
+      - initialVersionLessThan: !current_version
+      - result: [ { { _0: 5, _1: 'e', _2: 5.0 } } ]
+      - initialVersionAtLeast: !current_version
+      - result: [ { { T1: 5, A: 'e', B: 5.0 } } ]
     -
       # "new" should not be quoted. TODO ([Post] Fix identifiers case-sensitivity matching in plan generator)
       - query: update C set st = coalesce(st, null) where c1 = 4 returning "new".st

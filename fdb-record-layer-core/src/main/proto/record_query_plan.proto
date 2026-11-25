@@ -189,6 +189,7 @@ message PPrimitiveCoercionBiFunction {
     NULL_TO_BYTES = 19;
     NULL_TO_VECTOR = 20;
     NULL_TO_VERSION = 21;
+    NULL_TO_UUID = 22;
   }
   optional PPhysicalOperator operator = 1;
 }

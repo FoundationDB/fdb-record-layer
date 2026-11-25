@@ -95,6 +95,7 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
         NULL_TO_BYTES(Type.TypeCode.NULL, Type.TypeCode.BYTES, (descriptor, in) -> null),
         NULL_TO_VECTOR(Type.TypeCode.NULL, Type.TypeCode.VECTOR, (descriptor, in) -> null),
         NULL_TO_VERSION(Type.TypeCode.NULL, Type.TypeCode.VERSION, (descriptor, in) -> null),
+        NULL_TO_UUID(Type.TypeCode.NULL, Type.TypeCode.UUID, (descriptor, in) -> null)
         ;
 
         @Nonnull
@@ -206,8 +207,6 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
     @Nullable
     private final CoercionTrieNode promotionTrie;
 
-    private final boolean isSimplePromotion;
-
     /**
      * Constructs a new {@link PromoteValue} instance. Note that the actual promotion that is carried out is viewed
      * as a <em>treatment</em> of an object of a type as an object of another type without loss of information. On the
@@ -222,9 +221,6 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
         this.inValue = inValue;
         this.promoteToType = promoteToType;
         this.promotionTrie = promotionTrie;
-        this.isSimplePromotion = promoteToType.isPrimitive() || promoteToType.isUuid() ||
-                (promoteToType instanceof Type.Array &&
-                         Objects.requireNonNull(((Type.Array)promoteToType).getElementType()).isPrimitive());
     }
 
     @Nonnull
@@ -256,22 +252,30 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
             return result;
         }
 
-        final Descriptors.GenericDescriptor genericDescriptor;
-        if (isSimplePromotion) {
-            genericDescriptor = null;
-        } else {
-            if (promoteToType.isEnum()) {
-                genericDescriptor = context.getTypeRepository().getEnumDescriptor(promoteToType);
-            } else {
-                Verify.verify(promoteToType.isRecord());
-                genericDescriptor = context.getTypeRepository().getMessageDescriptor(promoteToType);
-            }
-        }
         return MessageHelpers.coerceObject(promotionTrie,
                 promoteToType,
-                genericDescriptor,
+                findTargetDescriptor(promoteToType, context),
                 inValue.getResultType(),
                 result);
+    }
+
+    @Nullable
+    private static Descriptors.GenericDescriptor findTargetDescriptor(@Nonnull Type promoteToType,
+                                                                      @Nonnull final EvaluationContext context) {
+        final Descriptors.GenericDescriptor genericDescriptor;
+        if (promoteToType.isPrimitive() || promoteToType.isUuid()) {
+            genericDescriptor = null;
+        } else if (promoteToType.isEnum()) {
+            genericDescriptor = context.getTypeRepository().getEnumDescriptor(promoteToType);
+        } else if (promoteToType.isRecord() || (promoteToType.isArray() && promoteToType.isNullable())) {
+            genericDescriptor = context.getTypeRepository().getMessageDescriptor(promoteToType);
+        } else {
+            Verify.verify(promoteToType.isArray());
+            final var elementType = ((Type.Array)promoteToType).getElementType();
+            Verify.verify(elementType != null);
+            genericDescriptor = findTargetDescriptor(elementType, context);
+        }
+        return genericDescriptor;
     }
 
     @Nonnull
@@ -284,6 +288,18 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
     @Override
     protected Iterable<? extends Value> computeChildren() {
         return ImmutableList.of(getChild());
+    }
+
+    @Override
+    public boolean canResultInType(@Nonnull final Type type) {
+        return isPromotable(inValue.getResultType(), type);
+    }
+
+    @Nonnull
+    @Override
+    public Value with(@Nonnull final Type type) {
+        Verify.verify(canResultInType(type));
+        return PromoteValue.inject(inValue, type);
     }
 
     @Override
@@ -452,7 +468,59 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
     }
 
     public static boolean isPromotable(@Nonnull final Type inType, @Nonnull final Type promoteToType) {
-        return resolvePhysicalOperator(inType, promoteToType) != null || inType.isRecord() && promoteToType.isRecord();
+        if (resolvePhysicalOperator(inType, promoteToType) != null) {
+            return true;
+        }
+
+        if (inType.isRecord() && promoteToType.isRecord()) {
+            return isRecordTypePromotable((Type.Record)inType, (Type.Record)promoteToType);
+        }
+
+        if (inType.isArray() && promoteToType.isArray()) {
+            final var inArray = (Type.Array)inType;
+            final var promoteToArray = (Type.Array)promoteToType;
+            if (inArray.isErased() || promoteToArray.isErased()) {
+                return false;
+            }
+            return isPromotable(Verify.verifyNotNull(inArray.getElementType()),
+                    Verify.verifyNotNull(promoteToArray.getElementType()));
+        }
+
+        return false;
+    }
+
+    private static boolean isRecordTypePromotable(@Nonnull final Type.Record inType, @Nonnull final Type.Record promoteToType) {
+        if (inType.isNamed() && promoteToType.isNamed() &&
+                !Objects.equals(inType.getName(), promoteToType.getName())) {
+            return false;
+        }
+        final var inTypeFields = inType.getFields();
+        final var promoteToTypeFields = promoteToType.getFields();
+
+        if (inTypeFields.size() != promoteToTypeFields.size()) {
+            return false;
+        }
+
+        for (int i = 0; i < inTypeFields.size(); i++) {
+            final var inField = inTypeFields.get(i);
+            final var toField = promoteToTypeFields.get(i);
+
+            // If the input type is named, the name on the field is likely to have a semantic meaning,
+            // so it shouldn't be allowed to change across promotions.
+            if (inType.isNamed() && inField.isNamed() && toField.isNamed() &&
+                    !inField.getFieldName().equals(toField.getFieldName())) {
+                return false;
+            }
+
+            final var inFieldType = inField.getFieldType();
+            final var toFieldType = toField.getFieldType();
+            if (isPromotionNeeded(inFieldType, toFieldType) &&
+                    !isPromotable(inFieldType, toFieldType)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     @Nullable
@@ -464,18 +532,26 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
         if (promoteToType.getTypeCode() == Type.TypeCode.ANY) {
             return false;
         }
+
         if (inType.isNull()) {
             return true;
         }
+
         if (inType.isNone()) {
             return true;
         }
+
+        if (inType.equals(promoteToType)) {
+            return false;
+        }
+
         if (inType.isArray() && promoteToType.isArray()) {
             final var inArray = (Type.Array)inType;
             final var promoteToArray = (Type.Array)promoteToType;
             SemanticException.check(!inArray.isErased() && !promoteToArray.isErased(), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
             return isPromotionNeeded(Verify.verifyNotNull(inArray.getElementType()), Verify.verifyNotNull(promoteToArray.getElementType()));
         }
+
         if (inType.isRecord() && promoteToType.isRecord()) {
             var promotionNeeded = false;
             final List<Type.Record.Field> inTypeFields = Objects.requireNonNull(((Type.Record) inType).getFields());
@@ -494,12 +570,14 @@ public class PromoteValue extends AbstractValue implements CreatesDynamicTypesVa
             }
             return promotionNeeded;
         }
+
         if (inType.isVector() && promoteToType.isVector()) {
             final var inVectorType = (Type.Vector)inType;
             final var promoteToVectorType = (Type.Vector)promoteToType;
             SemanticException.check(inVectorType.nullable().equals(promoteToVectorType.nullable()), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
             return false;
         }
+
         SemanticException.check((inType.isPrimitive() || inType.isEnum() || inType.isUuid()) &&
                 (promoteToType.isPrimitive() || promoteToType.isEnum() || promoteToType.isUuid()), SemanticException.ErrorCode.INCOMPATIBLE_TYPE);
         return inType.getTypeCode() != promoteToType.getTypeCode();

@@ -20,7 +20,8 @@
 schema_template: |
       create type as struct ts(sa bigint, sb bigint)
       create type as struct fruit_type(name string, color string)
-      create table ta(a bigint, b bigint, c double, d boolean, e string, f ts, primary key(a))
+      create type as enum color ('RED', 'GREEN', 'BLUE')
+      create table ta(a bigint, b bigint, c double, d boolean, e string, f ts, g color, h UUID, primary key(a))
       create index f1 as select f.sa, f.sb from ta order by f.sa, f.sb
       create table array_table(id bigint, fruits string array, numbers bigint array, fruit_records fruit_type array, primary key(id))
       create index fruits as select "fruit" from array_table as t, t.fruits as "fruit"
@@ -31,11 +32,11 @@ schema_template: |
 setup:
   steps:
     - query: INSERT INTO TA
-        VALUES (0, 9, 1.23, true,  'foo', (90 as sa, 9 as sb)),
-               (1, 8, 4.56, false, 'bar', (81 as sa, 18 as sb)),
-               (2, 7, 7.89, true,  'doe', (72 as sa, 27 as sb)),
-               (3, 6, 0.12, false, 'arc', (63 as sa, 36 as sb)),
-               (4, 5, 3.45, true,  'per', (54 as sa, 45 as sb))
+        VALUES (0, 9, 1.23, true,  'foo', (90 as sa, 9 as sb), 'RED', '0920df1c-be81-4ec1-8a06-2180226f051d'),
+               (1, 8, 4.56, false, 'bar', (81 as sa, 18 as sb), 'GREEN', '2e60b129-ad99-499a-9cef-a27977640e93'),
+               (2, 7, 7.89, true,  'doe', (72 as sa, 27 as sb), 'BLUE', 'a9b12c43-8c3e-4c1a-9df1-7e0f831c62c7'),
+               (3, 6, 0.12, false, 'arc', (63 as sa, 36 as sb), 'RED', '49912c2c-cdcf-4f98-8819-1d6cc9992ede'),
+               (4, 5, 3.45, true,  'per', (54 as sa, 45 as sb), 'GREEN', '48f03e24-1f52-49c3-ab61-38acde3f5484')
     # with target fields and reorderings
     - query: INSERT INTO TA(a, b, c, d, e, f(sa, sb))
         VALUES (5, 4, 6.78, false, 'doe', (45, 54)),
@@ -227,6 +228,22 @@ test_block:
       # Duplicate values in in-lists lead to duplicate results if the IN predicate is planned as a nested loop join in earlier versions
       - initialVersionLessThan: 4.6.4.0
       - unorderedResult: [ { A: 0, 9 }, { A: 0, 9 }, { A: 1, 8 }, { A: 1, 8 } ]
+    -
+      # ENUM value matched against IN list of String values that can be promoted to the enum type
+      - query: select a, g from ta where g in ('RED', 'GREEN')
+      - supported_version: !current_version
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(promote(@c9 AS ARRAY(ENUM<RED(0), GREEN(1), BLUE(2)>)))) | FILTER q0.G EQUALS _._0 AS q1 RETURN (q0.A AS A, q0.G AS G) }"
+      - unorderedResult: [ { a: 0, g: 'RED' },
+                           { a: 1, g: 'GREEN' },
+                           { a: 3, g: 'RED' },
+                           { a: 4, g: 'GREEN'} ]
+    -
+      # UUID value matched against IN list of String values that can be promoted to UUID
+      - query: select a, h from ta where h in ('0920df1c-be81-4ec1-8a06-2180226f051d', '2e60b129-ad99-499a-9cef-a27977640e93')
+      - supported_version: !current_version
+      - explain: "ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(promote(@c9 AS ARRAY(UUID)))) | FILTER q0.H EQUALS _._0 AS q1 RETURN (q0.A AS A, q0.H AS H) }"
+      - unorderedResult: [ { a: 0, h: !uuid '0920df1c-be81-4ec1-8a06-2180226f051d' },
+                           { a: 1, h: !uuid '2e60b129-ad99-499a-9cef-a27977640e93' } ]
     -
       # `NOT IN`
       - query: select e, a from ta where e not in ('foo' , 'bar', 'doe', 'arc', 'something')
@@ -479,5 +496,8 @@ test_block:
       -
         # Complex (STRUCT) left type matched against IN list
         - query: select a, e from ta where f in (34, 23)
+        - initialVersionLessThan: !current_version
         - error: CANNOT_CONVERT_TYPE
+        - initialVersionAtLeast: !current_version
+        - error: DATATYPE_MISMATCH
 ...
