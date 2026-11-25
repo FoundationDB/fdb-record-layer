@@ -335,15 +335,6 @@ public class WindowIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
     }
 
     /**
-     * Expresses values written over the base quantifier over the pre-window select's quantifier instead.
-     *
-     * @param values the values to pull up
-     * @param preWindowSelectQun the quantifier they are to be expressed over
-     * @param aliasMap the aliases the values may legitimately stay correlated to
-     *
-     * @return the pulled-up values, in the order they were given
-     */
-    /**
      * Expresses the given values over the pre-window select's quantifier, dropping any that cannot be reached from
      * what it flows. A record type key has no counterpart there, and neither has a column of a quantifier the select
      * does not range over.

@@ -122,10 +122,11 @@ public class WindowExpression extends AbstractRelationalExpressionWithChildren i
         this.resultValueSupplier = Suppliers.memoize(this::computeResultValue);
     }
 
-    /**
-     * rank() over (partition by team order by score) where team = 'teamA' or team = 'teamB' === { 20, 40, 70, 100 }
-     * rank(70) within group over (partition by team order by score) where team = 'teamA' or team = 'teamB' === { 20, 40, 70, 100 }
-     */
+    //
+    // rank() over (partition by team order by score) where team = 'teamA' or team = 'teamB' === { 20, 40, 70, 100 }
+    // rank(70) within group over (partition by team order by score) where team = 'teamA' or team = 'teamB'
+    //     === { 20, 40, 70, 100 }
+    //
 
 
 

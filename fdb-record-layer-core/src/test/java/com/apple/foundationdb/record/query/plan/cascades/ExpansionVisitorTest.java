@@ -215,16 +215,6 @@ class ExpansionVisitorTest {
     }
 
     /**
-     * What the candidate advertises is the partitioning columns and the window value, and nothing else -- here
-     * {@code gender} and the rank. The window value is among them on purpose: a query constrains the rank, which is what
-     * makes a {@code BY_RANK} scan expressible, and the post-window select is the first level at which it exists.
-     *
-     * <p>The two columns that are not advertised are not advertised for different reasons. {@code score} is what the rank is
-     * computed over: binding it would filter rows before they are ranked, which is not what the index materializes.
-     * {@code name} is the primary key, physically present in the entry but behind the rank in the entry key, so a
-     * constraint on it could not narrow a scan that is not already down to a single rank.
-     */
-    /**
      * An index key may reach into more than one nested record, and cover only part of each. The columns are passed
      * through in the base record's own shape -- one per top-level field, nesting kept -- rather than as the leaves the
      * key happens to cover, so the type the candidate produces is the record's type with the window value appended.
@@ -263,6 +253,16 @@ class ExpansionVisitorTest {
         assertThat(fields.get(2).getFieldType().getTypeCode()).isEqualTo(Type.TypeCode.LONG);
     }
 
+    /**
+     * What the candidate advertises is the partitioning columns and the window value, and nothing else -- here
+     * {@code gender} and the rank. The window value is among them on purpose: a query constrains the rank, which is what
+     * makes a {@code BY_RANK} scan expressible, and the post-window select is the first level at which it exists.
+     *
+     * <p>The two columns that are not advertised are not advertised for different reasons. {@code score} is what the rank is
+     * computed over: binding it would filter rows before they are ranked, which is not what the index materializes.
+     * {@code name} is the primary key, physically present in the entry but behind the rank in the entry key, so a
+     * constraint on it could not narrow a scan that is not already down to a single rank.
+     */
     @Test
     void windowIndexExpansionMakesTheIndexKeyColumnsSargable() {
         final var index = new Index("rank_by_gender", field("score").groupBy(field("gender")), IndexTypes.RANK);

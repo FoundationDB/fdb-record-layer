@@ -218,14 +218,6 @@ public class ExpandWindowExpressionsRule extends AbstractCascadesRule<SelectExpr
                 .collect(ImmutableSet.toImmutableSet());
     }
 
-    @Nonnull
-    private static List<Value> orderingValues(@Nonnull final CompileTimeWindowValue compileTimeWindowValue) {
-        return compileTimeWindowValue.getOrderingParts()
-                .stream()
-                .map(WindowOrderingPart::getValue)
-                .collect(ImmutableList.toImmutableList());
-    }
-
     /**
      * Collects the distinct {@link CompileTimeWindowValue}s the given select computes, whether they appear in its result
      * value or inside one of its predicates.
