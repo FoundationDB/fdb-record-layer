@@ -87,11 +87,9 @@ import java.util.stream.IntStream;
  * computes the collection. Only an explode that does not preserve the order of its collection can be sorted.
  *
  * <p>An explode that is {@linkplain #isDistinct() distinct} gives each distinct element of its collection one time.
- * It shows a value index on a repeated field, which keeps one entry for each distinct element of a record. Only the
- * planner uses a distinct explode, in a match candidate. Thus it is not evaluated, not serialized, and not part of the
- * hashes. A distinct explode does not preserve the order of its collection and is not sorted, because its ordinals
- * count the distinct elements and not the positions in the array. For how the planner matches a distinct explode, see
- * {@link com.apple.foundationdb.record.query.plan.cascades.MatchInfo#requiresExistential()}.
+ * This is used to represent value index on a repeated field, which keeps one entry for each distinct element of a
+ * record. Hence, only the planner uses a distinct explode, in a match candidate, and it cannot be evaluated or
+ * serialized.
  */
 @API(API.Status.EXPERIMENTAL)
 public class ExplodeValue extends AbstractValue implements StreamingValue, CreatesDynamicTypesValue {
