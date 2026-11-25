@@ -45,7 +45,7 @@ jobs:
       - name: Run Gradle Build
         uses: ./actions/run-gradle
         with:
-          gradle_command: build -x test -x destructiveTest -x scalarFallbackTest -PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport
+          gradle_command: build -x test -x destructiveTest -x scalarFallbackTest -x clientLogTest -x clientLogChecksumTest -PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport
 
   plan:
     runs-on: ubuntu-latest
@@ -119,11 +119,12 @@ jobs:
       - name: Compute extra tasks
         id: extra_tasks
         run: |
-          # fdb-extensions also runs its scalar-fallback test task here (not in the style job, which
-          # is test-free) so its JaCoCo execution data is produced alongside the other test tasks and
-          # picked up by the coverage-data upload below.
+          # fdb-extensions also runs its scalar-fallback and client log event test tasks here (not in
+          # the style job, which is test-free) so its JaCoCo execution data is produced alongside the other
+          # test tasks and picked up by the coverage-data upload below. These are separated from the main
+          # test task because they require their own JVM in order to override certain global settings.
           if [[ ${{ matrix.subproject }} == 'fdb-extensions' ]] ; then
-            echo "task=:fdb-extensions:scalarFallbackTest" >> "$GITHUB_OUTPUT"
+            echo "task=:fdb-extensions:scalarFallbackTest :fdb-extensions:clientLogTest" >> "$GITHUB_OUTPUT"
           fi
       - name: Run Gradle Test
         uses: ./actions/gradle-test
