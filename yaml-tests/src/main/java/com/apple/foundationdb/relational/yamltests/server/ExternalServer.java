@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,6 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -48,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
@@ -59,6 +59,7 @@ public class ExternalServer implements Clusters.BoundToCluster {
 
     private static final Logger logger = LogManager.getLogger(ExternalServer.class);
     public static final String EXTERNAL_SERVER_PROPERTY_NAME = "yaml_testing_external_server";
+    private static final AtomicBoolean killedStaleServers = new AtomicBoolean();
 
     @Nonnull
     private final File serverJar;
@@ -81,25 +82,6 @@ public class ExternalServer implements Clusters.BoundToCluster {
         this.serverJar = serverJar;
         Assertions.assertTrue(this.serverJar.exists(), "Jar could not be found " + serverJar.getAbsolutePath());
         this.version = getVersion(this.serverJar);
-    }
-
-    static {
-        final String serverPath = Objects.requireNonNull(System.getProperty(EXTERNAL_SERVER_PROPERTY_NAME));
-        // kill all existing processes
-        ProcessHandle.allProcesses().filter(process ->
-                process.info().arguments().map(arguments ->
-                                Arrays.stream(arguments).anyMatch(argument ->
-                                        argument.startsWith(serverPath)))
-                        .orElse(false) &&
-                        process.info().command().map(command ->
-                                        command.endsWith("/java"))
-                                .orElse(false))
-                .forEach(process -> {
-                    if (logger.isInfoEnabled()) {
-                        logger.info("Killing existing server: pid=" + process.pid() + " " + process.info());
-                    }
-                    process.destroy();
-                });
     }
 
     /**
@@ -191,14 +173,76 @@ public class ExternalServer implements Clusters.BoundToCluster {
     }
 
     /**
-     * Get a list of available servers in the download folder.
+     * Get a list of available servers in the given directory.
      *
+     * @param directory the external server directory, see {@link #getExternalServerDirectory()}
      * @return a list of jar {@link File}s available to run
      */
-    public static List<File> getAvailableServers() {
-        final File externalDirectory = new File(Objects.requireNonNull(System.getProperty(EXTERNAL_SERVER_PROPERTY_NAME)));
-        final File[] externalServers = Objects.requireNonNull(externalDirectory.listFiles(file -> file.getName().endsWith(".jar")));
-        return List.of(externalServers);
+    public static List<File> listAvailableServers(@Nonnull final File directory) {
+        Verify.verify(
+                directory.isDirectory(),
+                "The external server directory `%s` does not exist or is not a directory", directory);
+        return List.of(Objects.requireNonNull(directory.listFiles(file -> file.getName().endsWith(".jar"))));
+    }
+
+    /**
+     * Kills servers that were started from the external server directory and are still running, for example because
+     * an earlier test run was aborted. Only the first call in this JVM has any effect. This method should be called
+     * before starting any new servers.
+     *
+     * @param directory the external server directory, see {@link #getExternalServerDirectory()}
+     */
+    public static void killStaleServersOnce(@Nonnull final File directory) {
+        if (!killedStaleServers.compareAndSet(false, true)) {
+            return;
+        }
+        final String serverPath = directory.getPath();
+        for (final ProcessHandle process : ProcessHandle.allProcesses().toList()) {
+            if (isJavaProcessRunningFrom(process, serverPath)) {
+                killStaleServer(process);
+            }
+        }
+    }
+
+    /**
+     * Logs and destroys a server process that is left over from an earlier run.
+     */
+    private static void killStaleServer(@Nonnull final ProcessHandle process) {
+        if (logger.isInfoEnabled()) {
+            logger.info("Killing existing server: pid=" + process.pid() + " " + process.info());
+        }
+        process.destroy();
+    }
+
+    /**
+     * Checks whether a process is a Java process with an argument that starts with the given path.
+     */
+    private static boolean isJavaProcessRunningFrom(@Nonnull final ProcessHandle process, @Nonnull final String path) {
+        final ProcessHandle.Info info = process.info();
+        final String command = info.command().orElse(null);
+        final String[] arguments = info.arguments().orElse(null);
+        if (command == null || arguments == null || !command.endsWith("/java")) {
+            return false;
+        }
+        for (final String argument : arguments) {
+            if (argument.startsWith(path)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Gets the directory that holds the external server jars from the {@link #EXTERNAL_SERVER_PROPERTY_NAME} system
+     * property. This property is set by Gradle for test tasks such as {@code test} and {@code mixedModeTest} (which
+     * also ensure that the jars are downloaded). For other tasks such as {@code quickTest} it is not set.
+     *
+     * @return the directory with the external server jars, or {@code null} if the system property is not set
+     */
+    @Nullable
+    public static File getExternalServerDirectory() {
+        final String path = System.getProperty(EXTERNAL_SERVER_PROPERTY_NAME);
+        return path == null ? null : new File(path);
     }
 
     private static SemanticVersion getVersion(File jar) throws IOException {

@@ -30,6 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.Set;
@@ -135,6 +136,13 @@ class DeleteNeighborsChangeSet<N extends NodeReference> implements NeighborsChan
     public Iterable<N> merge() {
         return Iterables.filter(getParent().merge(),
                 current -> !deletedNeighborsPrimaryKeys.contains(Objects.requireNonNull(current).getPrimaryKey()));
+    }
+
+    @Nullable
+    @Override
+    public Iterable<N> getPureInsertions() {
+        // There are deletes, so the change set is not insert only. Return null.
+        return null;
     }
 
     /**

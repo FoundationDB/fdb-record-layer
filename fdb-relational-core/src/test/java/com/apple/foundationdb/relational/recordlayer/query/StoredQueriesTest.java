@@ -40,6 +40,7 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -130,6 +131,25 @@ public class StoredQueriesTest {
                     " CREATE STORED QUERY by_flag(b boolean)" +
                     "   PREPARE FOR (b = TRUE), (b = FALSE)" +
                     " AS select * from t1 where flag = b";
+
+    private static final String PER_FUNCTION_CASES_QUERY =
+            "SELECT A.id FROM t1_by_flag() AS A, t2_by_flag() AS B WHERE A.id = B.id";
+
+    /** Each declared function gets its own parameter, so each case pins the two functions independently. */
+    private static final String SCHEMA_TEMPLATE_PER_FUNCTION_CASES =
+            "CREATE TABLE t1(id bigint, flag boolean, PRIMARY KEY(id))" +
+                    " CREATE TABLE t2(id bigint, flag boolean, PRIMARY KEY(id))" +
+                    " CREATE INDEX t1_flag_true AS SELECT id FROM t1 WHERE flag = true ORDER BY id" +
+                    " CREATE INDEX t1_flag_false AS SELECT id FROM t1 WHERE flag = false ORDER BY id" +
+                    " CREATE INDEX t2_flag_true AS SELECT id FROM t2 WHERE flag = true ORDER BY id" +
+                    " CREATE INDEX t2_flag_false AS SELECT id FROM t2 WHERE flag = false ORDER BY id" +
+                    " CREATE STORED QUERY by_flags(flag1 boolean, flag2 boolean)" +
+                    "   PREPARE FOR (flag1 = TRUE, flag2 = TRUE), (flag1 = TRUE, flag2 = FALSE)," +
+                    "               (flag1 = FALSE, flag2 = TRUE), (flag1 = FALSE, flag2 = FALSE)" +
+                    "   DECLARE" +
+                    "       FUNCTION t1_by_flag() AS (SELECT * FROM t1 WHERE flag = flag1);" +
+                    "       FUNCTION t2_by_flag() AS (SELECT * FROM t2 WHERE flag = flag2)" +
+                    " AS " + PER_FUNCTION_CASES_QUERY;
 
     /**
      * The first query's parameter type cannot be resolved at warm-up; the second must still be warmed. A template type
@@ -783,6 +803,75 @@ public class StoredQueriesTest {
                 });
                 Assertions.assertEquals(Long.valueOf(2), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
             }
+        }
+    }
+
+    /**
+     * The client binds one name, {@code ?flag}, to a different value in each temp function. The stored query declares a
+     * parameter per function, which is only reachable because the cache key ignores parameter names.
+     */
+    @Test
+    void perFunctionParametersHitWhenClientReusesOneName() throws Exception {
+        final String dbUri = "/TEST/SQ_PER_FUNCTION_CASES_DB";
+        try (var ddl = Ddl.builder()
+                .database(URI.create(dbUri))
+                .relationalExtension(relationalExtension)
+                .schemaTemplate(SCHEMA_TEMPLATE_PER_FUNCTION_CASES)
+                .build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            final String templateName = ddl.getSchemaTemplateName();
+            final String schemaName = connection.getSchema();
+
+            // The id whose flags are (t1, t2): 1 = (true, true), 2 = (false, true), 3 = (true, false), 4 = (false, false).
+            try (var stmt = connection.createStatement()) {
+                stmt.execute("INSERT INTO T1 VALUES (1, true), (2, false), (3, true), (4, false)");
+                stmt.execute("INSERT INTO T2 VALUES (1, true), (2, true), (3, false), (4, false)");
+            }
+
+            final var engineDriver = relationalExtension.getDriver(
+                    com.apple.foundationdb.record.provider.foundationdb.FormatVersion.getDefaultFormatVersion());
+            final var connectionUtils = new ConnectionUtils(engineDriver);
+            Assertions.assertEquals(4, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_WRITE_ONLY_STORE));
+            Assertions.assertEquals(Long.valueOf(4), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+
+            final boolean[][] cases = {{true, true}, {false, true}, {true, false}, {false, false}};
+            for (int i = 0; i < cases.length; i++) {
+                final long expectedId = i + 1;
+                runPerFunctionQuery(connectionUtils, dbUri, schemaName, cases[i][0], cases[i][1], expectedId);
+                Assertions.assertEquals(i + 1, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_HIT));
+                Assertions.assertEquals(0, eventCounterCount(RelationalMetric.RelationalCount.PLAN_CACHE_TERTIARY_MISS));
+                Assertions.assertEquals(Long.valueOf(4), connectionUtils.getFromCatalog(c -> countCachedPlans(c, templateName)));
+            }
+        }
+    }
+
+    private static void runPerFunctionQuery(@Nonnull final ConnectionUtils connectionUtils,
+                                            @Nonnull final String dbUri,
+                                            @Nonnull final String schemaName,
+                                            final boolean t1Flag,
+                                            final boolean t2Flag,
+                                            final long expectedId) throws Exception {
+        connectionUtils.runAgainstConnection(dbUri, schemaName, c -> {
+            c.setAutoCommit(false);
+            createFlagFunction(c, "CREATE TEMPORARY FUNCTION t1_by_flag() ON COMMIT DROP FUNCTION AS " +
+                    "SELECT * FROM t1 WHERE flag = ?flag", t1Flag);
+            createFlagFunction(c, "CREATE TEMPORARY FUNCTION t2_by_flag() ON COMMIT DROP FUNCTION AS " +
+                    "SELECT * FROM t2 WHERE flag = ?flag", t2Flag);
+            try (var stmt = c.createStatement();
+                    RelationalResultSet rs = stmt.executeQuery(PER_FUNCTION_CASES_QUERY)) {
+                Assertions.assertTrue(rs.next());
+                Assertions.assertEquals(expectedId, rs.getLong("ID"));
+                Assertions.assertFalse(rs.next());
+            }
+            c.rollback();
+        });
+    }
+
+    private static void createFlagFunction(@Nonnull final RelationalConnection connection, @Nonnull final String ddl,
+                                           final boolean flag) throws SQLException {
+        try (var ps = connection.prepareStatement(ddl)) {
+            ps.setBoolean("flag", flag);
+            ps.execute();
         }
     }
 

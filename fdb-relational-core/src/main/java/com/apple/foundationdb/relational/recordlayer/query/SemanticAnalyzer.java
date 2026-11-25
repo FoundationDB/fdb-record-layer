@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.AndOrValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.InOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.IndexableAggregateValue;
@@ -439,13 +440,14 @@ public class SemanticAnalyzer {
         final var logicalTableMaybe = findOperator(forEachOperators, qualifier);
         if (logicalTableMaybe.isPresent()) {
             final LogicalOperator logicalTable = logicalTableMaybe.get();
+            final Value qualifiedValue = qualifiedValue(logicalTable.getQuantifier());
             // Star can only be expanded on a record (struct) type. Examples of non-record qualifier types are scalars
             // (e.g., when unnesting a scalar array, as in `SELECT integer.* FROM T, T.integer_array AS integer`)
             // as well as VECTOR, ENUM, and UUID.
-            Assert.thatUnchecked(logicalTable.getQuantifier().getFlowedObjectType().isRecord(),
+            Assert.thatUnchecked(qualifiedValue.getResultType().isRecord(),
                     ErrorCode.INVALID_COLUMN_REFERENCE,
                     () -> String.format(Locale.ROOT, "attempt to expand non-struct column %s", qualifier));
-            return Star.overQuantifier(optionalQualifier, logicalTable.getQuantifier().getFlowedObjectValue(),
+            return Star.overQuantifier(optionalQualifier, qualifiedValue,
                     qualifier.getName(), logicalTable.getOutput().nonEphemeralVisible());
         }
 
@@ -465,6 +467,19 @@ public class SemanticAnalyzer {
                 () -> String.format(Locale.ROOT, "attempt to expand non-struct column %s", qualifier));
         final var expressions = expandStructExpression(expression).nonEphemeralVisible();
         return Star.overQuantifier(optionalQualifier, expression.getUnderlying(), qualifier.getName(), expressions);
+    }
+
+    /**
+     * Returns the value an alias of the given quantifier stands for: the element for a quantifier ranging over an
+     * explode, which flows the element together with its ordinal, and the flowed object otherwise.
+     */
+    @Nonnull
+    private static Value qualifiedValue(@Nonnull final Quantifier quantifier) {
+        if (quantifier.getRangesOver().get() instanceof final TableFunctionExpression tableFunction &&
+                tableFunction.getValue() instanceof ExplodeValue) {
+            return ExplodeValue.elementValue(quantifier.getFlowedObjectValue());
+        }
+        return quantifier.getFlowedObjectValue();
     }
 
     @Nonnull

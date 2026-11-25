@@ -125,7 +125,13 @@ public class YamlTestExtension implements TestTemplateInvocationContextProvider,
         } else if (Boolean.parseBoolean(System.getProperty("tests.runRPC", "false"))) {
             testConfigs = List.of(new JDBCInProcessConfig(clusterFiles));
         } else {
-            List<File> jars = ExternalServer.getAvailableServers();
+            final File externalServerDirectory = ExternalServer.getExternalServerDirectory();
+            if (externalServerDirectory == null) {
+                throw new IllegalStateException(
+                        "System property " + ExternalServer.EXTERNAL_SERVER_PROPERTY_NAME + " is not set.");
+            }
+            ExternalServer.killStaleServersOnce(externalServerDirectory);
+            List<File> jars = ExternalServer.listAvailableServers(externalServerDirectory);
             // Fail the test if there are no available servers. This would force the execution in "runQuick" mode in case
             // we don't have access to the artifacts.
             // Potentially, we can relax this a little if all tests are disabled for multi-server execution, but this is

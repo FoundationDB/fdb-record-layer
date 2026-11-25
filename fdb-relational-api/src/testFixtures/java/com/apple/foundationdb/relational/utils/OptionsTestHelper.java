@@ -66,6 +66,7 @@ public class OptionsTestHelper {
         builder = builder.withOption(Options.Name.ENCRYPTION_KEY_PASSWORD, "mypass");
         builder = builder.withOption(Options.Name.COMPRESS_WHEN_SERIALIZING, false);
         builder = builder.withOption(Options.Name.PLAN_RIGHT_DEEP, true);
+        builder = builder.withOption(Options.Name.CONSIDER_SYNTHETIC_RECORD_TYPE_INDEXES, true);
         builder = builder.withOption(Options.Name.ISOLATION_LEVEL_SNAPSHOT, true);
         builder = builder.withOption(Options.Name.VECTOR_INDEX_ENGINE_PREFERENCE, Options.VectorIndexEnginePreference.PREFER_GUARDIANN);
         builder = builder.withOption(Options.Name.EXECUTION_MODE, Options.ExecutionMode.LEGACY);

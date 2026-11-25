@@ -156,9 +156,10 @@ public final class Star extends Expression {
         final RecordConstructorValue rcv = RecordConstructorValue.ofColumns(expansion.underlyingAsColumns());
         if (rcv.getResultType().equals(possibleValue.getResultType())) {
             return possibleValue;
-        } else {
-            return rcv;
         }
+        // The expansion may be every field of a value other than the proposed one, such as the element of an explode,
+        // whose quantifier flows the element together with its ordinal. Use that value rather than the RCV.
+        return Values.collapseSimpleSelectMaybe(rcv).orElse(rcv);
     }
 
     @Nonnull

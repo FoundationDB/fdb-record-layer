@@ -20,10 +20,13 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.cursors;
 
+import com.apple.foundationdb.record.TestRecordsEnumProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.Descriptors;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -32,6 +35,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
+import java.util.UUID;
+import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -57,11 +62,16 @@ public class KeyComparisonsTest {
     }
 
     private static <E> void testFieldComparator(@Nonnull List<E> list) {
+        testFieldComparator(list, elem -> elem);
+    }
+
+    private static <E> void testFieldComparator(@Nonnull List<E> list, @Nonnull Function<E, ?> toTupleElement) {
         for (E elem1 : list) {
             for (E elem2 : list) {
                 int actualComparison = normalizeComparison(KeyComparisons.FIELD_COMPARATOR.compare(elem1, elem2));
                 int expectedComparison = normalizeComparison(ByteArrayUtil.compareUnsigned(
-                        Tuple.from(elem1).pack(), Tuple.from(elem2).pack()
+                        Tuple.from(elem1 == null ? null : toTupleElement.apply(elem1)).pack(),
+                        Tuple.from(elem2 == null ? null : toTupleElement.apply(elem2)).pack()
                 ));
                 assertEquals(expectedComparison, actualComparison, "Comparison does not match for elem1 and elem2");
             }
@@ -142,6 +152,30 @@ public class KeyComparisonsTest {
         }
         strLists.add(null);
         testFieldComparator(strLists);
+
+        // Type 8: Byte strings, which Cascades values evaluate bytes fields and ordered-bytes functions to.
+        List<ByteString> byteStrings = new ArrayList<>();
+        for (int i = 0; i < 100; i++) {
+            int length = (int)(Math.abs(r.nextGaussian() + 0.2) * 10);
+            byte[] arr = new byte[length];
+            r.nextBytes(arr);
+            byteStrings.add(ByteString.copyFrom(arr));
+        }
+        byteStrings.add(null);
+        testFieldComparator(byteStrings, ByteString::toByteArray);
+
+        // Type 9: UUIDs, including ones whose most significant bit is set.
+        List<UUID> uuids = new ArrayList<>();
+        for (int i = 0; i < 100; i++) {
+            uuids.add(new UUID(r.nextLong(), r.nextLong()));
+        }
+        uuids.add(null);
+        testFieldComparator(uuids);
+
+        // Type 10: Enum value descriptors, which Cascades values evaluate enum fields to.
+        List<Descriptors.EnumValueDescriptor> enumValues = new ArrayList<>(TestRecordsEnumProto.MyShapeRecord.Color.getDescriptor().getValues());
+        enumValues.add(null);
+        testFieldComparator(enumValues, Descriptors.EnumValueDescriptor::getNumber);
     }
 
     private static void testKeyComparator(@Nonnull List<Key.Evaluated> keys) {

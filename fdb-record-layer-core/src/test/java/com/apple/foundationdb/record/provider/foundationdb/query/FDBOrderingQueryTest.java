@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnKeyExpressionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionOnValuesPlan;
 import com.apple.foundationdb.tuple.TupleOrdering;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.collect.Lists;
 import org.junit.jupiter.api.Tag;
@@ -95,6 +96,20 @@ class FDBOrderingQueryTest extends FDBRecordStoreQueryTestBase {
             saveRecord(context, 4, 101, "ab");
             saveRecord(context, 5, 101, "b");
             saveRecord(context, 6, 102, "nothing");
+            commit(context);
+        }
+    }
+
+    protected void loadRecordsWithDuplicateSortValue(RecordMetaDataHook hook) throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            saveRecord(context, 1, 100, "something");
+            saveRecord(context, 2, 101, null);
+            saveRecord(context, 3, 101, "a");
+            saveRecord(context, 4, 101, "ab");
+            saveRecord(context, 5, 101, "b");
+            saveRecord(context, 6, 102, "nothing");
+            saveRecord(context, 7, 101, "a");
             commit(context);
         }
     }
@@ -192,6 +207,19 @@ class FDBOrderingQueryTest extends FDBRecordStoreQueryTestBase {
         expected.add(0, 1L);
         expected.add(6L);
         assertEquals(expected, actual);
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testSortOnlyWithDuplicateSortValue(boolean withIndex) throws Exception {
+        final RecordMetaDataHook hook = withIndex ? indexHook(null) : noIndexHook();
+        loadRecordsWithDuplicateSortValue(hook);
+        final RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setSort(fullOrderingKey(null))
+                .build();
+        final List<Long> actual = queryRecords(query, hook, withIndex);
+        assertEquals(List.of(1L, 2L, 3L, 7L, 4L, 5L, 6L), actual);
     }
 
     public static Stream<Arguments> testSortAndFilter() {
@@ -328,6 +356,32 @@ class FDBOrderingQueryTest extends FDBRecordStoreQueryTestBase {
                                             TupleOrdering.Direction.DESC_NULLS_LAST),
                                     fieldValueWithFieldNames("rec_no"))));
             assertMatchesExactly(plan, planMatcher);
+        }
+    }
+
+    /**
+     * Union legs that tie on {@code num_value_2} have to be compared on the ordered bytes of {@code str_value_indexed}.
+     */
+    @DualPlannerTest
+    void testUnionOrderedOverlappingRanges() throws Exception {
+        final RecordMetaDataHook hook = indexHook("order_desc_nulls_last");
+        loadRecords(hook);
+        final RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setSort(fullOrderingKey("order_desc_nulls_last"))
+                .setFilter(Query.or(
+                        Query.and(Query.field("num_value_2").equalsValue(101),
+                                Query.field("str_value_indexed").greaterThanOrEquals("a"), Query.field("str_value_indexed").lessThan("b")),
+                        Query.and(Query.field("num_value_2").equalsValue(101),
+                                Query.field("str_value_indexed").greaterThan("a"), Query.field("str_value_indexed").lessThanOrEquals("b"))))
+                .build();
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            final RecordQueryPlan plan = planner.planQuery(query).getPlan();
+            final List<Long> actual = plan.execute(recordStore)
+                    .map(r -> r.getPrimaryKey().getLong(0))
+                    .asList().join();
+            assertEquals(List.of(5L, 4L, 3L), actual);
         }
     }
 

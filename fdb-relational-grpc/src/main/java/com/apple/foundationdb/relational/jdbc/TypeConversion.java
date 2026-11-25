@@ -769,6 +769,9 @@ public class TypeConversion {
                 case FIXED_EPOCH_TIMESTAMP_MILLIS_FOR_CURRENT_DATETIME_FUNCTIONS:
                     builder.setFixedEpochTimestampMillisForCurrentDatetimeFunctions(((Long)entry.getValue()).toString());
                     break;
+                case CONSIDER_SYNTHETIC_RECORD_TYPE_INDEXES:
+                    builder.setConsiderSyntheticRecordTypeIndexes((Boolean)entry.getValue());
+                    break;
                 default:
                     throw new SQLException("Cannot encode option in protobuf");
             }
@@ -925,6 +928,9 @@ public class TypeConversion {
         }
         if (!protoOptions.getFixedEpochTimestampMillisForCurrentDatetimeFunctions().isEmpty()) {
             builder.withOption(Options.Name.FIXED_EPOCH_TIMESTAMP_MILLIS_FOR_CURRENT_DATETIME_FUNCTIONS, Long.valueOf(protoOptions.getFixedEpochTimestampMillisForCurrentDatetimeFunctions()));
+        }
+        if (protoOptions.hasConsiderSyntheticRecordTypeIndexes()) {
+            builder.withOption(Options.Name.CONSIDER_SYNTHETIC_RECORD_TYPE_INDEXES, protoOptions.getConsiderSyntheticRecordTypeIndexes());
         }
         return builder.build();
     }

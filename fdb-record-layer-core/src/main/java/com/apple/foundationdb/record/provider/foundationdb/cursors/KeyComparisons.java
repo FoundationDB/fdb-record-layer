@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.cursors;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.tuple.ByteArrayUtil;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 
 import java.util.Comparator;
 import java.util.List;
@@ -41,12 +41,10 @@ public class KeyComparisons {
             }
         } else if (o2 == null) {
             return 1;
-        } else if (o1 instanceof byte[]) {
-            return ByteArrayUtil.compareUnsigned((byte[])o1, (byte[])o2);
         } else if (o1 instanceof List) {
             return KeyComparisons.KEY_COMPARATOR.compare((List<Object>)o1, (List<Object>)o2);
         } else {
-            return ((Comparable)o1).compareTo(o2);
+            return Comparisons.compare(o1, o2);
         }
     };
     public static final Comparator<List<Object>> KEY_COMPARATOR = (l1, l2) -> {

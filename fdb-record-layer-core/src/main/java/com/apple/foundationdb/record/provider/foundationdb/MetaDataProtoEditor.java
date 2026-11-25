@@ -660,6 +660,9 @@ public class MetaDataProtoEditor {
         // Determine the usage of each renamed type by looking at the union message type within `MetaData.records`.
         determineRecordTypeUnionFieldsAndUsages(renames, unionDescriptor, union);
 
+        // Reject the renaming if there’s a record type with an index declared (only) via the `(field).index` extension.
+        validateNoExtensionOnlyIndexes(metadata, renames, fileDesc);
+
         // Validate that renaming the canonical union fields would not cause a collision.
         validateUnionFieldRenames(union, renames);
 
@@ -701,6 +704,8 @@ public class MetaDataProtoEditor {
      *     record type, or, if the type has {@code RECORD} usage, by any other record type. The latter includes a record
      *     type imported from a dependency file and a record type that is backed by a message type nested within another
      *     message type.
+     * <li>The type has {@code RECORD} usage and an index that is declared through (only) the {@code (field).index}
+     *     extension declares, i.e., a field with that extension for which {@code MetaData.indexes} lists no index.
      * <li>The type is not the union, and either its current name or {@code newRecordTypeName} is the default union
      *     name. (The union itself can be renamed freely, including to or from the default name.)
      * <li>The union already has a field under the new canonical union field name {@code _newRecordTypeName}.
@@ -967,11 +972,13 @@ public class MetaDataProtoEditor {
                 continue;
             }
 
-            // If multiple fields reference this record type, prefer the canonically-named one; otherwise, keep the
-            // one with the highest field number.
+            // If multiple fields reference this record type, prefer the canonically named one; otherwise, keep the
+            // one with the highest field number. This is the same rule that `RecordMetaDataBuilder.remapUnionField()`
+            // uses to choose the union field that records of the type are written under. The two must be kept in sync.
             if (rename.unionField == null
                     || rename.canonicalFieldName.equals(unionField.getName())
-                    || unionField.getNumber() > rename.unionField.getNumber()) {
+                    || (!rename.canonicalFieldName.equals(rename.unionField.getName())
+                            && unionField.getNumber() > rename.unionField.getNumber())) {
                 rename.unionField = unionField;
             }
         }
@@ -1136,6 +1143,47 @@ public class MetaDataProtoEditor {
                     "FileDescriptor does not have nested type that exists in protobuf");
             // Recursively rewrite field type references within the nested type.
             renameRecordTypeUsagesInMessageType(nestedTypeBuilder, renames, nestedDescriptor);
+        }
+    }
+
+    /**
+     * Rejects the renaming if there is a {@code RECORD}-usage type in {@code renames} with an index that is declared
+     * through the {@code (field).index} extension but not listed in {@code MetaData.indexes}. When the metadata is
+     * built with extension options processed, {@link RecordMetaDataBuilder} derives such an index from a top-level
+     * field of the record type and names it {@code RecordType$field}. Since the subspace key of an index defaults to
+     * its name, renaming the record type would turn such an index into a different index, whose existing entries are no
+     * longer found. (An index that is listed in {@code MetaData.indexes} will keep its name across the rename.)
+     */
+    @SuppressWarnings("deprecation") // for `FieldOptions.hasIndexed()`, which `RecordMetaDataBuilder` still honors
+    private static void validateNoExtensionOnlyIndexes(@Nonnull RecordMetaDataProto.MetaData.Builder metadata,
+                                                       @Nonnull RecordTypeRenames renames,
+                                                       @Nonnull Descriptors.FileDescriptor fileDesc) {
+        Set<String> listedIndexNames = null;
+        for (final RecordTypeRename rename : renames.values()) {
+            if (rename.usage != RecordTypeOptions.Usage.RECORD) {
+                continue;
+            }
+            for (final Descriptors.FieldDescriptor field : getMessageTypeByName(fileDesc, rename.name).getFields()) {
+                final RecordMetaDataOptionsProto.FieldOptions fieldOptions =
+                        field.getOptions().getExtension(RecordMetaDataOptionsProto.field);
+                if (!fieldOptions.hasIndex() && !fieldOptions.hasIndexed()) {
+                    continue;
+                }
+                if (listedIndexNames == null) {
+                    listedIndexNames = new HashSet<>();
+                    for (final RecordMetaDataProto.Index index : metadata.getIndexesList()) {
+                        listedIndexNames.add(index.getName());
+                    }
+                }
+                // This is the name `RecordMetaDataBuilder.protoFieldOptions()` gives an index derived from the field.
+                final String indexName = rename.name + "$" + field.getName();
+                if (!listedIndexNames.contains(indexName)) {
+                    throw new MetaDataException(
+                            "Cannot rename record type with an index that only the field index extension declares",
+                            LogMessageKeys.RECORD_TYPE, rename.name,
+                            LogMessageKeys.INDEX_NAME, indexName);
+                }
+            }
         }
     }
 

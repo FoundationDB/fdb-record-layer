@@ -28,15 +28,16 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -108,11 +109,13 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
                 .addAll(fieldNamePrefix)
                 .add(getFieldName())
                 .build();
-        final Quantifier.ForEach childBase = Quantifier.forEach(Reference.initialOf(ExplodeExpression.explodeField(baseQuantifier, fieldNames)));
-        final GraphExpansion graphExpansion = getChild().expand(childBase, outerQuantifierSupplier, Collections.emptyList());
+        final Quantifier.ForEach childBase = Quantifier.forEach(Reference.initialOf(new TableFunctionExpression(
+                new ExplodeValue(FieldValue.ofFieldNames(baseQuantifier.getFlowedObjectValue(), fieldNames)))));
+        final GraphExpansion graphExpansion =
+                getChild().expand(childBase, outerQuantifierSupplier, ImmutableList.of(ExplodeValue.ELEMENT_FIELD_NAME));
         final SelectExpression selectExpression =
                 GraphExpansion.ofOthers(GraphExpansion.builder().addQuantifier(childBase).build(), graphExpansion)
-                        .buildSimpleSelectOverQuantifier(childBase);
+                        .buildSelectWithResultValue(ExplodeValue.elementValue(childBase.getFlowedObjectValue()));
 
         Quantifier.Existential childQuantifier = Quantifier.existential(Reference.initialOf(selectExpression));
 

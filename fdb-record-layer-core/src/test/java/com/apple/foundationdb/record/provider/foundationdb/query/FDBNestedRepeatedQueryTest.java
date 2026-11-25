@@ -62,16 +62,17 @@ import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.UnableToPlanException;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.GroupByExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.AggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.IndexOnlyAggregateValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NumericAggregationValue;
@@ -1991,12 +1992,13 @@ class FDBNestedRepeatedQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     private Quantifier explodeEntryQun(@Nonnull Quantifier outerQun, @Nonnull String... fields) {
-        ExplodeExpression explodeExpression = ExplodeExpression.explodeField((Quantifier.ForEach)outerQun, List.of("map", "entry"));
-        Quantifier explodeQun = Quantifier.forEach(Reference.initialOf(explodeExpression));
+        Quantifier explodeQun = Quantifier.forEach(Reference.initialOf(new TableFunctionExpression(
+                new ExplodeValue(FieldValue.ofFieldNames(outerQun.getFlowedObjectValue(), List.of("map", "entry"))))));
         var selectBuilder = GraphExpansion.builder();
         List<Column<? extends Value>> resultFields = Arrays.stream(fields)
                 .map(fieldName -> {
-                    FieldValue value = FieldValue.ofFieldName(explodeQun.getFlowedObjectValue(), fieldName);
+                    FieldValue value = FieldValue.ofFieldNames(explodeQun.getFlowedObjectValue(),
+                            List.of(ExplodeValue.ELEMENT_FIELD_NAME, fieldName));
                     return Column.of(Type.Record.Field.of(value.getResultType(), Optional.of(fieldName)), value);
                 })
                 .collect(Collectors.toList());

@@ -1,16 +1,40 @@
 join-tests:
+-   query: EXPLAIN select fname, lname, name from emp, dept where emp.dept_id = dept.id;
+    ref: join-tests.yamsql:112
+    explain: ISCAN(EMPDEPT <,>) | FLATMAP q0 -> { SCAN([IS DEPT, EQUALS q0.DEPT_ID])
+        AS q1 RETURN (q0.FNAME AS FNAME, q0.LNAME AS LNAME, q1.NAME AS NAME) }
+    task_count: 843
+    task_total_time_ms: 83
+    transform_count: 228
+    transform_time_ms: 31
+    transform_yield_count: 78
+    insert_time_ms: 1
+    insert_new_count: 121
+    insert_reused_count: 7
+-   query: EXPLAIN select fname, lname, name from emp, dept where dept.id = emp.dept_id;
+    ref: join-tests.yamsql:126
+    explain: ISCAN(EMPDEPT <,>) | FLATMAP q0 -> { SCAN([IS DEPT, EQUALS q0.DEPT_ID])
+        AS q1 RETURN (q0.FNAME AS FNAME, q0.LNAME AS LNAME, q1.NAME AS NAME) }
+    task_count: 843
+    task_total_time_ms: 69
+    transform_count: 228
+    transform_time_ms: 26
+    transform_yield_count: 78
+    insert_time_ms: 1
+    insert_new_count: 121
+    insert_reused_count: 7
 -   query: EXPLAIN select fname, lname from emp where not exists (select * from project
         where emp_id = emp.id);
     ref: join-tests.yamsql:137
     explain: ISCAN(EMPDEPT <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID
         EQUALS q0.ID | DEFAULT NULL | FILTER NOT _ NOT_NULL AS q1 RETURN (q0.FNAME
         AS FNAME, q0.LNAME AS LNAME) }
-    task_count: 470
-    task_total_time_ms: 42
-    transform_count: 146
-    transform_time_ms: 20
+    task_count: 466
+    task_total_time_ms: 53
+    transform_count: 142
+    transform_time_ms: 27
     transform_yield_count: 49
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 52
     insert_reused_count: 2
 -   query: EXPLAIN select emp.fname, emp.lname from emp left join project on project.emp_id
@@ -19,230 +43,220 @@ join-tests:
     explain: ISCAN(EMPDEPT <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID
         EQUALS q0.ID | ON EMPTY NULL | FILTER _.ID IS_NULL AS q1 RETURN (q0.FNAME
         AS FNAME, q0.LNAME AS LNAME) }
-    task_count: 521
-    task_total_time_ms: 40
-    transform_count: 161
-    transform_time_ms: 17
+    task_count: 513
+    task_total_time_ms: 42
+    transform_count: 153
+    transform_time_ms: 19
     transform_yield_count: 47
     insert_time_ms: 1
     insert_new_count: 61
     insert_reused_count: 4
 -   query: EXPLAIN select fname, lname from emp inner join project on emp_id = emp.id
         inner join dept on dept_id = dept.id and dept.name = 'Sales';
-    ref: join-tests.yamsql:166
-    explain: ISCAN(DEPTNAME [EQUALS promote(@c29 AS STRING)]) | FLATMAP q0 -> { ISCAN(EMPDEPT
-        [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS
-        q1.ID AS q2 RETURN q1 } AS q1 RETURN (q1.FNAME AS FNAME, q1.LNAME AS LNAME)
-        }
-    task_count: 3739
-    task_total_time_ms: 367
-    transform_count: 1181
-    transform_time_ms: 117
-    transform_yield_count: 239
+    ref: join-tests.yamsql:197
+    explain: SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID])
+        | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) | FILTER _.NAME EQUALS
+        promote(@c29 AS STRING) AS q2 RETURN q1 } AS q1 RETURN (q1.FNAME AS FNAME,
+        q1.LNAME AS LNAME) }
+    task_count: 4240
+    task_total_time_ms: 425
+    transform_count: 1305
+    transform_time_ms: 119
+    transform_yield_count: 272
     insert_time_ms: 16
-    insert_new_count: 599
-    insert_reused_count: 39
+    insert_new_count: 696
+    insert_reused_count: 38
 -   query: EXPLAIN select dept.name, project.name from emp, dept, project where emp.dept_id
         = dept.id and project.emp_id = emp.id;
-    ref: join-tests.yamsql:172
-    explain: 'ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1
-        -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) |
-        FILTER q1.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q2 RETURN q1 } AS q1 RETURN
-        (q0.NAME AS _0, q1.NAME AS _1) }'
-    task_count: 3182
-    task_total_time_ms: 268
-    transform_count: 979
-    transform_time_ms: 85
-    transform_yield_count: 208
-    insert_time_ms: 11
-    insert_new_count: 477
-    insert_reused_count: 31
+    ref: join-tests.yamsql:203
+    explain: SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID])
+        | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) AS q2 RETURN q2 } AS
+        q2 RETURN (q2.NAME AS _0, q0.NAME AS _1) }
+    task_count: 3464
+    task_total_time_ms: 346
+    transform_count: 1053
+    transform_time_ms: 103
+    transform_yield_count: 229
+    insert_time_ms: 10
+    insert_new_count: 543
+    insert_reused_count: 29
 -   query: EXPLAIN select dept.name, project.name from emp inner join dept on emp.dept_id
         = dept.id inner join project on project.emp_id = emp.id;
-    ref: join-tests.yamsql:180
-    explain: 'ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1
-        -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) |
-        FILTER q1.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q2 RETURN q1 } AS q1 RETURN
-        (q0.NAME AS _0, q1.NAME AS _1) }'
-    task_count: 3182
-    task_total_time_ms: 277
-    transform_count: 979
-    transform_time_ms: 87
-    transform_yield_count: 208
-    insert_time_ms: 12
-    insert_new_count: 477
-    insert_reused_count: 31
+    ref: join-tests.yamsql:211
+    explain: SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID])
+        | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) AS q2 RETURN q2 } AS
+        q2 RETURN (q2.NAME AS _0, q0.NAME AS _1) }
+    task_count: 3464
+    task_total_time_ms: 330
+    transform_count: 1053
+    transform_time_ms: 93
+    transform_yield_count: 229
+    insert_time_ms: 10
+    insert_new_count: 543
+    insert_reused_count: 29
 -   query: EXPLAIN select dept.name, project.name from emp inner join dept on emp.dept_id
         = dept.id inner join project on project.emp_id = emp.id;
-    ref: join-tests.yamsql:209
-    explain: 'ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1
-        -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) |
-        FILTER q1.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q2 RETURN q1 } AS q1 RETURN
-        (q0.NAME AS _0, q1.NAME AS _1) }'
-    task_count: 3182
-    task_total_time_ms: 277
-    transform_count: 979
-    transform_time_ms: 87
-    transform_yield_count: 208
-    insert_time_ms: 12
-    insert_new_count: 477
-    insert_reused_count: 31
+    ref: join-tests.yamsql:240
+    explain: SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID])
+        | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) AS q2 RETURN q2 } AS
+        q2 RETURN (q2.NAME AS _0, q0.NAME AS _1) }
+    task_count: 3464
+    task_total_time_ms: 330
+    transform_count: 1053
+    transform_time_ms: 93
+    transform_yield_count: 229
+    insert_time_ms: 10
+    insert_new_count: 543
+    insert_reused_count: 29
 -   query: EXPLAIN select * from (select dept.name, project.name from emp, dept, project
         where emp.dept_id = dept.id and project.emp_id = emp.id) X;
-    ref: join-tests.yamsql:222
-    explain: 'ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1
-        -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) |
-        FILTER q1.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q2 RETURN q1 } AS q1 RETURN
-        (q0.NAME AS _0, q1.NAME AS _1) }'
-    task_count: 3212
-    task_total_time_ms: 293
-    transform_count: 987
+    ref: join-tests.yamsql:253
+    explain: SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID])
+        | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) AS q2 RETURN q2 } AS
+        q2 RETURN (q2.NAME AS _0, q0.NAME AS _1) }
+    task_count: 3491
+    task_total_time_ms: 340
+    transform_count: 1058
     transform_time_ms: 96
-    transform_yield_count: 210
-    insert_time_ms: 12
-    insert_new_count: 481
-    insert_reused_count: 31
+    transform_yield_count: 231
+    insert_time_ms: 10
+    insert_new_count: 547
+    insert_reused_count: 29
 -   query: EXPLAIN select (*) from (select dept.name, project.name from emp, dept,
         project where emp.dept_id = dept.id and project.emp_id = emp.id) X;
-    ref: join-tests.yamsql:229
-    explain: 'ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1
-        -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) |
-        FILTER q1.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q2 RETURN q1 } AS q1 RETURN
-        ((q0.NAME AS _0, q1.NAME AS _1) AS X) }'
-    task_count: 3212
-    task_total_time_ms: 311
-    transform_count: 987
-    transform_time_ms: 102
-    transform_yield_count: 210
-    insert_time_ms: 14
-    insert_new_count: 481
-    insert_reused_count: 31
+    ref: join-tests.yamsql:260
+    explain: SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID])
+        | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) AS q2 RETURN q2 } AS
+        q2 RETURN ((q2.NAME AS _0, q0.NAME AS _1) AS X) }
+    task_count: 3491
+    task_total_time_ms: 294
+    transform_count: 1058
+    transform_time_ms: 106
+    transform_yield_count: 231
+    insert_time_ms: 13
+    insert_new_count: 547
+    insert_reused_count: 29
 -   query: EXPLAIN select dept.name, project.name from project inner join emp on emp.id
         = project.emp_id inner join dept on emp.dept_id = dept.id;
-    ref: join-tests.yamsql:241
-    explain: ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1
-        -> { SCAN([IS EMP, EQUALS q1.EMP_ID]) | FILTER _.DEPT_ID EQUALS q0.ID AS q2
-        RETURN q1 } AS q1 RETURN (q0.NAME AS _0, q1.NAME AS _1) }
-    task_count: 3225
-    task_total_time_ms: 309
-    transform_count: 981
-    transform_time_ms: 93
-    transform_yield_count: 213
+    ref: join-tests.yamsql:272
+    explain: SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID])
+        | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) AS q2 RETURN q2 } AS
+        q2 RETURN (q2.NAME AS _0, q0.NAME AS _1) }
+    task_count: 3537
+    task_total_time_ms: 341
+    transform_count: 1076
+    transform_time_ms: 100
+    transform_yield_count: 234
     insert_time_ms: 11
-    insert_new_count: 494
-    insert_reused_count: 28
+    insert_new_count: 551
+    insert_reused_count: 29
 -   query: EXPLAIN select dept.id, dept.name, project.name from emp, dept, project
         where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id not in
         (1)
-    ref: join-tests.yamsql:268
-    explain: 'COVERING(DEPTNAME <,> -> [ID: KEY:[2], NAME: KEY:[0]]) | FILTER NOT
-        _.ID IN promote(@c40 AS ARRAY(LONG)) | FETCH | FLATMAP q0 -> { SCAN([IS PROJECT])
-        | FLATMAP q1 -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID:
-        KEY:[2]]) | FILTER q1.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q2 RETURN q1 }
-        AS q1 RETURN (q0.ID AS ID, q0.NAME AS _1, q1.NAME AS _2) }'
-    task_count: 3678
-    task_total_time_ms: 347
-    transform_count: 1135
-    transform_time_ms: 112
-    transform_yield_count: 233
-    insert_time_ms: 15
-    insert_new_count: 552
-    insert_reused_count: 42
+    ref: join-tests.yamsql:299
+    explain: SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID])
+        | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) | FILTER NOT _.ID IN
+        promote(@c40 AS ARRAY(LONG)) AS q2 RETURN q2 } AS q2 RETURN (q2.ID AS ID,
+        q2.NAME AS _1, q0.NAME AS _2) }
+    task_count: 3980
+    task_total_time_ms: 405
+    transform_count: 1214
+    transform_time_ms: 116
+    transform_yield_count: 255
+    insert_time_ms: 13
+    insert_new_count: 621
+    insert_reused_count: 40
 -   query: EXPLAIN select dept.id, dept.name, project.name from emp inner join dept
         on emp.dept_id = dept.id and dept.id not in (1) inner join project on project.emp_id
         = emp.id
-    ref: join-tests.yamsql:275
-    explain: 'COVERING(DEPTNAME <,> -> [ID: KEY:[2], NAME: KEY:[0]]) | FILTER NOT
-        _.ID IN promote(@c31 AS ARRAY(LONG)) | FETCH | FLATMAP q0 -> { SCAN([IS PROJECT])
-        | FLATMAP q1 -> { COVERING(EMPDEPT [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID:
-        KEY:[2]]) | FILTER q1.EMP_ID EQUALS _.ID | MAP (1 AS _0) AS q2 RETURN q1 }
-        AS q1 RETURN (q0.ID AS ID, q0.NAME AS _1, q1.NAME AS _2) }'
-    task_count: 3678
-    task_total_time_ms: 364
-    transform_count: 1135
-    transform_time_ms: 125
-    transform_yield_count: 233
-    insert_time_ms: 17
-    insert_new_count: 552
-    insert_reused_count: 42
+    ref: join-tests.yamsql:306
+    explain: SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID])
+        | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) | FILTER NOT _.ID IN
+        promote(@c31 AS ARRAY(LONG)) AS q2 RETURN q2 } AS q2 RETURN (q2.ID AS ID,
+        q2.NAME AS _1, q0.NAME AS _2) }
+    task_count: 3980
+    task_total_time_ms: 488
+    transform_count: 1214
+    transform_time_ms: 115
+    transform_yield_count: 255
+    insert_time_ms: 13
+    insert_new_count: 621
+    insert_reused_count: 40
 -   query: EXPLAIN select project.id, project.name from emp, dept, project where emp.dept_id
         = dept.id and project.emp_id = emp.id and dept.id not in (3) and project.id
         not in (3)
-    ref: join-tests.yamsql:317
-    explain: 'COVERING(DEPTNAME <,> -> [ID: KEY:[2], NAME: KEY:[0]]) | FILTER NOT
-        _.ID IN promote(@c36 AS ARRAY(LONG)) | FETCH | FLATMAP q0 -> { SCAN([IS PROJECT])
-        | FILTER NOT _.ID IN promote(@c36 AS ARRAY(LONG)) | FLATMAP q1 -> { COVERING(EMPDEPT
-        [EQUALS q0.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER q1.EMP_ID EQUALS
-        _.ID | MAP (1 AS _0) AS q2 RETURN q1 } AS q1 RETURN (q1.ID AS ID, q1.NAME
-        AS NAME) }'
-    task_count: 4386
-    task_total_time_ms: 403
-    transform_count: 1407
-    transform_time_ms: 128
-    transform_yield_count: 269
-    insert_time_ms: 24
-    insert_new_count: 656
-    insert_reused_count: 60
+    ref: join-tests.yamsql:348
+    explain: SCAN([IS PROJECT]) | FILTER NOT _.ID IN promote(@c36 AS ARRAY(LONG))
+        | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS
+        DEPT, EQUALS q1.DEPT_ID]) | FILTER NOT _.ID IN promote(@c36 AS ARRAY(LONG))
+        AS q2 RETURN (1 AS _0) } AS q3 RETURN (q0.ID AS ID, q0.NAME AS NAME) }
+    task_count: 4469
+    task_total_time_ms: 435
+    transform_count: 1411
+    transform_time_ms: 120
+    transform_yield_count: 276
+    insert_time_ms: 20
+    insert_new_count: 688
+    insert_reused_count: 58
 -   query: EXPLAIN select dept.id, dept.name, project.name from emp, dept, project
         where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id in (1,
         2)
-    ref: join-tests.yamsql:332
+    ref: join-tests.yamsql:363
     explain: '[IN arrayDistinct(promote(@c39 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS
-        DEPT, EQUALS q0]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FLATMAP q2 -> { COVERING(EMPDEPT
-        [EQUALS q1.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER q2.EMP_ID EQUALS
-        _.ID | MAP (1 AS _0) AS q3 RETURN q2 } AS q2 RETURN (q1.ID AS ID, q1.NAME
-        AS _1, q2.NAME AS _2) } }'
-    task_count: 22202
-    task_total_time_ms: 1291
-    transform_count: 8138
-    transform_time_ms: 342
-    transform_yield_count: 1215
-    insert_time_ms: 210
-    insert_new_count: 3866
-    insert_reused_count: 409
+        DEPT, EQUALS q0._0]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FLATMAP q2 ->
+        { SCAN([IS EMP, EQUALS q2.EMP_ID]) | FILTER _.DEPT_ID EQUALS q1.ID AS q3 RETURN
+        q2 } AS q2 RETURN (q1.ID AS ID, q1.NAME AS _1, q2.NAME AS _2) } }'
+    task_count: 25055
+    task_total_time_ms: 1847
+    transform_count: 8948
+    transform_time_ms: 443
+    transform_yield_count: 1414
+    insert_time_ms: 269
+    insert_new_count: 4645
+    insert_reused_count: 395
 -   query: EXPLAIN select emp.id, fname from emp, dept where emp.dept_id = dept.id
         and dept.id in (1, 2) and emp.id not in (1, 5)
-    ref: join-tests.yamsql:365
+    ref: join-tests.yamsql:396
     explain: '[IN arrayDistinct(promote(@c23 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS
-        DEPT, EQUALS q0]) } | FLATMAP q1 -> { COVERING(EMPDEPT [EQUALS q1.ID] -> [DEPT_ID:
-        KEY:[0], ID: KEY:[2]]) | FILTER NOT _.ID IN promote(@c34 AS ARRAY(LONG)) |
-        FETCH AS q2 RETURN (q2.ID AS ID, q2.FNAME AS FNAME) }'
-    task_count: 6402
-    task_total_time_ms: 622
-    transform_count: 1891
-    transform_time_ms: 172
-    transform_yield_count: 372
-    insert_time_ms: 30
-    insert_new_count: 1112
-    insert_reused_count: 65
+        DEPT, EQUALS q0._0]) } | FLATMAP q1 -> { COVERING(EMPDEPT [EQUALS q1.ID] ->
+        [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER NOT _.ID IN promote(@c34 AS ARRAY(LONG))
+        | FETCH AS q2 RETURN (q2.ID AS ID, q2.FNAME AS FNAME) }'
+    task_count: 6424
+    task_total_time_ms: 682
+    transform_count: 1896
+    transform_time_ms: 184
+    transform_yield_count: 376
+    insert_time_ms: 28
+    insert_new_count: 1128
+    insert_reused_count: 61
 -   query: EXPLAIN select emp.id, fname from emp, dept where dept.id = emp.dept_id
         and dept.id in (1, 2) and emp.id not in (1, 5)
-    ref: join-tests.yamsql:375
+    ref: join-tests.yamsql:406
     explain: '[IN arrayDistinct(promote(@c23 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS
-        DEPT, EQUALS q0]) } | FLATMAP q1 -> { COVERING(EMPDEPT <,> -> [DEPT_ID: KEY:[0],
-        ID: KEY:[2]]) | FILTER NOT _.ID IN promote(@c34 AS ARRAY(LONG)) AND q1.ID
-        EQUALS _.DEPT_ID | FETCH AS q2 RETURN (q2.ID AS ID, q2.FNAME AS FNAME) }'
-    task_count: 5465
-    task_total_time_ms: 537
-    transform_count: 1636
-    transform_time_ms: 165
-    transform_yield_count: 322
-    insert_time_ms: 30
-    insert_new_count: 894
-    insert_reused_count: 60
+        DEPT, EQUALS q0._0]) } | FLATMAP q1 -> { COVERING(EMPDEPT [EQUALS q1.ID] ->
+        [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER NOT _.ID IN promote(@c34 AS ARRAY(LONG))
+        | FETCH AS q2 RETURN (q2.ID AS ID, q2.FNAME AS FNAME) }'
+    task_count: 5492
+    task_total_time_ms: 535
+    transform_count: 1638
+    transform_time_ms: 150
+    transform_yield_count: 323
+    insert_time_ms: 24
+    insert_new_count: 898
+    insert_reused_count: 59
 -   query: EXPLAIN select emp.id from emp, dept where emp.dept_id = dept.id and dept.id
         = 1 and emp.id in (10, 20, 30)
-    ref: join-tests.yamsql:401
+    ref: join-tests.yamsql:432
     explain: '[IN arrayDistinct(promote(@c27 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS
-        EMP, EQUALS q0]) } | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS promote(@c21 AS
-        LONG)]) | FILTER q1.DEPT_ID EQUALS _.ID AS q2 RETURN (q1.ID AS ID) }'
-    task_count: 6839
-    task_total_time_ms: 712
-    transform_count: 1940
-    transform_time_ms: 190
-    transform_yield_count: 412
-    insert_time_ms: 35
-    insert_new_count: 1248
+        EMP, EQUALS q0._0]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) |
+        FILTER _.ID EQUALS promote(@c21 AS LONG) AS q2 RETURN (q1.ID AS ID) } }'
+    task_count: 6848
+    task_total_time_ms: 728
+    transform_count: 1939
+    transform_time_ms: 182
+    transform_yield_count: 413
+    insert_time_ms: 28
+    insert_new_count: 1251
     insert_reused_count: 60
 -   query: EXPLAIN select * from ja join jb using(c1) join jd using(c1);
     ref: join-tests.yamsql:422
@@ -250,10 +264,10 @@ join-tests:
         JA, EQUALS q1.C1]) | FILTER _.C1 EQUALS q0.C1 AS q2 RETURN (q2 AS _0, q1 AS
         _1) } AS q3 RETURN (q3._0.C1 AS C1, q3._0.C2 AS C2, q3._1.C3 AS C3, q0.C4
         AS C4) }
-    task_count: 1215
-    task_total_time_ms: 137
-    transform_count: 512
-    transform_time_ms: 40
+    task_count: 1213
+    task_total_time_ms: 194
+    transform_count: 510
+    transform_time_ms: 54
     transform_yield_count: 80
     insert_time_ms: 6
     insert_new_count: 136
@@ -264,41 +278,41 @@ join-tests:
     explain: SCAN([IS JUD]) | FLATMAP q0 -> { SCAN([IS JUB]) | FLATMAP q1 -> { SCAN([IS
         JUA, EQUALS q1.C1]) | FILTER _.C1 EQUALS q0.C1 AS q2 RETURN (q2 AS _0, q1
         AS _1) } AS q3 RETURN (q3._0.C5 AS _0, q3._1.C5 AS _1, q0.C5 AS _2) }
-    task_count: 1215
-    task_total_time_ms: 115
-    transform_count: 511
-    transform_time_ms: 33
+    task_count: 1213
+    task_total_time_ms: 188
+    transform_count: 509
+    transform_time_ms: 53
     transform_yield_count: 80
-    insert_time_ms: 5
+    insert_time_ms: 7
     insert_new_count: 136
     insert_reused_count: 21
 -   query: EXPLAIN select * from jua join (select * from jub join jud using(c1)) as
         X using (c1);
-    ref: join-tests.yamsql:459
-    explain: SCAN([IS JUD]) | FLATMAP q0 -> { SCAN([IS JUB, EQUALS q0.C1]) | FLATMAP
-        q1 -> { SCAN([IS JUA, EQUALS q1.C1]) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS
-        q3 RETURN (q3._0.C1 AS C1, q3._0.C2 AS C2, q3._0.C5 AS _2, q3._1.C3 AS C3,
-        q3._1.C5 AS _4, q0.C4 AS C4, q0.C5 AS _6) }
-    task_count: 1497
-    task_total_time_ms: 175
-    transform_count: 599
-    transform_time_ms: 49
-    transform_yield_count: 97
+    ref: join-tests.yamsql:490
+    explain: SCAN([IS JUA]) | FLATMAP q0 -> { SCAN([IS JUB, EQUALS q0.C1]) | FLATMAP
+        q1 -> { SCAN([IS JUD, EQUALS q1.C1]) AS q2 RETURN (q1 AS _0, q2 AS _1) } AS
+        q3 RETURN (q0.C1 AS C1, q0.C2 AS C2, q0.C5 AS _2, q3._0.C3 AS C3, q3._0.C5
+        AS _4, q3._1.C4 AS C4, q3._1.C5 AS _6) }
+    task_count: 1832
+    task_total_time_ms: 292
+    transform_count: 707
+    transform_time_ms: 76
+    transform_yield_count: 122
     insert_time_ms: 6
-    insert_new_count: 184
-    insert_reused_count: 26
+    insert_new_count: 244
+    insert_reused_count: 16
 -   query: EXPLAIN select emp.fname, emp.lname from emp, dept where emp.lname > dept.name
         and dept.name = 'Sales' and emp.lname < 'W'
     ref: join-tests.yamsql:479
     explain: ISCAN(DEPTNAME [EQUALS promote(@c25 AS STRING)]) | FLATMAP q0 -> { ISCAN(EMPNAME
         [[GREATER_THAN q0.NAME && LESS_THAN promote(@c31 AS STRING)]]) AS q1 RETURN
         (q1.FNAME AS FNAME, q1.LNAME AS LNAME) }
-    task_count: 1084
-    task_total_time_ms: 104
-    transform_count: 285
-    transform_time_ms: 41
+    task_count: 1080
+    task_total_time_ms: 152
+    transform_count: 281
+    transform_time_ms: 58
     transform_yield_count: 92
-    insert_time_ms: 3
+    insert_time_ms: 9
     insert_new_count: 152
     insert_reused_count: 10
 -   query: EXPLAIN select emp.fname, emp.lname from emp, dept where dept.name < emp.lname
@@ -308,10 +322,10 @@ join-tests:
         { COVERING(DEPTNAME [EQUALS promote(@c25 AS STRING)] -> [ID: KEY:[2], NAME:
         KEY:[0]]) | FILTER _.NAME LESS_THAN q0.LNAME | FETCH AS q1 RETURN (q0.FNAME
         AS FNAME, q0.LNAME AS LNAME) }'
-    task_count: 1172
-    task_total_time_ms: 107
-    transform_count: 309
-    transform_time_ms: 43
+    task_count: 1168
+    task_total_time_ms: 166
+    transform_count: 305
+    transform_time_ms: 60
     transform_yield_count: 100
     insert_time_ms: 3
     insert_new_count: 167
@@ -320,10 +334,10 @@ join-tests:
     ref: join-tests.yamsql:508
     explain: SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) AS q1 RETURN (q0.C1 AS
         C1, q0.C2 AS C2, q1.C3 AS C3) }
-    task_count: 460
-    task_total_time_ms: 45
-    transform_count: 153
-    transform_time_ms: 13
+    task_count: 456
+    task_total_time_ms: 68
+    transform_count: 149
+    transform_time_ms: 25
     transform_yield_count: 38
     insert_time_ms: 1
     insert_new_count: 50
@@ -332,10 +346,10 @@ join-tests:
     ref: join-tests.yamsql:514
     explain: SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) AS q1 RETURN (q0.C1 AS
         C1, q0.C2 AS C2, q1.C3 AS C3) }
-    task_count: 460
-    task_total_time_ms: 45
-    transform_count: 153
-    transform_time_ms: 14
+    task_count: 456
+    task_total_time_ms: 53
+    transform_count: 149
+    transform_time_ms: 17
     transform_yield_count: 38
     insert_time_ms: 1
     insert_new_count: 50
@@ -344,10 +358,10 @@ join-tests:
     ref: join-tests.yamsql:520
     explain: SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER false AS q1 RETURN
         (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }
-    task_count: 466
-    task_total_time_ms: 44
-    transform_count: 151
-    transform_time_ms: 13
+    task_count: 462
+    task_total_time_ms: 69
+    transform_count: 147
+    transform_time_ms: 24
     transform_yield_count: 38
     insert_time_ms: 1
     insert_new_count: 54
@@ -356,10 +370,10 @@ join-tests:
     ref: join-tests.yamsql:526
     explain: SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER false AS q1 RETURN
         (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }
-    task_count: 466
-    task_total_time_ms: 38
-    transform_count: 151
-    transform_time_ms: 12
+    task_count: 462
+    task_total_time_ms: 63
+    transform_count: 147
+    transform_time_ms: 20
     transform_yield_count: 38
     insert_time_ms: 1
     insert_new_count: 54
@@ -369,34 +383,34 @@ join-tests:
     ref: join-tests.yamsql:532
     explain: SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER null AS q1 RETURN
         (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }
-    task_count: 447
-    task_total_time_ms: 38
-    transform_count: 144
-    transform_time_ms: 12
+    task_count: 445
+    task_total_time_ms: 60
+    transform_count: 142
+    transform_time_ms: 20
     transform_yield_count: 36
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 49
     insert_reused_count: 6
 -   query: EXPLAIN select ja.c1, ja.c2, jb.c3 from ja, jb where cast(null as boolean);
     ref: join-tests.yamsql:538
     explain: SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER null AS q1 RETURN
         (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }
-    task_count: 447
-    task_total_time_ms: 40
-    transform_count: 144
-    transform_time_ms: 12
+    task_count: 445
+    task_total_time_ms: 59
+    transform_count: 142
+    transform_time_ms: 20
     transform_yield_count: 36
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 49
     insert_reused_count: 6
 -   query: EXPLAIN select ja.c1, ja.c2, jb.c3 from ja inner join jb on null;
     ref: join-tests.yamsql:544
     explain: SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER null AS q1 RETURN
         (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }
-    task_count: 447
-    task_total_time_ms: 34
-    transform_count: 144
-    transform_time_ms: 11
+    task_count: 445
+    task_total_time_ms: 59
+    transform_count: 142
+    transform_time_ms: 20
     transform_yield_count: 36
     insert_time_ms: 1
     insert_new_count: 49
@@ -405,10 +419,10 @@ join-tests:
     ref: join-tests.yamsql:550
     explain: SCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER null AS q1 RETURN
         (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }
-    task_count: 447
-    task_total_time_ms: 40
-    transform_count: 144
-    transform_time_ms: 13
+    task_count: 445
+    task_total_time_ms: 64
+    transform_count: 142
+    transform_time_ms: 25
     transform_yield_count: 36
     insert_time_ms: 1
     insert_new_count: 49
@@ -416,168 +430,165 @@ join-tests:
 three-way-joins-right-deep-planner:
 -   query: EXPLAIN select fname, lname from emp inner join project on emp_id = emp.id
         inner join dept on dept_id = dept.id and dept.name = 'Sales';
-    ref: join-tests.yamsql:564
-    explain: ISCAN(DEPTNAME [EQUALS promote(@c29 AS STRING)]) | FLATMAP q0 -> { ISCAN(EMPDEPT
-        [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS
-        q1.ID AS q2 RETURN q1 } AS q1 RETURN (q1.FNAME AS FNAME, q1.LNAME AS LNAME)
-        }
-    task_count: 2430
-    task_total_time_ms: 211
-    transform_count: 679
-    transform_time_ms: 71
-    transform_yield_count: 175
-    insert_time_ms: 6
-    insert_new_count: 376
-    insert_reused_count: 22
+    ref: join-tests.yamsql:595
+    explain: SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID])
+        | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) | FILTER _.NAME EQUALS
+        promote(@c29 AS STRING) AS q2 RETURN q1 } AS q1 RETURN (q1.FNAME AS FNAME,
+        q1.LNAME AS LNAME) }
+    task_count: 2458
+    task_total_time_ms: 218
+    transform_count: 676
+    transform_time_ms: 67
+    transform_yield_count: 179
+    insert_time_ms: 5
+    insert_new_count: 393
+    insert_reused_count: 19
 -   query: EXPLAIN select dept.name, project.name from emp, dept, project where emp.dept_id
         = dept.id and project.emp_id = emp.id;
-    ref: join-tests.yamsql:569
-    explain: ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) |
-        FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN
-        q2 } AS q2 RETURN (q0.NAME AS _0, q2.NAME AS _1) }
-    task_count: 2134
-    task_total_time_ms: 181
-    transform_count: 605
+    ref: join-tests.yamsql:600
+    explain: SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID])
+        | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) AS q2 RETURN q2 } AS
+        q2 RETURN (q2.NAME AS _0, q0.NAME AS _1) }
+    task_count: 2144
+    task_total_time_ms: 199
+    transform_count: 600
     transform_time_ms: 58
-    transform_yield_count: 157
-    insert_time_ms: 5
-    insert_new_count: 323
-    insert_reused_count: 21
+    transform_yield_count: 160
+    insert_time_ms: 4
+    insert_new_count: 338
+    insert_reused_count: 18
 -   query: EXPLAIN select dept.name, project.name from emp inner join dept on emp.dept_id
         = dept.id inner join project on project.emp_id = emp.id;
-    ref: join-tests.yamsql:576
-    explain: ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) |
-        FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN
-        q2 } AS q2 RETURN (q0.NAME AS _0, q2.NAME AS _1) }
-    task_count: 2134
-    task_total_time_ms: 174
-    transform_count: 605
-    transform_time_ms: 58
-    transform_yield_count: 157
-    insert_time_ms: 5
-    insert_new_count: 323
-    insert_reused_count: 21
+    ref: join-tests.yamsql:607
+    explain: SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID])
+        | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) AS q2 RETURN q2 } AS
+        q2 RETURN (q2.NAME AS _0, q0.NAME AS _1) }
+    task_count: 2144
+    task_total_time_ms: 195
+    transform_count: 600
+    transform_time_ms: 57
+    transform_yield_count: 160
+    insert_time_ms: 4
+    insert_new_count: 338
+    insert_reused_count: 18
 -   query: EXPLAIN select * from (select dept.name, project.name from emp, dept, project
         where emp.dept_id = dept.id and project.emp_id = emp.id) X;
-    ref: join-tests.yamsql:583
-    explain: ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) |
-        FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN
-        q2 } AS q2 RETURN (q0.NAME AS _0, q2.NAME AS _1) }
-    task_count: 2164
-    task_total_time_ms: 186
-    transform_count: 613
-    transform_time_ms: 60
-    transform_yield_count: 159
-    insert_time_ms: 5
-    insert_new_count: 327
-    insert_reused_count: 21
+    ref: join-tests.yamsql:614
+    explain: SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID])
+        | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) AS q2 RETURN q2 } AS
+        q2 RETURN (q2.NAME AS _0, q0.NAME AS _1) }
+    task_count: 2171
+    task_total_time_ms: 193
+    transform_count: 605
+    transform_time_ms: 57
+    transform_yield_count: 162
+    insert_time_ms: 4
+    insert_new_count: 342
+    insert_reused_count: 18
 -   query: EXPLAIN select (*) from (select dept.name, project.name from emp, dept,
         project where emp.dept_id = dept.id and project.emp_id = emp.id) X;
-    ref: join-tests.yamsql:590
-    explain: ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { ISCAN(EMPDEPT [EQUALS q0.ID]) |
-        FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q1.ID AS q2 RETURN
-        q2 } AS q2 RETURN ((q0.NAME AS _0, q2.NAME AS _1) AS X) }
-    task_count: 2164
-    task_total_time_ms: 188
-    transform_count: 613
-    transform_time_ms: 61
-    transform_yield_count: 159
-    insert_time_ms: 5
-    insert_new_count: 327
-    insert_reused_count: 21
+    ref: join-tests.yamsql:621
+    explain: SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID])
+        | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) AS q2 RETURN q2 } AS
+        q2 RETURN ((q2.NAME AS _0, q0.NAME AS _1) AS X) }
+    task_count: 2171
+    task_total_time_ms: 202
+    transform_count: 605
+    transform_time_ms: 59
+    transform_yield_count: 162
+    insert_time_ms: 9
+    insert_new_count: 342
+    insert_reused_count: 18
 -   query: EXPLAIN select dept.name, project.name from project inner join emp on emp.id
         = project.emp_id inner join dept on emp.dept_id = dept.id;
-    ref: join-tests.yamsql:597
-    explain: ISCAN(DEPTNAME <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FLATMAP q1
-        -> { SCAN([IS EMP, EQUALS q1.EMP_ID]) | FILTER _.DEPT_ID EQUALS q0.ID AS q2
-        RETURN q1 } AS q1 RETURN (q0.NAME AS _0, q1.NAME AS _1) }
-    task_count: 2145
-    task_total_time_ms: 183
-    transform_count: 604
-    transform_time_ms: 57
-    transform_yield_count: 159
-    insert_time_ms: 5
-    insert_new_count: 330
-    insert_reused_count: 19
+    ref: join-tests.yamsql:628
+    explain: SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID])
+        | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) AS q2 RETURN q2 } AS
+        q2 RETURN (q2.NAME AS _0, q0.NAME AS _1) }
+    task_count: 2144
+    task_total_time_ms: 198
+    transform_count: 600
+    transform_time_ms: 60
+    transform_yield_count: 160
+    insert_time_ms: 6
+    insert_new_count: 338
+    insert_reused_count: 18
 -   query: EXPLAIN select dept.id, dept.name, project.name from emp, dept, project
         where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id not in
         (1)
-    ref: join-tests.yamsql:604
-    explain: 'COVERING(DEPTNAME <,> -> [ID: KEY:[2], NAME: KEY:[0]]) | FILTER NOT
-        _.ID IN promote(@c40 AS ARRAY(LONG)) | FETCH | FLATMAP q0 -> { ISCAN(EMPDEPT
-        [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS
-        q1.ID AS q2 RETURN q2 } AS q2 RETURN (q0.ID AS ID, q0.NAME AS _1, q2.NAME
-        AS _2) }'
-    task_count: 2388
-    task_total_time_ms: 206
-    transform_count: 675
-    transform_time_ms: 70
-    transform_yield_count: 172
-    insert_time_ms: 6
-    insert_new_count: 361
-    insert_reused_count: 24
+    ref: join-tests.yamsql:635
+    explain: SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID])
+        | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) | FILTER NOT _.ID IN
+        promote(@c40 AS ARRAY(LONG)) AS q2 RETURN q2 } AS q2 RETURN (q2.ID AS ID,
+        q2.NAME AS _1, q0.NAME AS _2) }
+    task_count: 2418
+    task_total_time_ms: 223
+    transform_count: 674
+    transform_time_ms: 66
+    transform_yield_count: 176
+    insert_time_ms: 5
+    insert_new_count: 379
+    insert_reused_count: 21
 -   query: EXPLAIN select dept.id, dept.name, project.name from emp inner join dept
         on emp.dept_id = dept.id and dept.id not in (1) inner join project on project.emp_id
         = emp.id
-    ref: join-tests.yamsql:610
-    explain: 'COVERING(DEPTNAME <,> -> [ID: KEY:[2], NAME: KEY:[0]]) | FILTER NOT
-        _.ID IN promote(@c31 AS ARRAY(LONG)) | FETCH | FLATMAP q0 -> { ISCAN(EMPDEPT
-        [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS
-        q1.ID AS q2 RETURN q2 } AS q2 RETURN (q0.ID AS ID, q0.NAME AS _1, q2.NAME
-        AS _2) }'
-    task_count: 2388
-    task_total_time_ms: 209
-    transform_count: 675
-    transform_time_ms: 68
-    transform_yield_count: 172
-    insert_time_ms: 6
-    insert_new_count: 361
-    insert_reused_count: 24
+    ref: join-tests.yamsql:641
+    explain: SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID])
+        | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) | FILTER NOT _.ID IN
+        promote(@c31 AS ARRAY(LONG)) AS q2 RETURN q2 } AS q2 RETURN (q2.ID AS ID,
+        q2.NAME AS _1, q0.NAME AS _2) }
+    task_count: 2418
+    task_total_time_ms: 190
+    transform_count: 674
+    transform_time_ms: 57
+    transform_yield_count: 176
+    insert_time_ms: 4
+    insert_new_count: 379
+    insert_reused_count: 21
 -   query: EXPLAIN select project.id, project.name from emp, dept, project where emp.dept_id
         = dept.id and project.emp_id = emp.id and dept.id not in (3) and project.id
         not in (3)
-    ref: join-tests.yamsql:616
-    explain: 'COVERING(DEPTNAME <,> -> [ID: KEY:[2], NAME: KEY:[0]]) | FILTER NOT
-        _.ID IN promote(@c36 AS ARRAY(LONG)) | FETCH | FLATMAP q0 -> { ISCAN(EMPDEPT
-        [EQUALS q0.ID]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FILTER NOT _.ID IN
-        promote(@c36 AS ARRAY(LONG)) AND _.EMP_ID EQUALS q1.ID AS q2 RETURN q2 } AS
-        q2 RETURN (q2.ID AS ID, q2.NAME AS NAME) }'
-    task_count: 2496
-    task_total_time_ms: 181
-    transform_count: 716
-    transform_time_ms: 66
-    transform_yield_count: 178
-    insert_time_ms: 6
-    insert_new_count: 375
-    insert_reused_count: 26
+    ref: join-tests.yamsql:647
+    explain: SCAN([IS PROJECT]) | FILTER NOT _.ID IN promote(@c36 AS ARRAY(LONG))
+        | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS
+        DEPT, EQUALS q1.DEPT_ID]) | FILTER NOT _.ID IN promote(@c36 AS ARRAY(LONG))
+        AS q2 RETURN (1 AS _0) } AS q3 RETURN (q0.ID AS ID, q0.NAME AS NAME) }
+    task_count: 2526
+    task_total_time_ms: 220
+    transform_count: 715
+    transform_time_ms: 64
+    transform_yield_count: 182
+    insert_time_ms: 5
+    insert_new_count: 395
+    insert_reused_count: 23
 -   query: EXPLAIN select dept.id, dept.name, project.name from emp, dept, project
         where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id in (1,
         2)
-    ref: join-tests.yamsql:621
+    ref: join-tests.yamsql:652
     explain: '[IN arrayDistinct(promote(@c39 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS
-        DEPT, EQUALS q0]) } | FLATMAP q1 -> { ISCAN(EMPDEPT [EQUALS q1.ID]) | FLATMAP
-        q2 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q2.ID AS q3 RETURN q3
-        } AS q3 RETURN (q1.ID AS ID, q1.NAME AS _1, q3.NAME AS _2) }'
-    task_count: 8914
-    task_total_time_ms: 488
-    transform_count: 2657
-    transform_time_ms: 148
-    transform_yield_count: 527
-    insert_time_ms: 27
-    insert_new_count: 1573
-    insert_reused_count: 110
+        DEPT, EQUALS q0._0]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FLATMAP q2 ->
+        { SCAN([IS EMP, EQUALS q2.EMP_ID]) | FILTER _.DEPT_ID EQUALS q1.ID AS q3 RETURN
+        q2 } AS q2 RETURN (q1.ID AS ID, q1.NAME AS _1, q2.NAME AS _2) } }'
+    task_count: 9611
+    task_total_time_ms: 421
+    transform_count: 2840
+    transform_time_ms: 119
+    transform_yield_count: 576
+    insert_time_ms: 20
+    insert_new_count: 1822
+    insert_reused_count: 102
 -   query: EXPLAIN select * from ja join jb using(c1) join jd using(c1);
     ref: join-tests.yamsql:627
     explain: SCAN([IS JD]) | FLATMAP q0 -> { SCAN([IS JB]) | FLATMAP q1 -> { SCAN([IS
         JA, EQUALS q1.C1]) | FILTER _.C1 EQUALS q0.C1 AS q2 RETURN (q2 AS _0, q1 AS
         _1) } AS q3 RETURN (q3._0.C1 AS C1, q3._0.C2 AS C2, q3._1.C3 AS C3, q0.C4
         AS C4) }
-    task_count: 912
-    task_total_time_ms: 84
-    transform_count: 356
-    transform_time_ms: 29
+    task_count: 910
+    task_total_time_ms: 127
+    transform_count: 354
+    transform_time_ms: 36
     transform_yield_count: 65
-    insert_time_ms: 2
+    insert_time_ms: 3
     insert_new_count: 106
     insert_reused_count: 12
 -   query: EXPLAIN select jua.c5, jub.c5, jud.c5 from jua join jub using(c1) join
@@ -586,26 +597,69 @@ three-way-joins-right-deep-planner:
     explain: SCAN([IS JUD]) | FLATMAP q0 -> { SCAN([IS JUB]) | FLATMAP q1 -> { SCAN([IS
         JUA, EQUALS q1.C1]) | FILTER _.C1 EQUALS q0.C1 AS q2 RETURN (q2 AS _0, q1
         AS _1) } AS q3 RETURN (q3._0.C5 AS _0, q3._1.C5 AS _1, q0.C5 AS _2) }
-    task_count: 912
-    task_total_time_ms: 76
-    transform_count: 355
-    transform_time_ms: 23
+    task_count: 910
+    task_total_time_ms: 139
+    transform_count: 353
+    transform_time_ms: 43
     transform_yield_count: 65
-    insert_time_ms: 2
+    insert_time_ms: 4
     insert_new_count: 106
     insert_reused_count: 12
 -   query: EXPLAIN select * from jua join (select * from jub join jud using(c1)) as
         X using (c1);
-    ref: join-tests.yamsql:637
-    explain: SCAN([IS JUD]) | FLATMAP q0 -> { SCAN([IS JUB, EQUALS q0.C1]) | FLATMAP
-        q1 -> { SCAN([IS JUA, EQUALS q1.C1]) AS q2 RETURN (q2 AS _0, q1 AS _1) } AS
-        q3 RETURN (q3._0.C1 AS C1, q3._0.C2 AS C2, q3._0.C5 AS _2, q3._1.C3 AS C3,
-        q3._1.C5 AS _4, q0.C4 AS C4, q0.C5 AS _6) }
-    task_count: 1094
-    task_total_time_ms: 115
-    transform_count: 391
+    ref: join-tests.yamsql:668
+    explain: SCAN([IS JUA]) | FLATMAP q0 -> { SCAN([IS JUB, EQUALS q0.C1]) | FLATMAP
+        q1 -> { SCAN([IS JUD, EQUALS q1.C1]) AS q2 RETURN (q1 AS _0, q2 AS _1) } AS
+        q3 RETURN (q0.C1 AS C1, q0.C2 AS C2, q0.C5 AS _2, q3._0.C3 AS C3, q3._0.C5
+        AS _4, q3._1.C4 AS C4, q3._1.C5 AS _6) }
+    task_count: 1113
+    task_total_time_ms: 134
+    transform_count: 384
     transform_time_ms: 33
-    transform_yield_count: 78
-    insert_time_ms: 3
-    insert_new_count: 137
-    insert_reused_count: 13
+    transform_yield_count: 82
+    insert_time_ms: 4
+    insert_new_count: 150
+    insert_reused_count: 9
+join-range-tests:
+-   query: EXPLAIN SELECT T1.id, T2.id AS t2_id FROM T1, T2 WHERE T1.x BETWEEN T2.lo
+        AND T2.hi
+    ref: join-tests.yamsql:734
+    explain: SCAN([IS T1]) | FLATMAP q0 -> { ISCAN(T2_LO [[LESS_THAN_OR_EQUALS q0.X]])
+        | FILTER _.HI GREATER_THAN_OR_EQUALS q0.X AS q1 RETURN (q0.ID AS ID, q1.ID
+        AS T2_ID) }
+    task_count: 629
+    task_total_time_ms: 52
+    transform_count: 180
+    transform_time_ms: 19
+    transform_yield_count: 51
+    insert_time_ms: 0
+    insert_new_count: 76
+    insert_reused_count: 5
+-   query: EXPLAIN SELECT T1.id, T2.id AS t2_id FROM T1, T2 WHERE T2.lo <= T1.x AND
+        T2.hi >= T1.x
+    ref: join-tests.yamsql:739
+    explain: SCAN([IS T1]) | FLATMAP q0 -> { ISCAN(T2_LO [[LESS_THAN_OR_EQUALS q0.X]])
+        | FILTER _.HI GREATER_THAN_OR_EQUALS q0.X AS q1 RETURN (q0.ID AS ID, q1.ID
+        AS T2_ID) }
+    task_count: 629
+    task_total_time_ms: 51
+    transform_count: 180
+    transform_time_ms: 18
+    transform_yield_count: 51
+    insert_time_ms: 1
+    insert_new_count: 76
+    insert_reused_count: 5
+-   query: EXPLAIN SELECT T1.id, T2.id AS t2_id FROM T1, T2 WHERE T1.x >= T2.lo AND
+        T1.x <= T2.hi
+    ref: join-tests.yamsql:746
+    explain: ISCAN(T2_LO <,>) | FLATMAP q0 -> { SCAN([IS T1]) | FILTER _.X GREATER_THAN_OR_EQUALS
+        q0.LO AND _.X LESS_THAN_OR_EQUALS q0.HI AS q1 RETURN (q1.ID AS ID, q0.ID AS
+        T2_ID) }
+    task_count: 527
+    task_total_time_ms: 51
+    transform_count: 166
+    transform_time_ms: 19
+    transform_yield_count: 47
+    insert_time_ms: 0
+    insert_new_count: 64
+    insert_reused_count: 5

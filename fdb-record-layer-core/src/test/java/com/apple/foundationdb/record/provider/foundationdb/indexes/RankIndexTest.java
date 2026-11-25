@@ -73,7 +73,7 @@ import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
@@ -81,6 +81,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredica
 import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.CompileTimeWindowValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.WindowFrameSpecification;
@@ -2150,16 +2151,28 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
         return planGraph(() -> {
             final var base = (Quantifier.ForEach)fullTypeScan(cascadesPlanner.getRecordMetaData(),
                     "RepeatedRankedRecord");
-            final var explode = Quantifier.forEach(Reference.initialOf(
-                    ExplodeExpression.explodeField(base, ImmutableList.of("score"))));
+            //
+            // An explode is a table function over an ExplodeValue, flowing an (element, ordinal) struct per element. A
+            // select over it projecting the element is what the window then orders by -- the same shape a fan-out key
+            // expression expands to, which flows the element rather than the struct (KeyExpressionExpansionVisitor),
+            // so that the ordering the query states and the one the candidate provides are the same value.
+            //
+            final var explode = Quantifier.forEach(Reference.initialOf(new TableFunctionExpression(
+                    new ExplodeValue(FieldValue.ofFieldName(base.getFlowedObjectValue(), "score")))));
+            final var element = Quantifier.forEach(Reference.initialOf(
+                    GraphExpansion.builder()
+                            .addQuantifier(explode)
+                            .build()
+                            .buildSelectWithResultValue(
+                                    ExplodeValue.elementValue(explode.getFlowedObjectValue()))));
             final var rankValue = new CompileTimeWindowValue(CompileTimeWindowValue.WindowFunction.RANK,
                     ImmutableList.of(), ImmutableList.of(),
-                    ImmutableList.of(new WindowOrderingPart(explode.getFlowedObjectValue(),
+                    ImmutableList.of(new WindowOrderingPart(element.getFlowedObjectValue(),
                             OrderingPart.RequestedSortOrder.ASCENDING)),
                     WindowFrameSpecification.defaultSpecification());
             final var expansion = GraphExpansion.builder();
             expansion.addQuantifier(base);
-            expansion.addQuantifier(explode);
+            expansion.addQuantifier(element);
             expansion.addPredicate(new ValuePredicate(rankValue, rankComparison));
             expansion.addResultValue(base.getFlowedObjectValue());
             final var qun = Quantifier.forEach(Reference.initialOf(expansion.build().buildSelect()));

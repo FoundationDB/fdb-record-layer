@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMatchCandidateRe
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -102,6 +103,30 @@ public class MetaDataPlanContext implements PlanContext {
         }
     }
 
+    /**
+     * Returns the indexes of every synthetic record type whose stored constituents are all among the queried record
+     * types, if the planner configuration {@linkplain RecordQueryPlannerConfiguration#shouldConsiderSyntheticRecordTypeIndexes()
+     * considers indexes on synthetic record types}, and no indexes otherwise.
+     *
+     * @param plannerConfiguration the planner configuration
+     * @param metaData the meta-data of the record store
+     * @param queriedRecordTypes the record types the query reads
+     * @return the indexes on synthetic record types for the planner to consider
+     */
+    @Nonnull
+    private static List<Index> syntheticRecordTypeIndexes(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration,
+                                                          @Nonnull RecordMetaData metaData,
+                                                          @Nonnull Collection<RecordType> queriedRecordTypes) {
+        if (!plannerConfiguration.shouldConsiderSyntheticRecordTypeIndexes()) {
+            return ImmutableList.of();
+        }
+        final ImmutableList.Builder<Index> indexes = ImmutableList.builder();
+        for (final var syntheticRecordType : metaData.getSyntheticRecordTypesFromRecordTypes(queriedRecordTypes)) {
+            indexes.addAll(syntheticRecordType.getIndexes());
+        }
+        return indexes.build();
+    }
+
     @Nonnull
     public static PlanContext forRecordQuery(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration,
                                              @Nonnull RecordMetaData metaData,
@@ -143,9 +168,7 @@ public class MetaDataPlanContext implements PlanContext {
             }
 
             indexList.addAll(readableOf(recordStoreState, metaData.getUniversalIndexes()));
-            for (final var syntheticRecordType : metaData.getSyntheticRecordTypesFromRecordTypes(queriedRecordTypes)) {
-                indexList.addAll(readableOf(recordStoreState, syntheticRecordType.getIndexes()));
-            }
+            indexList.addAll(readableOf(recordStoreState, syntheticRecordTypeIndexes(plannerConfiguration, metaData, queriedRecordTypes)));
         } finally {
             recordStoreState.endRead();
         }
@@ -190,9 +213,7 @@ public class MetaDataPlanContext implements PlanContext {
             for (final var recordType : queriedRecordTypes) {
                 indexList.addAll(readableOf(recordStoreState, recordType.getAllIndexes()));
             }
-            for (final var syntheticRecordType : metaData.getSyntheticRecordTypesFromRecordTypes(queriedRecordTypes)) {
-                indexList.addAll(readableOf(recordStoreState, syntheticRecordType.getIndexes()));
-            }
+            indexList.addAll(readableOf(recordStoreState, syntheticRecordTypeIndexes(plannerConfiguration, metaData, queriedRecordTypes)));
         } finally {
             recordStoreState.endRead();
         }

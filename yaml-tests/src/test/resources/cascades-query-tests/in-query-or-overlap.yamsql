@@ -53,7 +53,7 @@ test_block:
       # testInQueryOrOverlap
       - query: select * from my_simple_record
                where num_value_unique in (903, 905, 901) or num_value_unique in (906, 905, 904)
-      - explain: "[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE [EQUALS q0] -> [NUM_VALUE_UNIQUE: KEY:[0], REC_NO: KEY:[1]]) } ∪ [IN arrayDistinct(@c17) SORTED] | INJOIN q1 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE [EQUALS q1] -> [NUM_VALUE_UNIQUE: KEY:[0], REC_NO: KEY:[1]]) } COMPARE BY (_.NUM_VALUE_UNIQUE, _.REC_NO) | FETCH"
+      - explain: "[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE [EQUALS q0._0] -> [NUM_VALUE_UNIQUE: KEY:[0], REC_NO: KEY:[1]]) } ∪ [IN arrayDistinct(@c17) SORTED] | INJOIN q1 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE [EQUALS q1._0] -> [NUM_VALUE_UNIQUE: KEY:[0], REC_NO: KEY:[1]]) } COMPARE BY (_.NUM_VALUE_UNIQUE, _.REC_NO) | FETCH"
       - unorderedResult: [{REC_NO: 94, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 906, NUM_VALUE_2: 1, NUM_VALUE_3_INDEXED: 4, REPEATER: [0, 1, 2, 3]},
                           {REC_NO: 95, STR_VALUE_INDEXED: 'odd', NUM_VALUE_UNIQUE: 905, NUM_VALUE_2: 2, NUM_VALUE_3_INDEXED: 0, REPEATER: [0, 1, 2, 3, 4]},
                           {REC_NO: 96, STR_VALUE_INDEXED: 'even', NUM_VALUE_UNIQUE: 904, NUM_VALUE_2: 0, NUM_VALUE_3_INDEXED: 1, REPEATER: [0, 1, 2, 3, 4, 5]},

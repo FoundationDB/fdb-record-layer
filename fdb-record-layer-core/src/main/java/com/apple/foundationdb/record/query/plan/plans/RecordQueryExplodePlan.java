@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
+import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.FinalMemoizer;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -42,10 +43,10 @@ import com.apple.foundationdb.record.query.plan.cascades.explain.ExplainPlanVisi
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.AbstractRelationalExpressionWithoutChildren;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
@@ -62,6 +63,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.IntStream;
 
@@ -130,13 +132,49 @@ public class RecordQueryExplodePlan extends AbstractRelationalExpressionWithoutC
         Verify.verify(collectionValue.getResultType().isArray());
         this.elementType = Objects.requireNonNull(((Type.Array)collectionValue.getResultType()).getElementType());
         this.flowsRecordConstructorValue = flowsRecordConstructorValue;
-        this.explodeResultType = ExplodeExpression.explodeResultType(elementType, withOrdinality, flowsRecordConstructorValue);
-        this.resultValue = ExplodeExpression.explodeResultValue(elementType, withOrdinality, flowsRecordConstructorValue);
+        this.explodeResultType = explodeResultType(elementType, withOrdinality, flowsRecordConstructorValue);
+        this.resultValue = explodeResultValue(elementType, withOrdinality, flowsRecordConstructorValue);
         Verify.verify(explodeResultType.equals(resultValue.getResultType()));
     }
 
     public RecordQueryExplodePlan(@Nonnull Value collectionValue, boolean withOrdinality) {
         this(collectionValue, withOrdinality, false);
+    }
+
+    /**
+     * {@return the type of the explode result} This is the element type itself, unless the explode needs a struct to
+     * carry the ordinal or flows a record constructor.
+     */
+    @Nonnull
+    private static Type explodeResultType(@Nonnull final Type elementType, final boolean withOrdinality,
+                                          final boolean flowsRecordConstructorValue) {
+        if (!withOrdinality && !flowsRecordConstructorValue) {
+            return elementType;
+        }
+        final var fields = ImmutableList.<Type.Record.Field>builder();
+        fields.add(Type.Record.Field.of(elementType, Optional.empty()));
+        if (withOrdinality) {
+            fields.add(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT, false), Optional.empty()));
+        }
+        return Type.Record.fromFields(fields.build());
+    }
+
+    /**
+     * {@return the value an explode flows} This is either one opaque {@link QueriedValue} or a
+     * {@link RecordConstructorValue} of the element and, if requested, the ordinal.
+     */
+    @Nonnull
+    private static Value explodeResultValue(@Nonnull final Type elementType, final boolean withOrdinality,
+                                            final boolean flowsRecordConstructorValue) {
+        if (!flowsRecordConstructorValue) {
+            return new QueriedValue(explodeResultType(elementType, withOrdinality, false));
+        }
+        final var columns = ImmutableList.<Column<? extends Value>>builder();
+        columns.add(Column.unnamedOf(new QueriedValue(elementType)));
+        if (withOrdinality) {
+            columns.add(Column.unnamedOf(new QueriedValue(Type.primitiveType(Type.TypeCode.INT, false))));
+        }
+        return RecordConstructorValue.ofColumns(columns.build(), true);
     }
 
     public RecordQueryExplodePlan(@Nonnull Value collectionValue) {

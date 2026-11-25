@@ -48,7 +48,8 @@ class HnswVectorIndexTest extends VectorIndexEngineTestSuite {
     protected Map<String, String> indexOptions() {
         return ImmutableMap.of(IndexOptions.VECTOR_ENGINE, VectorIndexEngineKind.HNSW.name(),
                 IndexOptions.VECTOR_METRIC, Metric.EUCLIDEAN_METRIC.name(),
-                IndexOptions.VECTOR_NUM_DIMENSIONS, "128");
+                IndexOptions.VECTOR_NUM_DIMENSIONS, "128",
+                IndexOptions.HNSW_WRITE_APPENDABLE_NODES, "true");
     }
 
     /**
@@ -106,7 +107,9 @@ class HnswVectorIndexTest extends VectorIndexEngineTestSuite {
                             .put(IndexOptions.VECTOR_STATS_THRESHOLD, "500")
                             .put(IndexOptions.HNSW_MAX_NUM_CONCURRENT_NODE_FETCHES, "17")
                             .put(IndexOptions.HNSW_MAX_NUM_CONCURRENT_NEIGHBORHOOD_FETCHES, "9")
-                            .put(IndexOptions.HNSW_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER, "5").build());
+                            .put(IndexOptions.HNSW_MAX_NUM_CONCURRENT_DELETE_FROM_LAYER, "5")
+                            // the storage format can be switched on (and off) for an existing index
+                            .put(IndexOptions.HNSW_WRITE_APPENDABLE_NODES, "false").build());
 
             assertInvalidOptionsEvolution(metaData, index,
                     ImmutableMap.of(IndexOptions.VECTOR_NUM_DIMENSIONS, "128",

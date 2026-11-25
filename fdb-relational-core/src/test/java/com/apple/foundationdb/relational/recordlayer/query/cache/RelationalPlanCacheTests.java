@@ -1004,6 +1004,31 @@ public class RelationalPlanCacheTests {
     }
 
     @Test
+    void testPlanningQueryWithAndWithoutConsiderSyntheticRecordTypeIndexesOption() throws Exception {
+        final var ticker = new FakeTicker();
+        final var cache = getCache(ticker);
+        final var considerOption = Options.builder().withOption(Options.Name.CONSIDER_SYNTHETIC_RECORD_TYPE_INDEXES, true).build();
+        final String query = "SELECT * FROM BOOKS WHERE YEAR > 1970 AND YEAR < 1979";
+        final String expectedCanonicalString = "SELECT * FROM \"BOOKS\" WHERE \"YEAR\" > ? AND \"YEAR\" < ? ";
+
+        Assertions.assertTrue(configOf(Set.of(i1970, i1980), considerOption).getRecordQueryPlannerConfiguration()
+                .shouldConsiderSyntheticRecordTypeIndexes());
+        Assertions.assertFalse(configOf(Set.of(i1970, i1980)).getRecordQueryPlannerConfiguration()
+                .shouldConsiderSyntheticRecordTypeIndexes());
+
+        // the connection-level option is part of the planner configuration, so a plan made with it is cached apart
+        planQuery(cache, query, "SCHEMA_TEMPLATE_1", 10, Set.of(i1970, i1980), considerOption, i1970);
+        planQuery(cache, query, "SCHEMA_TEMPLATE_1", 10, Set.of(i1970, i1980), Options.none(), i1970);
+        shouldBe(cache, Map.of(
+                new Tuple(expectedCanonicalString, "SCHEMA_TEMPLATE_1", 10, configOf(Set.of(i1970, i1980), considerOption), ""),
+                Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(evaluationTimestampOfType(), ofTypeIntCp0(7), ofTypeIntCp1(11), evaluationTimestampIsNotNull(), isNotNullInt(7), isNotNullInt(11))), i1970),
+                new Tuple(expectedCanonicalString, "SCHEMA_TEMPLATE_1", 10, configOf(Set.of(i1970, i1980)), ""),
+                Map.of(ppe(cons(c1970Cp0(7), c1970Cp1(11)), cons(evaluationTimestampOfType(), ofTypeIntCp0(7), ofTypeIntCp1(11), evaluationTimestampIsNotNull(), isNotNullInt(7), isNotNullInt(11))), i1970)));
+
+        cache.cleanUp();
+    }
+
+    @Test
     void testExplainReusesCachedPlan() throws Exception {
         final var ticker = new FakeTicker();
         final var cache = getCache(ticker);

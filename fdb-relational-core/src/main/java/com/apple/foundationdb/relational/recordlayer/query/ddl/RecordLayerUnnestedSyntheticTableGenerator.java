@@ -217,32 +217,41 @@ final class RecordLayerUnnestedSyntheticTableGenerator implements SyntheticTable
         final var result = ImmutableMap.<Integer, UnnestingInfo>builder();
         // a marker is an explode's position, so the index is the key
         for (int marker = 0; marker < explodes.size(); marker++) {
-            final var collectionValue = explodes.get(marker);
-            result.put(marker, new UnnestingInfo(aliasByMarker.get(marker),
-                    owningAlias(marker, collectionValue, quantifierValues, aliasByMarker),
-                    collectionValue.getFieldPath()));
+            result.put(marker, unnestingOf(marker, quantifierValues.resolve(explodes.get(marker)), aliasByMarker));
         }
         return result.build();
     }
 
     /**
-     * The alias of the constituent that owns the array an explode ranges over: the innermost struct-array unnesting
-     * enclosing it, or the parent constituent when the array hangs off the stored record. Only a struct array is named,
-     * so an unnamed enclosing unnesting is a scalar one and cannot be the owner.
+     * The unnesting an explode performs, owned by the constituent that owns the array: the innermost struct-array
+     * unnesting enclosing it, or the parent constituent when the array hangs off the stored record. Only a struct array
+     * is named, so an unnamed enclosing unnesting is a scalar one and cannot be the owner.
      */
     @Nonnull
-    private static String owningAlias(final int marker,
-                                      @Nonnull final FieldValue collectionValue,
-                                      @Nonnull final QuantifierValues quantifierValues,
-                                      @Nonnull final Map<Integer, String> aliasByMarker) {
-        final var markers = unnestingMarkers(quantifierValues.resolve(collectionValue));
-        for (int i = markers.indexOf(marker) - 1; i >= 0; i--) {
-            final var enclosing = aliasByMarker.get(markers.get(i));
+    private static UnnestingInfo unnestingOf(final int marker, @Nonnull final Value resolvedCollectionValue,
+                                             @Nonnull final Map<Integer, String> aliasByMarker) {
+        final var accessors = Assert.castUnchecked(resolvedCollectionValue, FieldValue.class)
+                .getFieldPath().getFieldAccessors();
+        final int arrayIndex = accessors.size() - 1;
+        Assert.thatUnchecked(markerOf(accessors.get(arrayIndex)) == marker);
+        for (int i = arrayIndex - 1; i >= 0; i--) {
+            final var enclosing = aliasByMarker.get(markerOf(accessors.get(i)));
             if (enclosing != null) {
-                return enclosing;
+                return new UnnestingInfo(aliasByMarker.get(marker), enclosing,
+                        new FieldValue.FieldPath(accessors.subList(i + 1, accessors.size())));
             }
         }
-        return PARENT_CONSTITUENT_ALIAS;
+        return new UnnestingInfo(aliasByMarker.get(marker), PARENT_CONSTITUENT_ALIAS,
+                new FieldValue.FieldPath(accessors));
+    }
+
+    /**
+     * {@return the marker of the unnesting an accessor reaches an array through, or {@code -1} if it does not}
+     */
+    private static int markerOf(@Nonnull final FieldValue.ResolvedAccessor accessor) {
+        return accessor instanceof QuantifierValues.AnnotatedAccessor
+                ? ((QuantifierValues.AnnotatedAccessor)accessor).getMarker()
+                : -1;
     }
 
     @Nonnull

@@ -196,7 +196,7 @@ public class ConstraintsMap {
                     });
         } else {
             bumpTick();
-            attributeToConstraintMap.put(attribute, new ConstraintEntry(constraint));
+            attributeToConstraintMap.put(attribute, new ConstraintEntry(currentTick, constraint));
             return Optional.of(constraint);
         }
     }
@@ -319,7 +319,9 @@ public class ConstraintsMap {
     }
 
     /**
-     * Method to inherit all state from another constraints map.
+     * Inherits all state from another constraints map, replacing the current state of this map. The state is copied
+     * to render the two maps independent. (Otherwise, pushing a constraint into one of the maps would change the
+     * constraints of the other; see {@link #pushProperty}.)
      *
      * @param otherConstraintsMap the other constraints map
      */
@@ -328,17 +330,28 @@ public class ConstraintsMap {
         this.watermarkGoalTick = otherConstraintsMap.watermarkGoalTick;
         this.watermarkCommittedTick = otherConstraintsMap.watermarkCommittedTick;
         attributeToConstraintMap.clear();
-        attributeToConstraintMap.putAll(otherConstraintsMap.attributeToConstraintMap);
+        attributeToConstraintMap.putAll(
+                Maps.transformValues(otherConstraintsMap.attributeToConstraintMap, ConstraintEntry::copy));
     }
 
-    private class ConstraintEntry {
+    private static class ConstraintEntry {
         private long lastUpdatedTick;
         @Nonnull
         private Object property;
 
-        public ConstraintEntry(@Nonnull final Object property) {
-            this.lastUpdatedTick = currentTick;
+        public ConstraintEntry(final long lastUpdatedTick, @Nonnull final Object property) {
+            this.lastUpdatedTick = lastUpdatedTick;
             this.property = property;
+        }
+
+        /**
+         * {@return a copy of this entry with the same tick and property}
+         */
+        @Nonnull
+        public ConstraintEntry copy() {
+            // Note: Sharing the property with the copy is safe, as a property is replaced when a constraint is pushed,
+            // and never changed in place.
+            return new ConstraintEntry(lastUpdatedTick, property);
         }
     }
 }

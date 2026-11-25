@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
@@ -85,6 +86,15 @@ class ExpansionVisitorTest {
                         null,
                         false),
                 "LegacyWindowedIndexExpansionVisitor.expand(Set, Set, ...) should throw UnsupportedOperationException");
+    }
+
+    /**
+     * The expansions below install a debugger to get its sanity checks, and a debugger is global. Left in place it
+     * follows whichever test class runs next in the same JVM, which changes how that class's planning behaves.
+     */
+    @AfterAll
+    static void clearDebugger() {
+        Debugger.setDebugger(null);
     }
 
     @Nonnull

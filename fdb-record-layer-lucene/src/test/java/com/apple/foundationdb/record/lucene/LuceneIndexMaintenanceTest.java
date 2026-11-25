@@ -125,6 +125,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
@@ -882,8 +883,10 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
     }
 
     static Stream<Arguments> sampledDelete() {
-        return Stream.concat(Stream.of(Arguments.of(true, true, 230498),
-                Arguments.of(false, false, 43790)),
+        return Stream.concat(Stream.of(
+                        Arguments.of(true, true, 230498),
+                        Arguments.of(false, false, 43790),
+                        Arguments.of(false, true, -4209164816333844638L)),
                 RandomizedTestUtils.randomArguments(random ->
                         Arguments.of(random.nextBoolean(), random.nextBoolean(), random.nextLong())));
     }
@@ -899,7 +902,6 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 .setPartitionHighWatermark(10)
                 .build();
 
-
         final RecordLayerPropertyStorage contextProps = RecordLayerPropertyStorage.newBuilder()
                 .addProp(LuceneRecordContextProperties.LUCENE_REPARTITION_DOCUMENT_COUNT, 2)
                 .addProp(LuceneRecordContextProperties.LUCENE_MERGE_SEGMENTS_PER_TIER, (double)dataModel.nextInt(10) + 2) // it must be at least 2.0
@@ -912,8 +914,12 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
         explicitMergeIndex(dataModel.index, contextProps, dataModel.schemaSetup);
 
-        dataModel.getPartitionCounts(() -> openContext(contextProps)).forEach((groupingKey, partitionCounts) ->
-                assertThat(partitionCounts, Matchers.contains(10, 6, 9)));
+        dataModel.getPartitionCounts(() -> openContext(contextProps)).forEach((groupingKey, partitionCounts) -> {
+            // We can't assume a specific partition division after the merge since population of records can create
+            // more than one partition in case a partition is full, so the resulting repartition can differ
+            assertThat(partitionCounts.stream().mapToInt(Integer::intValue).sum(), equalTo(25));
+            assertThat(partitionCounts, hasSize(3));
+        });
 
         dataModel.validate(() -> openContext(contextProps));
 
@@ -925,8 +931,11 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
 
         // We won't re-partition here
         dataModel.validate(() -> openContext(contextProps));
-        dataModel.getPartitionCounts(() -> openContext(contextProps)).forEach((groupingKey, partitionCounts) ->
-                assertThat(partitionCounts, Matchers.contains(5, 3, 4)));
+        dataModel.getPartitionCounts(() -> openContext(contextProps)).forEach((groupingKey, partitionCounts) -> {
+            // Here, too, we can't assume a specific partition division as starting conditions can create different setup
+            assertThat(partitionCounts.stream().mapToInt(Integer::intValue).sum(), equalTo(12));
+            assertThat(partitionCounts, hasSize(3));
+        });
     }
 
     static Stream<Arguments> removeEmptyPartitions() {
@@ -939,6 +948,10 @@ public class LuceneIndexMaintenanceTest extends FDBRecordStoreConcurrentTestBase
                 Arguments.of(true, true, 987654, 15, 25, 2),
                 Arguments.of(true, true, 987654, 0, 10, 2),
                 Arguments.of(true, true, 987654, 0, 20, 1),
+                Arguments.of(true, true, -4209164816333844638L, 5, 20, 2),
+                Arguments.of(true, true, -4209164816333844638L, 15, 25, 2),
+                Arguments.of(true, true, -4209164816333844638L, 0, 10, 2),
+                Arguments.of(true, true, -4209164816333844638L, 0, 20, 1),
                 Arguments.of(false, false, 543210, 5, 20, 2),
                 Arguments.of(false, false, 543210, 15, 25, 2),
                 Arguments.of(false, false, 543210, 0, 10, 2),
