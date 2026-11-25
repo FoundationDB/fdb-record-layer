@@ -138,8 +138,14 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
         final boolean ansiSql = scanProperties.getExecuteProperties().getExecutionMode()
                                 == ExecuteProperties.ExecutionMode.ANSI_SQL;
         return recordCursor.mapPipelined(indexEntry -> rankFor(indexEntry.getKey())
-                        .thenApply(rank -> indexEntry.withValue(Tuple.from(
-                                ansiSql ? RankedSetIndexHelper.positionToSqlRank(rank) : rank))),
+                        .thenApply(rank -> {
+                            // the legacy rank is reported as it comes, so that it is never unboxed only to be boxed again
+                            if (!ansiSql) {
+                                return indexEntry.withValue(Tuple.from(rank));
+                            }
+                            return indexEntry.withValue(
+                                    Tuple.from(RankedSetIndexHelper.positionToSqlRank(rank)));
+                        }),
                 state.store.getPipelineSize(PipelineOperation.RECORD_FUNCTION));
     }
 

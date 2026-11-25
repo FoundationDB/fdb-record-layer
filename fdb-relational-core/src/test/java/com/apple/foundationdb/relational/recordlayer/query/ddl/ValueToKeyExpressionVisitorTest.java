@@ -25,9 +25,12 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.WindowFrameSpecification;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CompileTimeWindowValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
@@ -280,10 +283,21 @@ class ValueToKeyExpressionVisitorTest {
         assertThat(indexType(ExtremumEverStorage.LONG, minEver(col("COL3")), col("COL1"))).isEqualTo(IndexTypes.MIN_EVER_LONG);
     }
 
+    /**
+     * {@code rank() over (partition by <partitioningValues> order by <rankedValues>)}. The ranked columns are the
+     * window's ordering, which is where standard SQL puts them and where the translation reads them from; the
+     * argument list of a ranking function stays empty.
+     */
     @Nonnull
-    private static Value rank(@Nonnull final List<Value> argumentValues,
+    private static Value rank(@Nonnull final List<Value> rankedValues,
                               @Nonnull final List<Value> partitioningValues) {
-        return new CompileTimeWindowValue(CompileTimeWindowValue.WindowFunction.RANK, argumentValues, partitioningValues);
+        return new CompileTimeWindowValue(CompileTimeWindowValue.WindowFunction.RANK, ImmutableList.of(),
+                partitioningValues,
+                rankedValues.stream()
+                        .map(rankedValue -> new WindowOrderingPart(rankedValue,
+                                OrderingPart.RequestedSortOrder.ASCENDING))
+                        .collect(ImmutableList.toImmutableList()),
+                WindowFrameSpecification.defaultSpecification());
     }
 
     @Nonnull

@@ -320,11 +320,6 @@ public final class Options {
     }
 
     /**
-     * Which vector index engine the planner should favor, for the {@link Name#VECTOR_INDEX_ENGINE_PREFERENCE} option.
-     * Mirrors {@code com.apple.foundationdb.record.query.plan.VectorIndexEnginePreference}, which this module cannot
-     * reference directly.
-     */
-    /**
      * Which behaviour to use where the Record Layer's historical one and the one ANSI SQL requires differ, for the
      * {@link Name#EXECUTION_MODE} option. Mirrors {@code ExecuteProperties.ExecutionMode}, which this module cannot
      * reference directly.
@@ -334,6 +329,11 @@ public final class Options {
         ANSI_SQL
     }
 
+    /**
+     * Which vector index engine the planner should favor, for the {@link Name#VECTOR_INDEX_ENGINE_PREFERENCE} option.
+     * Mirrors {@code com.apple.foundationdb.record.query.plan.VectorIndexEnginePreference}, which this module cannot
+     * reference directly.
+     */
     public enum VectorIndexEnginePreference {
         NO_PREFERENCE,
         PREFER_HNSW,
