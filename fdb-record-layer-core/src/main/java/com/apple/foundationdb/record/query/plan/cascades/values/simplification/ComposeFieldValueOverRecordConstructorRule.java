@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.cascades.matching.structure.Coll
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.google.common.base.Verify;
@@ -38,12 +39,17 @@ import java.util.Objects;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.anyObject;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.anyValue;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.promoteValue;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.recordConstructorValue;
 
 /**
  * A rule that composes a field access and an underlying record construction, that is, it simplifies a field
  * access over a record construction by replacing it with the field itself, for example
- * {@code (("Hello" as a, "World" as b).b} is transformed to {@code "World"}.
+ * {@code ("Hello" as a, "World" as b).b} is transformed to {@code "World"}.
+ *
+ * <p>It also supports simpliying a field access over a {@link PromoteValue} that is directly over
+ * a record constructor, for example:
+ * {@code promote(("Hello" as a, 1 as b) AS STRING AS x, LONG AS y).y} is transformed to {@code promote(1 AS LONG)}.
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
@@ -53,14 +59,25 @@ public class ComposeFieldValueOverRecordConstructorRule extends ValueSimplificat
             recordConstructorValue(all(anyValue()));
 
     @Nonnull
+    private static final BindingMatcher<PromoteValue> promoteValueBindingMatcher =
+            promoteValue(all(recordConstructorMatcher));
+
+    @Nonnull
     private static final CollectionMatcher<Integer> fieldPathOrdinalsMatcher = all(anyObject());
 
     @Nonnull
     private static final CollectionMatcher<Type> fieldPathTypesMatcher = all(anyObject());
 
     @Nonnull
-    private static final BindingMatcher<FieldValue> rootMatcher =
+    private static final BindingMatcher<FieldValue> fieldValueOverRCV =
             ValueMatchers.fieldValueWithFieldPath(recordConstructorMatcher, fieldPathOrdinalsMatcher, fieldPathTypesMatcher);
+
+    @Nonnull
+    private static final BindingMatcher<FieldValue> fieldValueOverPromoteValue =
+            ValueMatchers.fieldValueWithFieldPath(promoteValueBindingMatcher, fieldPathOrdinalsMatcher, fieldPathTypesMatcher);
+
+    @Nonnull
+    private static final BindingMatcher<FieldValue> rootMatcher = fieldValueOverRCV.or(fieldValueOverPromoteValue);
 
     public ComposeFieldValueOverRecordConstructorRule() {
         super(rootMatcher);
@@ -76,26 +93,49 @@ public class ComposeFieldValueOverRecordConstructorRule extends ValueSimplificat
         Verify.verify(!fieldPathTypes.isEmpty());
         final var recordConstructor = bindings.get(recordConstructorMatcher);
 
-        final var firstFieldOrdinal = Objects.requireNonNull(Iterables.getFirst(fieldPathOrdinals, null));
-        final var fieldFieldType = Objects.requireNonNull(Iterables.getFirst(fieldPathTypes, null));
-        final var column = findColumn(recordConstructor, firstFieldOrdinal, fieldFieldType);
+        final int firstFieldOrdinal = Objects.requireNonNull(Iterables.getFirst(fieldPathOrdinals, null));
+        final Type fieldType = Objects.requireNonNull(Iterables.getFirst(fieldPathTypes, null));
+        final FieldValue fieldValue;
+        final PromoteValue promoteValue;
+        final Type expectedColumnType;
+        if (bindings.containsKey(fieldValueOverRCV)) {
+            fieldValue = bindings.get(fieldValueOverRCV);
+            promoteValue = null;
+            expectedColumnType = fieldType;
+        } else {
+            fieldValue = bindings.get(fieldValueOverPromoteValue);
+            promoteValue = bindings.get(promoteValueBindingMatcher);
+            expectedColumnType = ((Type.Record)promoteValue.getChild().getResultType())
+                    .getFields().get(firstFieldOrdinal).getFieldType();
+        }
 
-        final var root = bindings.get(rootMatcher);
+        final var column = findColumn(recordConstructor, firstFieldOrdinal, expectedColumnType);
         final var yieldResultBuilder =
                 call.yieldResultBuilder()
-                        .addConstraintsFrom(root, recordConstructor);
-        if (fieldPathOrdinals.size() == 1) {
-            // just return the child
-            yieldResultBuilder.yieldResult(column.getValue());
+                        .addConstraintsFrom(fieldValue, recordConstructor);
+
+        final Value resultValue;
+        if (promoteValue == null) {
+            resultValue = column.getValue();
         } else {
-            yieldResultBuilder.yieldResult(FieldValue.ofFields(column.getValue(), root.getFieldPath().subList(1)));
+            yieldResultBuilder.addConstraintsFrom(promoteValue);
+            // Promote the column's value to the type from the bound FieldValue
+            resultValue = PromoteValue.inject(column.getValue(), fieldType);
+        }
+
+        if (fieldPathOrdinals.size() == 1) {
+            yieldResultBuilder.yieldResult(resultValue);
+        } else {
+            yieldResultBuilder.yieldResult(
+                    FieldValue.ofFields(resultValue,
+                            fieldValue.getFieldPath().subList(1)));
         }
     }
 
     @Nonnull
-    private static Column<? extends Value> findColumn(@Nonnull final RecordConstructorValue recordConstructorValue, final int fieldOrdinal, @Nonnull Type fieldType) {
+    private static Column<? extends Value> findColumn(@Nonnull final RecordConstructorValue recordConstructorValue, final int fieldOrdinal, @Nonnull Type expectedFieldType) {
         final var result = recordConstructorValue.getColumns().get(fieldOrdinal);
-        Verify.verify(result.getField().getFieldType().equals(fieldType));
+        Verify.verify(result.getField().getFieldType().equals(expectedFieldType));
         return result;
     }
 }
