@@ -455,7 +455,8 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
 
     @Nonnull
     private static List<Column<? extends Value>> resolveColumns(@Nonnull final Type.Record recordType,
-                                                                @Nonnull final Collection<Column<? extends Value>> columns) {
+                                                                @Nonnull final Collection<Column<? extends Value>> columns,
+                                                                final boolean promoteIfNeeded) {
         final var fields = recordType.getFields();
         Verify.verify(fields.size() == columns.size());
 
@@ -464,7 +465,14 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
 
         for (final var field : fields) {
             final var column = columnsIterator.next();
-            resolvedColumnsBuilder.add(Column.of(field, column.getValue()));
+            final Value value;
+            if (!promoteIfNeeded) {
+                Verify.verify(column.getField().getFieldType().equals(field.getFieldType()));
+                value = column.getValue();
+            } else {
+                value = PromoteValue.inject(column.getValue(), field.getFieldType());
+            }
+            resolvedColumnsBuilder.add(Column.of(field, value));
         }
         return resolvedColumnsBuilder.build();
     }
@@ -486,10 +494,15 @@ public class RecordConstructorValue extends AbstractValue implements AggregateVa
         return ofColumnsAndResolvedType(columns, computeResultType(columns, false).withName(name));
     }
 
+    public static RecordConstructorValue ofColumnsAndType(@Nonnull final Collection<Column<? extends Value>> columns,
+                                                          @Nonnull final Type.Record resultType) {
+        return new RecordConstructorValue(resolveColumns(resultType, columns, true), resultType);
+    }
+
     @Nonnull
     private static RecordConstructorValue ofColumnsAndResolvedType(@Nonnull final Collection<Column<? extends Value>> columns,
                                                                    @Nonnull final Type.Record resolvedResultType) {
-        return new RecordConstructorValue(resolveColumns(resolvedResultType, columns), resolvedResultType);
+        return new RecordConstructorValue(resolveColumns(resolvedResultType, columns, false), resolvedResultType);
     }
 
     @Nonnull

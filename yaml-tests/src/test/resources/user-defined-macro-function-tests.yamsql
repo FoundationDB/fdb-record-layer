@@ -238,6 +238,7 @@ setup:
              create function st1_array_first(in a type st1 array) returns st1 return a[1]
              create function st1_constructor_with_defaults(in y bigint, in z bigint default 2L) returns st1 return (y, z)
              create function zero() returns bigint return 0l
+             create function st1_array_null() RETURNS st1 array as null
     - query: drop database if exists /FRL/MACRO_WITH_EXPRESSIONS
     - query: create database /FRL/MACRO_WITH_EXPRESSIONS
     - query: create schema /FRL/MACRO_WITH_EXPRESSIONS/test with template test_user_defined_macro_functions_with_expressions
@@ -399,21 +400,35 @@ test_block:
     -
       - query: select id from nested where r.v.z = z(((5l, 11l), (10l, 100l)))
       - supported_version: 4.18.4.0
-      - explain: "SCAN([IS NESTED]) | FILTER _.R.V.Z EQUALS promote(((@c15 AS _0, @c17 AS _1) AS _0, (@c21 AS _0, @c23 AS _1) AS _1) AS LONG AS W, LONG AS X AS U, LONG AS Y, LONG AS Z AS V).V.Z | MAP (_.ID AS ID)"
+      - explain: "SCAN([IS NESTED]) | FILTER _.R.V.Z EQUALS promote(@c23 AS LONG) | MAP (_.ID AS ID)"
       - result: [{!l 1}, {!l 2}, {!l 3}, {!l 4}]
     -
-      # TODO: this should be fixed as part of https://github.com/FoundationDB/fdb-record-layer/issues/4183
       - query: select z(struct st3 (struct st2 (5l, 11l), struct st1 (10l, 100l))) from range(1, 2)
+      - initialVersionLessThan: !current_version
       - error: UNKNOWN
+      - initialVersionAtLeast: !current_version
+      - unorderedResult: [ { !l 100 } ]
     -
-      # TODO: this should be fixed as part of https://github.com/FoundationDB/fdb-record-layer/issues/4183
       - query: select st1_array(struct st1 (1, 2)) from range(1, 2)
+      - initialVersionLessThan: !current_version
       - error: UNKNOWN
+      - initialVersionAtLeast: !current_version
+      - unorderedResult: [{ [ {y: !l 1, z: !l 2} ]} ]
     -
-      # TODO: this should be fixed as part of https://github.com/FoundationDB/fdb-record-layer/issues/4183
       - query: select temp_constructor(r.u.w) from nested where id = 1
       - setup: create temporary function temp_constructor(IN x bigint) on commit drop function return struct st1 (x, 5L)
+      - initialVersionLessThan: !current_version
       - error: UNKNOWN
+      - initialVersionAtLeast: !current_version
+      - unorderedResult: [{ {y: 5, z: 5} }]
+    -
+      - query: select st1_array_first(st1_array_null()) from range(1, 2)
+      - explain: "TF range(promote(@c10 AS LONG), promote(@c12 AS LONG), STEP 1l) | MAP (NULL[promote(1 AS INT)] AS _0)"
+      - result: [ { !null _ } ]
+    -
+      - query: select temp_constructor(r.u.w) from nested where id = 1
+      - setup: create temporary function temp_constructor(IN x bigint) returns st1 on commit drop function return (x, 5L, 6l)
+      - error: CANNOT_CONVERT_TYPE
 ---
 setup:
   connect: "jdbc:embed:/__SYS?schema=CATALOG"
