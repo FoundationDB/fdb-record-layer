@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
+import com.apple.foundationdb.record.query.plan.cascades.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEvent.Location;
 import com.apple.foundationdb.record.query.plan.cascades.events.PlannerEventListeners;
 import com.apple.foundationdb.record.query.plan.cascades.events.TranslateCorrelationsPlannerEvent;
@@ -125,9 +126,6 @@ public class References {
      * quantifier. This method also copies the references that have none (the leaves of the graph), as they would be
      * shared otherwise.
      *
-     * <p>The references of the instance are created in the {@link PlannerStage} of the given reference, so all
-     * references of the graph must be in that stage. (The method verifies this.)
-     *
      * @param reference the root {@link Reference} of the graph to instantiate
      * @return the {@link Instantiation}, i.e. the root of the new graph, and the aliases it uses for the quantifiers
      *         of the original graph
@@ -135,11 +133,11 @@ public class References {
     @Nonnull
     public static Instantiation instantiate(@Nonnull final Reference reference) {
         final PlannerStage plannerStage = reference.getPlannerStage();
-        final List<Reference> references =
-                TopologicalSort.anyTopologicalOrderPermutation(referencesAndDependencies().evaluate(reference))
-                        .orElseThrow(() -> new RecordCoreException("graph has cycles"));
-        Verify.verify(references.stream().allMatch(ref -> ref.getPlannerStage() == plannerStage),
-                "all references of the graph must be in the planner stage %s", plannerStage);
+        // The references of the instance are created in the planner stage of the root, so all references of the graph
+        // must be in that stage.
+        Debugger.sanityCheck(() -> Verify.verify(
+                Traversal.withRoot(reference).getRefs().stream().allMatch(ref -> ref.getPlannerStage() == plannerStage),
+                "all references of the graph must be in the planner stage %s", plannerStage));
         return instantiate(reference, Memoizer.noMemoization(plannerStage));
     }
 

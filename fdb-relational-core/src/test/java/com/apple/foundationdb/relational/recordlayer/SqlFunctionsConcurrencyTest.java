@@ -22,11 +22,11 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.Traversal;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -37,7 +37,6 @@ import com.apple.foundationdb.relational.recordlayer.query.PreparedParams;
 import com.apple.foundationdb.relational.recordlayer.query.cache.NoOpMetricCollector;
 import com.apple.foundationdb.relational.utils.SchemaTemplateRule;
 import com.apple.foundationdb.relational.utils.SimpleDatabaseRule;
-import com.google.common.collect.Sets;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -61,7 +60,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.apple.foundationdb.record.query.plan.cascades.properties.ReferencesAndDependenciesProperty.referencesAndDependencies;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -192,7 +190,8 @@ class SqlFunctionsConcurrencyTest {
             final var instance1 = Reference.initialOf((RelationalExpression)function.encapsulate(call.arguments()));
             final var instance2 = Reference.initialOf((RelationalExpression)function.encapsulate(call.arguments()));
 
-            assertThat(collectReferences(instance1)).doesNotContainAnyElementsOf(collectReferences(instance2));
+            assertThat(Traversal.withRoot(instance1).getRefs())
+                    .doesNotContainAnyElementsOf(Traversal.withRoot(instance2).getRefs());
             assertThat(collectAliases(instance1)).doesNotContainAnyElementsOf(collectAliases(instance2));
         }
     }
@@ -201,16 +200,8 @@ class SqlFunctionsConcurrencyTest {
     }
 
     @Nonnull
-    private static Set<Reference> collectReferences(@Nonnull final Reference root) {
-        final Set<Reference> references = Sets.newIdentityHashSet();
-        references.addAll(TopologicalSort.anyTopologicalOrderPermutation(referencesAndDependencies().evaluate(root))
-                .orElseThrow());
-        return references;
-    }
-
-    @Nonnull
     private static Set<CorrelationIdentifier> collectAliases(@Nonnull final Reference root) {
-        return collectReferences(root).stream()
+        return Traversal.withRoot(root).getRefs().stream()
                 .flatMap(reference -> reference.getAllMemberExpressions().stream())
                 .flatMap(expression -> expression.getQuantifiers().stream())
                 .map(Quantifier::getAlias)

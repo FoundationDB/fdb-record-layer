@@ -33,11 +33,9 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.ToUniqueAliasesTranslationMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
-import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
 import org.junit.jupiter.api.Assertions;
 
 import javax.annotation.Nonnull;
@@ -52,7 +50,6 @@ import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQuery
 import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.resultColumn;
 import static com.apple.foundationdb.record.query.plan.cascades.properties.ReferencesAndDependenciesProperty.referencesAndDependencies;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TranslateGraphTest extends FDBRecordStoreQueryTestBase {
     @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
@@ -220,8 +217,8 @@ public class TranslateGraphTest extends FDBRecordStoreQueryTestBase {
 
         assertThat(expression.semanticEquals(instance.get())).isTrue();
 
-        final var originalReferences = collectReferences(reference);
-        final var instanceReferences = collectReferences(instance);
+        final var originalReferences = Traversal.withRoot(reference).getRefs();
+        final var instanceReferences = Traversal.withRoot(instance).getRefs();
         assertThat(originalReferences).contains(fullScanReference);
         assertThat(instanceReferences).doesNotContainAnyElementsOf(originalReferences);
         // Verify that the diamond over the full scan is preserved by the copy.
@@ -246,22 +243,10 @@ public class TranslateGraphTest extends FDBRecordStoreQueryTestBase {
         final var instance1 = References.instantiate(reference).reference();
         final var instance2 = References.instantiate(reference).reference();
 
-        assertThat(collectReferences(instance1)).doesNotContainAnyElementsOf(collectReferences(instance2));
+        assertThat(Traversal.withRoot(instance1).getRefs())
+                .doesNotContainAnyElementsOf(Traversal.withRoot(instance2).getRefs());
         assertThat(collectQuantifiers(instance1).stream().map(Quantifier::getAlias))
                 .doesNotContainAnyElementsOf(collectQuantifiers(instance2).stream().map(Quantifier::getAlias).toList());
-    }
-
-    /**
-     * Tests that instantiating a graph whose references are not all in the same planner stage fails.
-     */
-    @DualPlannerTest(planner = DualPlannerTest.Planner.CASCADES)
-    void instantiateGraphWithMixedPlannerStages() {
-        final var metaData = setUp().getRecordMetaData();
-        final var innerQun = fullTypeScan(metaData, "RestaurantRecord");
-        innerQun.getRangesOver().advancePlannerStageUnchecked(PlannerStage.CANONICAL);
-        final var reference = Reference.initialOf(LogicalSortExpression.unsorted(innerQun));
-
-        assertThatThrownBy(() -> References.instantiate(reference)).isInstanceOf(VerifyException.class);
     }
 
     /**
@@ -285,9 +270,9 @@ public class TranslateGraphTest extends FDBRecordStoreQueryTestBase {
                 QuantifiedObjectValue.of(restaurantQun.getAlias(), restaurantQun.getFlowedObjectType()), "restaurant"));
         final var reference = Reference.initialOf(graphExpansionBuilder.build().buildSelect());
 
-        final var instanceReferences = collectReferences(References.instantiate(reference).reference());
+        final var instanceReferences = Traversal.withRoot(References.instantiate(reference).reference()).getRefs();
 
-        assertThat(instanceReferences).doesNotContainAnyElementsOf(collectReferences(reference));
+        assertThat(instanceReferences).doesNotContainAnyElementsOf(Traversal.withRoot(reference).getRefs());
         assertThat(instanceReferences).filteredOn(ref -> ref.getExploratoryExpressions().size() == 1
                         && ref.getFinalExpressions().isEmpty())
                 .hasSize(1);
@@ -373,16 +358,7 @@ public class TranslateGraphTest extends FDBRecordStoreQueryTestBase {
 
         assertThat(translatedReference).isNotSameAs(reference);
         assertThat(translatedReference.getCorrelatedTo()).containsExactly(targetAlias);
-        assertThat(collectReferences(translatedReference)).contains(innerQun.getRangesOver());
-    }
-
-    @Nonnull
-    private Set<Reference> collectReferences(@Nonnull Reference reference) {
-        final var partialOrder = referencesAndDependencies().evaluate(reference);
-        final Set<Reference> references = Sets.newIdentityHashSet();
-        references.addAll(TopologicalSort.anyTopologicalOrderPermutation(partialOrder)
-                .orElseThrow(() -> new RecordCoreException("graph has cycles")));
-        return references;
+        assertThat(Traversal.withRoot(translatedReference).getRefs()).contains(innerQun.getRangesOver());
     }
 
     @Nonnull
