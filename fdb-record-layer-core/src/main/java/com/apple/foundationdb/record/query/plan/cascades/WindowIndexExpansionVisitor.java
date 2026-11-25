@@ -62,6 +62,7 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -161,7 +162,9 @@ public class WindowIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
 
         // 3. expand window
         final WindowExpression windowExpression =
-                expandWindowExpression(preWindowSelectQun, allKeysExpansion, pulledUpIndexKeyValues);
+                expandWindowExpression(preWindowSelectQun, allKeysExpansion, pulledUpIndexKeyValues,
+                        fuseQuantifier.getFlowedObjectType().narrowRecordMaybe()
+                                .orElseThrow(() -> new RecordCoreException("cannot create match candidate with non-record type")));
 
         // 4. expand post-window select
         final GraphExpansion postWindowSelectExpansion = expandPostWindowExpression(windowExpression, partitioningPlaceholders);
@@ -269,7 +272,8 @@ public class WindowIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
     @Nonnull
     private WindowExpression expandWindowExpression(@Nonnull final Quantifier.ForEach preWindowSelectQun,
                                                     @Nonnull final GraphExpansion allKeysExpansion,
-                                                    @Nonnull final List<Value> indexKeyValues) {
+                                                    @Nonnull final List<Value> indexKeyValues,
+                                                    @Nonnull final Type.Record baseRecordType) {
         // The index key defines one split point: the leading columns are what the window is partitioned by, the
         // trailing ones are what the window function is computed over. Partitioning is not grouping -- a partition does
         // not collapse its rows, it only bounds where the function restarts -- so both sides keep flowing every row.
@@ -303,12 +307,27 @@ public class WindowIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
                         orderingParts)); // window indexes do not support custom window frame specification yet.
 
         final WindowValue windowValue = constructWindowValue(callsiteArguments);
-        final List<Value> allValues = Values.primitiveAccessorsForType(((Type.Relation)preWindowSelectQun.getRangesOver().getResultType()).getInnerType(),
-                () -> QuantifiedObjectValue.of(preWindowSelectQun));
+
+        //
         // Every column the pre-window select flows is passed through, the partitioning ones included: partitioning by a
         // column does not flow it, and the candidate's partitioning columns are sargable and so have to be reachable
-        // above the window expression. In entry key order, which puts them first on their own -- the columns a window
-        // index partitions by are the leading columns of its entry key.
+        // above the window expression. The base record is passed through one field at a time, and each field keeps its
+        // own shape -- a nested one stays nested. The post-window select's type is the result type of the plan built
+        // from this candidate, and two things resolve against it: a primary key expression written in the record's
+        // field names, which PrimaryKeyProperty translates against it, and a query selecting a nested field as a whole,
+        // which cannot be rebuilt out of leaf columns because a nullable record must not be expanded into a record
+        // constructor. A value index candidate exposes the base record's own shape for the same reasons; it goes one
+        // step further and flows the base quantifier's object value itself, which a window expression cannot do because
+        // it has to interpose the window value.
+        //
+        final var preWindowColumns = Values.deconstructRecord(QuantifiedObjectValue.of(preWindowSelectQun));
+        final var baseRecordColumn = preWindowColumns.get(0);
+        Verify.verify(baseRecordColumn.getResultType().equals(baseRecordType),
+                "the pre-window select flows the base record as its first column");
+        final List<Value> allValues = ImmutableList.<Value>builder()
+                .addAll(Values.deconstructRecord(baseRecordColumn))
+                .addAll(preWindowColumns.subList(1, preWindowColumns.size()))
+                .build();
         final List<Value> passThroughValues = inEntryKeyOrder(allValues, indexKeyValues);
 
         return new WindowExpression(windowValue, pulledUpPartitioningColumns, passThroughValues, orderingParts,
@@ -381,14 +400,76 @@ public class WindowIndexExpansionVisitor extends KeyExpressionExpansionVisitor i
     private static List<Value> inEntryKeyOrder(@Nonnull final List<Value> columns,
                                                @Nonnull final List<Value> entryKeyOrder) {
         return ImmutableList.sortedCopyOf(
-                Comparator.comparingInt((Value column) -> {
-                    for (int ordinal = 0; ordinal < entryKeyOrder.size(); ordinal++) {
-                        if (entryKeyOrder.get(ordinal).semanticEquals(column, AliasMap.emptyMap())) {
-                            return ordinal;
-                        }
-                    }
-                    return Integer.MAX_VALUE;
-                }), columns);
+                Comparator.comparingInt((Value column) -> firstEntryKeyOrdinalIn(column, entryKeyOrder)), columns);
+    }
+
+    /**
+     * The lowest entry key ordinal the given column carries, or {@link Integer#MAX_VALUE} if it carries none. A column
+     * is a whole field of the base record, so it may carry several key columns at once -- a nested field the index key
+     * reaches into carries one per key column inside it -- and the column is ordered by the first of them.
+     */
+    private static int firstEntryKeyOrdinalIn(@Nonnull final Value column,
+                                              @Nonnull final List<Value> entryKeyOrder) {
+        for (int ordinal = 0; ordinal < entryKeyOrder.size(); ordinal++) {
+            if (relativeFieldNamesOf(entryKeyOrder.get(ordinal), column, AliasMap.emptyMap()).isPresent()) {
+                return ordinal;
+            }
+        }
+        return Integer.MAX_VALUE;
+    }
+
+    /**
+     * Where the given entry key column sits inside the given column: the field names leading from one to the other, as
+     * an empty list when they are the same column, or {@code Optional.empty()} when the key column is not inside it at
+     * all. Only a field path can be descended into, so anything else matches only by being equal.
+     *
+     * @param keyValue a column of the entry key
+     * @param column a column something flows, in the same frame as {@code keyValue}
+     * @param aliasMap the aliases to hold equal
+     *
+     * @return the path from {@code column} down to {@code keyValue}, if it is inside it
+     */
+    @Nonnull
+    static Optional<List<String>> relativeFieldNamesOf(@Nonnull final Value keyValue,
+                                                       @Nonnull final Value column,
+                                                       @Nonnull final AliasMap aliasMap) {
+        if (keyValue.semanticEquals(column, aliasMap)) {
+            return Optional.of(ImmutableList.of());
+        }
+        if (!(keyValue instanceof FieldValue keyFieldValue)) {
+            return Optional.empty();
+        }
+        final var keyPath = keyFieldValue.getFieldPath();
+        final FieldValue.FieldPath columnPath;
+        if (column instanceof FieldValue columnFieldValue) {
+            if (!keyFieldValue.getChild().semanticEquals(columnFieldValue.getChild(), aliasMap)) {
+                return Optional.empty();
+            }
+            columnPath = columnFieldValue.getFieldPath();
+        } else if (keyFieldValue.getChild().semanticEquals(column, aliasMap)) {
+            columnPath = FieldValue.FieldPath.empty();
+        } else {
+            return Optional.empty();
+        }
+        final var keyOrdinals = keyPath.getFieldOrdinals();
+        final var columnOrdinals = columnPath.getFieldOrdinals();
+        if (columnOrdinals.length() >= keyOrdinals.length()) {
+            return Optional.empty();
+        }
+        for (int i = 0; i < columnOrdinals.length(); i++) {
+            if (columnOrdinals.get(i) != keyOrdinals.get(i)) {
+                return Optional.empty();
+            }
+        }
+        final var namesBuilder = ImmutableList.<String>builder();
+        final var keyNames = keyPath.getOptionalFieldNames();
+        for (int i = columnOrdinals.length(); i < keyNames.size(); i++) {
+            if (keyNames.get(i).isEmpty()) {
+                return Optional.empty();
+            }
+            namesBuilder.add(keyNames.get(i).get());
+        }
+        return Optional.of(namesBuilder.build());
     }
 
 

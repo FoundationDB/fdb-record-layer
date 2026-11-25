@@ -218,6 +218,14 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
                 new Index("score_by_repeated_field",
                         field("score", KeyExpression.FanType.FanOut).ungrouped(),
                         IndexTypes.RANK));
+        // Partitions by a column of one nested type and ranks a column of another, so that the entry key is
+        // (y.d, x.a, x.b): x is covered in full, y only in part -- y.c has to come from the record.
+        metaDataBuilder.getRecordType("TwoNestedRankedRecord")
+                .setPrimaryKey(field("x").nest(Key.Expressions.concatenateFields("a", "b")));
+        metaDataBuilder.addIndex("TwoNestedRankedRecord",
+                new Index("nested_a_by_nested_d",
+                        field("x").nest(field("a")).groupBy(field("y").nest(field("d"))),
+                        IndexTypes.RANK));
         hook.apply(metaDataBuilder);
         createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
     }

@@ -38,6 +38,7 @@ import com.google.common.primitives.ImmutableIntArray;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -198,7 +199,8 @@ public final class IndexEntryToRecordValueHelper
     }
 
     /**
-     * The value reading position {@code ordinal} of an entry's {@code source} tuple, shaped for the named field.
+     * The value reading position {@code ordinal} of an entry's {@code source} tuple, shaped for the named field of the
+     * record an entry is read into.
      *
      * @param baseObjectValue a value standing for the record the entry is read into
      * @param fieldName the field the position feeds
@@ -211,10 +213,29 @@ public final class IndexEntryToRecordValueHelper
                                     @Nonnull final String fieldName,
                                     @Nonnull final TupleSource source,
                                     final int ordinal) {
-        return FieldValue.ofFieldName(baseObjectValue, fieldName)
+        return entryColumn(baseObjectValue, ImmutableList.of(fieldName), source, ordinal);
+    }
+
+    /**
+     * The value reading position {@code ordinal} of an entry's {@code source} tuple, shaped for the field the given
+     * path leads to. A path of more than one name reaches a field inside a nested record, which is how an index key
+     * covering part of a submessage is read.
+     *
+     * @param baseObjectValue a value standing for the record the entry is read into
+     * @param fieldNames the path to the field the position feeds
+     * @param source whether the position is in the entry's key or its value
+     * @param ordinal the position
+     * @return the value reading it
+     */
+    @Nonnull
+    public static Value entryColumn(@Nonnull final Value baseObjectValue,
+                                    @Nonnull final List<String> fieldNames,
+                                    @Nonnull final TupleSource source,
+                                    final int ordinal) {
+        return FieldValue.ofFieldNames(baseObjectValue, fieldNames)
                 .extractFromIndexEntryMaybe(baseObjectValue, EvaluationContext.empty(), AliasMap.emptyMap(),
                         ImmutableSet.of(), source, ImmutableIntArray.of(ordinal))
-                .orElseThrow(() -> new IllegalStateException("cannot read " + fieldName + " from an index entry"))
+                .orElseThrow(() -> new IllegalStateException("cannot read " + fieldNames + " from an index entry"))
                 .getRight();
     }
 }

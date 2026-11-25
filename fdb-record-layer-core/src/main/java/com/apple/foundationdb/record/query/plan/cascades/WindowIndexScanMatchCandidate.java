@@ -409,52 +409,53 @@ public class WindowIndexScanMatchCandidate implements ScanWithFetchMatchCandidat
         final var covered = new IndexEntryToRecordValueHelper();
 
         //
-        // The entry's key columns first, at the same ordinals they occupy in the entry, and the window value last, read
-        // from the entry's value. The fields in between are base record columns the entry does not carry, and are read
-        // from the record the entry points to, which is fetched alongside it.
+        // Every column of the entry key the post-window shape carries, read from the ordinal it occupies in the key,
+        // and the window value last, read from the entry's value. A key column may sit inside a flowed column rather
+        // than being one: the shape passes a nested field of the base record through whole, and an index key reaching
+        // into it covers one leaf of it per key column. Whatever neither the key nor the value carries is read from the
+        // record the entry points to, which is fetched alongside it.
         //
         final int windowValueOrdinal = fields.size() - 1;
         final var columnsOverBaseRecord = Values.deconstructRecord(defaultRecord);
+        final var toBaseRecord = AliasMap.ofAliases(baseAlias, IndexEntryToRecordValueHelper.baseRecordAlias());
         for (int ordinal = 0; ordinal < windowValueOrdinal; ordinal++) {
-            final int keyOrdinal = entryKeyOrdinalOf(columnsOverBaseRecord.get(ordinal));
-            if (keyOrdinal >= 0) {
-                cover(covered, entryObjectValue, fields.get(ordinal),
+            final var columnOverBaseRecord = columnsOverBaseRecord.get(ordinal);
+            for (int keyOrdinal = 0; keyOrdinal < indexKeyValues.size(); keyOrdinal++) {
+                final var relativeFieldNames =
+                        WindowIndexExpansionVisitor.relativeFieldNamesOf(indexKeyValues.get(keyOrdinal),
+                                columnOverBaseRecord, toBaseRecord);
+                if (relativeFieldNames.isEmpty()) {
+                    continue;
+                }
+                cover(covered, entryObjectValue, fields.get(ordinal), relativeFieldNames.get(),
                         IndexKeyValueToPartialRecord.TupleSource.KEY, keyOrdinal);
             }
         }
-        cover(covered, entryObjectValue, fields.get(windowValueOrdinal),
+        cover(covered, entryObjectValue, fields.get(windowValueOrdinal), ImmutableList.of(),
                 IndexKeyValueToPartialRecord.TupleSource.VALUE, 0);
 
         return covered.toRecordValue(postWindowResultType, defaultRecord);
     }
 
     /**
-     * Where in the entry key the given column sits, or {@code -1} if the entry key does not carry it. The column is
-     * expressed over the record the merge value reads from, {@link #indexKeyValues} over the base record the index was
-     * expanded against, so the two are compared with those two aliases held equal.
-     *
-     * @param columnOverBaseRecord one column of {@link #defaultRecord}
-     *
-     * @return the ordinal of that column in the entry key, or {@code -1}
+     * Records that the entry carries one field of the post-window shape, which may be a field nested inside a flowed
+     * column: {@code relativeFieldNames} is the path from the column down to it, empty when the column is the field.
      */
-    private int entryKeyOrdinalOf(@Nonnull final Value columnOverBaseRecord) {
-        final var toBaseRecord = AliasMap.ofAliases(baseAlias, IndexEntryToRecordValueHelper.baseRecordAlias());
-        for (int keyOrdinal = 0; keyOrdinal < indexKeyValues.size(); keyOrdinal++) {
-            if (indexKeyValues.get(keyOrdinal).semanticEquals(columnOverBaseRecord, toBaseRecord)) {
-                return keyOrdinal;
-            }
-        }
-        return -1;
-    }
-
     private static void cover(@Nonnull final IndexEntryToRecordValueHelper covered,
                               @Nonnull final Value entryObjectValue,
                               @Nonnull final Type.Record.Field field,
+                              @Nonnull final List<String> relativeFieldNames,
                               @Nonnull final IndexKeyValueToPartialRecord.TupleSource tupleSource,
                               final int ordinal) {
-        final var fieldName = field.getFieldName();
-        covered.withChild(fieldName)
-                .cover(IndexEntryToRecordValueHelper.entryColumn(entryObjectValue, fieldName, tupleSource, ordinal));
+        final var fieldNames = ImmutableList.<String>builder()
+                .add(field.getFieldName())
+                .addAll(relativeFieldNames)
+                .build();
+        var node = covered;
+        for (final var fieldName : fieldNames) {
+            node = node.withChild(fieldName);
+        }
+        node.cover(IndexEntryToRecordValueHelper.entryColumn(entryObjectValue, fieldNames, tupleSource, ordinal));
     }
 
     @Nonnull

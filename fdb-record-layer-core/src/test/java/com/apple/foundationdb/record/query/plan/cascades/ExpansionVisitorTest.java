@@ -102,6 +102,8 @@ class ExpansionVisitorTest {
         metaDataBuilder.addIndex(recordTypeName, index);
         metaDataBuilder.getRecordType("HeaderRankedRecord")
                 .setPrimaryKey(field("header").nest(Key.Expressions.concatenateFields("group", "id")));
+        metaDataBuilder.getRecordType("TwoNestedRankedRecord")
+                .setPrimaryKey(field("x").nest(Key.Expressions.concatenateFields("a", "b")));
         final var metaData = metaDataBuilder.build();
         final var expansionInfo = IndexExpansionInfo.createInfo(metaData, index, false);
         final var visitor = new WindowIndexExpansionVisitor(expansionInfo.getIndex(),
@@ -222,6 +224,45 @@ class ExpansionVisitorTest {
      * {@code name} is the primary key, physically present in the entry but behind the rank in the entry key, so a
      * constraint on it could not narrow a scan that is not already down to a single rank.
      */
+    /**
+     * An index key may reach into more than one nested record, and cover only part of each. The columns are passed
+     * through in the base record's own shape -- one per top-level field, nesting kept -- rather than as the leaves the
+     * key happens to cover, so the type the candidate produces is the record's type with the window value appended.
+     * Two things depend on that: a primary key expression written in the record's field names has to resolve against
+     * it, and a query selecting a nested field as a whole has to be able to match it, which it cannot do from leaves
+     * alone because a nullable record must not be expanded into a record constructor. The uncovered leaves are no
+     * obstacle: the merge value reads those from the record the entry points to.
+     */
+    @Test
+    void nestedColumnsArePassedThroughInTheRecordsShape() {
+        // ranks x.a within each (y.c, y.d) over TwoNestedRankedRecord(x nt1(a, b), y nt2(c, d)) keyed on x.(a, b),
+        // so the entry key is (y.d, x.a, x.b): x is covered in full, y only in part
+        final var index = new Index("nested_a_by_nested_d",
+                field("x").nest(field("a")).groupBy(field("y").nest(field("d"))), IndexTypes.RANK);
+
+        final var matchCandidate = expandRankIndex("TwoNestedRankedRecord", index).orElseThrow();
+        final var windowExpression = windowExpressionOf(matchCandidate);
+        final var innerQuantifier = windowExpression.getInnerQuantifier();
+        final var baseRecord = FieldValue.ofOrdinalNumber(QuantifiedObjectValue.of(innerQuantifier), 0);
+
+        // y first: the lowest entry key ordinal it carries is 0, the column the index partitions by. x holds the two
+        // after it. Both are whole fields of the base record, not the leaves the key covers
+        assertThat(windowExpression.getPassThroughValues())
+                .containsExactly(FieldValue.ofFieldNameAndFuseIfPossible(baseRecord, "y"),
+                        FieldValue.ofFieldNameAndFuseIfPossible(baseRecord, "x"));
+        assertThat(windowExpression.getPartitioningValues())
+                .containsExactly(FieldValue.ofFieldNameAndFuseIfPossible(
+                        FieldValue.ofFieldNameAndFuseIfPossible(baseRecord, "y"), "d"));
+
+        final var fields = ((Type.Record)windowExpression.getResultValue().getResultType()).getFields();
+        assertThat(fields).hasSize(3);
+        assertThat(fields.get(0).getFieldName()).isEqualTo("y");
+        assertThat(fields.get(0).getFieldType().isRecord()).isTrue();
+        assertThat(fields.get(1).getFieldName()).isEqualTo("x");
+        assertThat(fields.get(1).getFieldType().isRecord()).isTrue();
+        assertThat(fields.get(2).getFieldType().getTypeCode()).isEqualTo(Type.TypeCode.LONG);
+    }
+
     @Test
     void windowIndexExpansionMakesTheIndexKeyColumnsSargable() {
         final var index = new Index("rank_by_gender", field("score").groupBy(field("gender")), IndexTypes.RANK);
@@ -511,8 +552,9 @@ class ExpansionVisitorTest {
     }
 
     /**
-     * The same when the index key contains only part of a compound primary key: the part it contains must not be flowed
-     * twice, whether directly or by way of the record it is nested in.
+     * The same when the index key contains only part of a compound primary key, and reaches into a nested record to get
+     * it. The record is passed through whole, so the key column is reached through it rather than flowed beside it --
+     * which is what keeps it from being flowed twice.
      */
     @Test
     void primaryKeyColumnPartlyInsideTheIndexKeyIsFlowedExactlyOnce() {
@@ -524,11 +566,14 @@ class ExpansionVisitorTest {
         final var windowExpression = windowExpressionOf(matchCandidate);
         final var flowed = flowedColumnsOf(windowExpression);
 
-        assertThat(countReadsOfField(flowed, "group"))
-                .as("header.group is in the index key, so it should be flowed once")
+        assertThat(countReadsOfField(flowed, "header"))
+                .as("the nested record holding part of the index key should be flowed once")
                 .isEqualTo(1L);
-        // the nested record is taken apart into its leaves -- header.group, header.id, score -- then the window value
-        assertThat(flowed).hasSize(4);
+        assertThat(countReadsOfField(flowed, "group"))
+                .as("header.group is reached through the record, not flowed next to it")
+                .isZero();
+        // one column per record field -- header, score -- and the window value after them
+        assertThat(flowed).hasSize(3);
         assertNoDuplicates(flowed, "window expression");
     }
 }
