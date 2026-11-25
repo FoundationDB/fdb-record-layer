@@ -152,8 +152,16 @@ test_block:
                           {W: 7, X: 20, Y: 7}]
     -
       - query: select a, b from t3 union all select a, b from t4
+      - explain: "SCAN([IS T3]) | MAP (_.A AS A, _.B AS B) | MAP (_.A AS A, promote(_.B AS DOUBLE) AS B) ⊎ SCAN([IS T4]) | MAP (_.A AS A, _.B AS B) | MAP (promote(_.A AS DOUBLE) AS A, _.B AS B)"
       - unorderedResult: [{A: 1.0, B: 2.0},
                           {A: 10.0, B: 20.0}]
+    -
+      # For this query, the planner was not promoting the integer A column coming from T4 leading to
+      # serialization errors in RPC tests.
+      - query: select a from t3 union all select a from t4
+      - supported_version: !current_version
+      - explain: "SCAN([IS T3]) | MAP (_.A AS A) ⊎ SCAN([IS T4]) | MAP (_.A AS A) | MAP (promote(_.A AS DOUBLE) AS A)"
+      - unorderedResult: [{A: 1.0}, {A: 10.0}]
     -
       - query: select sum(Y) as S from (select count(*) as Y from t3 where a < 10 group by a union all select count(*) from t4) as X
       - explain: "AISCAN(MV10 [[LESS_THAN promote(@c21 AS DOUBLE)]] BY_GROUP -> [_0: KEY:[0], _1: VALUE:[0]]) | MAP (_._1 AS Y) ⊎ SCAN([IS T4]) | MAP (_ AS _0) | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (promote(coalesce_long(_._0._0, 0l) AS LONG) AS _0) | MAP (_ AS _0) | AGG (sum_l(_._0.Y) AS _0) GROUP BY () | ON EMPTY NULL | MAP (_._0._0 AS S)"

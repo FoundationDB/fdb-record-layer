@@ -973,27 +973,20 @@ public class SemanticAnalyzer {
         final var distinctTypesCount = unionLegs.stream().map(exp -> exp.getOutput().expanded().size()).distinct().count();
         Assert.thatUnchecked(distinctTypesCount == 1, ErrorCode.UNION_INCORRECT_COLUMN_COUNT,
                 "UNION legs do not have the same number of columns");
-        Type.Record result = null;
-        boolean requiresPromotion = false;
-        for (final var unionLegType : unionLegs.stream().map(leg -> leg.getQuantifier().getFlowedObjectType())
-                .map(type -> Assert.castUnchecked(type, Type.Record.class)).collect(ImmutableList.toImmutableList())) {
-            if (result == null) {
-                result = unionLegType;
-                continue;
-            }
-            if (requiresPromotion) {
-                result = Assert.castUnchecked(Type.maximumType(result, unionLegType), Type.Record.class);
-                continue;
-            }
-            final var oldType = result;
-            result = Assert.castUnchecked(Assert.notNullUnchecked(Type.maximumType(result, unionLegType), ErrorCode.UNION_INCOMPATIBLE_COLUMNS,
-                            "Incompatible column types in UNION legs"),
-                    Type.Record.class);
-            if (!oldType.equals(result)) {
-                requiresPromotion = true;
-            }
-        }
-        return requiresPromotion ? Optional.of(Assert.notNullUnchecked(result)) : Optional.empty();
+
+        final List<Type.Record> unionLegTypes = unionLegs.stream()
+                .map(leg -> leg.getQuantifier().getFlowedObjectType())
+                .map(type -> Assert.castUnchecked(type, Type.Record.class))
+                .collect(ImmutableList.toImmutableList());
+        final Type.Record maxType = unionLegTypes.stream()
+                .reduce((accumulated, unionLegType) -> Assert.castUnchecked(
+                        Assert.notNullUnchecked(Type.maximumType(accumulated, unionLegType),
+                                ErrorCode.UNION_INCOMPATIBLE_COLUMNS,
+                                "Incompatible column types in UNION legs"),
+                        Type.Record.class))
+                .orElseThrow();
+        return unionLegTypes.stream().anyMatch(type -> !type.equals(maxType)) ?
+               Optional.of(maxType) : Optional.empty();
     }
 
     @Nonnull
