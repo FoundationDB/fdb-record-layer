@@ -755,11 +755,11 @@ agg-index-tests:
         AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.D, _.E)
         } COMPARE BY (_._4, _.C, _.B, _.E)'
     task_count: 2208
-    task_total_time_ms: 593
+    task_total_time_ms: 739
     transform_count: 958
-    transform_time_ms: 357
+    transform_time_ms: 448
     transform_yield_count: 170
-    insert_time_ms: 7
+    insert_time_ms: 9
     insert_new_count: 196
     insert_reused_count: 22
 -   query: EXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c,
@@ -772,11 +772,11 @@ agg-index-tests:
         AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.D, _.E)
         } COMPARE BY (_._4, _.C, _.B, _.E)'
     task_count: 2208
-    task_total_time_ms: 645
+    task_total_time_ms: 1005
     transform_count: 958
-    transform_time_ms: 396
+    transform_time_ms: 584
     transform_yield_count: 170
-    insert_time_ms: 7
+    insert_time_ms: 12
     insert_new_count: 196
     insert_reused_count: 22
 -   query: EXPLAIN select b, c, d, e, max(x) from t5 where a = 0 group by a, b, c,
@@ -789,11 +789,11 @@ agg-index-tests:
         AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.E, _.D)
         } COMPARE BY (_._4, _.C, _.E, _.B)'
     task_count: 1922
-    task_total_time_ms: 526
+    task_total_time_ms: 872
     transform_count: 882
-    transform_time_ms: 502
+    transform_time_ms: 647
     transform_yield_count: 137
-    insert_time_ms: 6
+    insert_time_ms: 11
     insert_new_count: 138
     insert_reused_count: 26
 -   query: EXPLAIN select b, c, d, e, min(x) from t5 where a = 0 group by a, b, c,
@@ -806,11 +806,11 @@ agg-index-tests:
         AS C, _._3 AS D, _._4 AS E, _._5 AS _4) } COMPARE BY (_._4, _.C, _.E, _.D)
         } COMPARE BY (_._4, _.C, _.E, _.B)'
     task_count: 1922
-    task_total_time_ms: 618
+    task_total_time_ms: 870
     transform_count: 882
-    transform_time_ms: 374
+    transform_time_ms: 646
     transform_yield_count: 137
-    insert_time_ms: 7
+    insert_time_ms: 11
     insert_new_count: 138
     insert_reused_count: 26
 -   query: EXPLAIN select b, c, d, e, max(x) from t5 where a = 0 and c = 0 group by
@@ -1093,14 +1093,14 @@ agg-index-tests:
         [GREATER_THAN promote(@c49 AS LONG)]] BY_GROUP -> [_0: KEY:[0], _1: KEY:[1],
         _2: KEY:[3], _3: KEY:[2]]) | MAP (_._0 AS A, _._1 AS K, _._2 AS B, _._3 AS
         _3)'
-    task_count: 392
-    task_total_time_ms: 115
-    transform_count: 146
-    transform_time_ms: 95
-    transform_yield_count: 45
-    insert_time_ms: 0
-    insert_new_count: 39
-    insert_reused_count: 1
+    task_count: 512
+    task_total_time_ms: 123
+    transform_count: 170
+    transform_time_ms: 92
+    transform_yield_count: 50
+    insert_time_ms: 1
+    insert_new_count: 52
+    insert_reused_count: 2
 agg-index-tests-t6-tvf:
 -   query: EXPLAIN select a, ek.k, b, max(d) from "t6v", (select k from "t6v".c) as
         ek group by a, ek.k, b
