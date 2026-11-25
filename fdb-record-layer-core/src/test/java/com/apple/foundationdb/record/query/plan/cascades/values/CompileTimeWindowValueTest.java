@@ -250,7 +250,7 @@ class CompileTimeWindowValueTest {
         final var frameSpecification = new WindowFrameSpecification(WindowFrameSpecification.FrameType.ROW,
                 new WindowFrameSpecification.Bounded(LiteralValue.ofScalar(1L)),
                 new WindowFrameSpecification.CurrentRow(), WindowFrameSpecification.Exclusion.NO_OTHER);
-        final var callSiteArguments = CallSiteArguments.ofPositional(ImmutableList.of(ARGUMENT))
+        final var callSiteArguments = CallSiteArguments.ofPositional(ImmutableList.of())
                 .withWindowSpecification(new CallSiteArguments.WindowSpecification(
                         ImmutableList.of(PARTITION_A, PARTITION_B), orderingParts, frameSpecification));
 
@@ -259,7 +259,8 @@ class CompileTimeWindowValueTest {
         assertThat(value).isInstanceOf(CompileTimeWindowValue.class);
         final var windowValue = (CompileTimeWindowValue)value;
         assertThat(windowValue.getWindowFunction()).isEqualTo(WindowFunction.RANK);
-        assertThat(windowValue.getArgumentValues()).isEqualTo(ImmutableList.of(ARGUMENT));
+        // the column a ranking function ranks by is its ORDER BY, so the argument list stays empty
+        assertThat(windowValue.getArgumentValues()).isEmpty();
         assertThat(windowValue.getPartitioningValues()).isEqualTo(ImmutableList.of(PARTITION_A, PARTITION_B));
         assertThat(windowValue.getOrderingParts()).isEqualTo(orderingParts);
         assertThat(windowValue.getWindowFrameSpecification()).isEqualTo(frameSpecification);
@@ -267,9 +268,10 @@ class CompileTimeWindowValueTest {
 
     @Test
     void rankFnFallsBackToTheDefaultFrameWhenTheCallSiteDoesNotSpellOneOut() {
-        final var callSiteArguments = CallSiteArguments.ofPositional(ImmutableList.of(ARGUMENT))
+        final var callSiteArguments = CallSiteArguments.ofPositional(ImmutableList.of())
                 .withWindowSpecification(new CallSiteArguments.WindowSpecification(
-                        ImmutableList.of(PARTITION_A), ImmutableList.of()));
+                        ImmutableList.of(PARTITION_A),
+                        ImmutableList.of(orderingPart(OrderingPart.RequestedSortOrder.ASCENDING))));
 
         final var windowValue = (CompileTimeWindowValue)new CompileTimeWindowValue.RankFn()
                 .encapsulate(callSiteArguments);
@@ -281,12 +283,14 @@ class CompileTimeWindowValueTest {
     @Test
     void rankIsDiscoverableInTheBuiltInFunctionCatalog() {
         //
-        // RankFn is registered via AutoService, so the catalog should hand it out for a rank call site with one or more
-        // arguments. rank() without arguments is not a valid call site.
+        // RankFn is registered via AutoService and declares no fixed parameters and a variadic tail, so the catalog
+        // hands it out whatever the call site's arity. rank() with no arguments is the valid spelling -- what an
+        // argument would mean is rank(v) WITHIN GROUP, a different function -- and encapsulation is where an argument
+        // is rejected, not resolution.
         //
+        assertThat(BuiltInFunctionCatalog.resolve("rank", 0)).containsInstanceOf(CompileTimeWindowValue.RankFn.class);
         assertThat(BuiltInFunctionCatalog.resolve("rank", 1)).containsInstanceOf(CompileTimeWindowValue.RankFn.class);
         assertThat(BuiltInFunctionCatalog.resolve("rank", 3)).containsInstanceOf(CompileTimeWindowValue.RankFn.class);
-        assertThat(BuiltInFunctionCatalog.resolve("rank", 0)).isEmpty();
     }
 
     @Test
