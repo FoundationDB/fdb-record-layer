@@ -289,16 +289,30 @@ public class ExpandWindowExpressionsRule extends AbstractCascadesRule<SelectExpr
                                                   @Nonnull final Value windowResultValue,
                                                   @Nonnull final Quantifier windowQuantifier,
                                                   @Nonnull final Set<CorrelationIdentifier> constantAliases) {
-        if (!(predicate instanceof PredicateWithValue)) {
+        if (predicate instanceof PredicateWithValue) {
+            final var predicateWithValue = (PredicateWithValue)predicate;
+            final var value = predicateWithValue.getValue();
+            if (value == null) {
+                return predicate;
+            }
+            return predicateWithValue.withValue(pullUpThroughWindow(value, lowerResultValue, lowerQuantifier,
+                    windowResultValue, windowQuantifier, constantAliases));
+        }
+
+        //
+        // A compound predicate holds no value of its own -- its leaves do -- so each leaf travels up on its own and the
+        // predicate is rebuilt around them. Left alone, a conjunction or disjunction over the window value would stay
+        // correlated to the quantifiers the lower select took over, which are two levels below the select this
+        // predicate ends up on, and would still hold the compile-time placeholder the scan is supposed to answer.
+        //
+        final var children = ImmutableList.copyOf(predicate.getChildren());
+        if (children.isEmpty()) {
             return predicate;
         }
-        final var predicateWithValue = (PredicateWithValue)predicate;
-        final var value = predicateWithValue.getValue();
-        if (value == null) {
-            return predicate;
-        }
-        return predicateWithValue.withValue(pullUpThroughWindow(value, lowerResultValue, lowerQuantifier,
-                windowResultValue, windowQuantifier, constantAliases));
+        return predicate.withChildren(children.stream()
+                .map(child -> pullUpPredicate(child, lowerResultValue, lowerQuantifier, windowResultValue,
+                        windowQuantifier, constantAliases))
+                .collect(ImmutableList.toImmutableList()));
     }
 
     /**
