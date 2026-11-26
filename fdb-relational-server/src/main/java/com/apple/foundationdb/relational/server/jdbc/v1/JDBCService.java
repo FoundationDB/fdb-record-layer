@@ -86,7 +86,7 @@ public class JDBCService extends JDBCServiceGrpc.JDBCServiceImplBase {
         try {
             StatementResponse.Builder statementResponseBuilder = StatementResponse.newBuilder();
             FRL.Response response = this.frl.execute(request.getDatabase(), request.getSchema(), request.getSql(),
-                    request.hasParameters() ? request.getParameters().getParameterList() : null, TypeConversion.fromProtobuf(request.getOptions()));
+                    request.hasParameters() ? request.getParameters() : null, TypeConversion.fromProtobuf(request.getOptions()));
             if (response.isQuery()) {
                 // Setting row count like this might not be right... It is for updates. Might have to do something
                 // better than this count.

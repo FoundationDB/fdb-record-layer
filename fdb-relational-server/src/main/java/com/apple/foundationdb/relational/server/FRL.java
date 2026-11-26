@@ -42,6 +42,7 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.NoOpMetricRegistry;
 import com.apple.foundationdb.relational.jdbc.TypeConversion;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.Parameter;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.Parameters;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ResultSet;
 import com.apple.foundationdb.relational.recordlayer.DirectFdbConnection;
 import com.apple.foundationdb.relational.recordlayer.FdbConnection;
@@ -56,7 +57,6 @@ import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;
-import java.sql.Array;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -199,7 +199,7 @@ public class FRL implements AutoCloseable {
      * @throws SQLException For all sorts of reasons.
      */
     @Nonnull
-    public Response execute(String database, String schema, String sql, List<Parameter> parameters, Options options)
+    public Response execute(String database, String schema, String sql, @Nullable Parameters parameters, Options options)
             throws SQLException {
         // Down inside connect, it calls RecordLayerStorageCluster.loadDatabase which internally creates a Transaction
         // to RecordLayerStorageCluster.loadDatabase and which, internal to loadDatabase, it then closes.
@@ -220,7 +220,7 @@ public class FRL implements AutoCloseable {
 
     private Response executeInternal(@Nonnull RelationalConnection connection,
                                      @Nonnull String sql,
-                                     @Nullable List<Parameter> parameters,
+                                     @Nullable Parameters parameters,
                                      @Nullable Options options) throws SQLException {
         ResultSet resultSet;
         if (parameters == null) {
@@ -241,8 +241,11 @@ public class FRL implements AutoCloseable {
         // If parameters, it's a prepared statement.
         try (RelationalPreparedStatement statement = connection.prepareStatement(sql)) {
             int index = 1; // Parameter position is one-based.
-            for (Parameter parameter : parameters) {
+            for (Parameter parameter : parameters.getParameterList()) {
                 addPreparedStatementParameter(statement, parameter, index++);
+            }
+            for (var namedParameter : parameters.getNamedParameterMap().entrySet()) {
+                addPreparedStatementParameter(statement, namedParameter.getValue(), namedParameter.getKey());
             }
             setStatementOptions(options, statement);
             if (statement.execute()) {
@@ -264,36 +267,64 @@ public class FRL implements AutoCloseable {
 
     private static void addPreparedStatementParameter(@Nonnull RelationalPreparedStatement relationalPreparedStatement,
                                                       @Nonnull Parameter parameter, int index) throws SQLException {
+        final var value = toParameterValue(relationalPreparedStatement, parameter);
+        if (value == null) {
+            relationalPreparedStatement.setNull(index, parameter.getParameter().getNullType());
+        } else {
+            relationalPreparedStatement.setObject(index, value);
+        }
+    }
+
+    private static void addPreparedStatementParameter(@Nonnull RelationalPreparedStatement relationalPreparedStatement,
+                                                      @Nonnull Parameter parameter, @Nonnull String name) throws SQLException {
+        final var value = toParameterValue(relationalPreparedStatement, parameter);
+        if (value == null) {
+            relationalPreparedStatement.setNull(name, parameter.getParameter().getNullType());
+        } else {
+            relationalPreparedStatement.setObject(name, value);
+        }
+    }
+
+    /**
+     * Converts a parameter received over the wire to the value to bind to a prepared statement.
+     *
+     * @param relationalPreparedStatement the statement the value is bound to, used to create arrays
+     * @param parameter the parameter
+     * @return the value of the parameter, or {@code null} if it is a null of the type given by the parameter
+     * @throws SQLException if the parameter holds an unsupported value
+     */
+    @Nullable
+    private static Object toParameterValue(@Nonnull RelationalPreparedStatement relationalPreparedStatement,
+                                           @Nonnull Parameter parameter) throws SQLException {
         final var oneOfValue = parameter.getParameter();
         if (oneOfValue.hasString()) {
-            relationalPreparedStatement.setString(index, oneOfValue.getString());
+            return oneOfValue.getString();
         } else if (oneOfValue.hasLong()) {
-            relationalPreparedStatement.setLong(index, oneOfValue.getLong());
+            return oneOfValue.getLong();
         } else if (oneOfValue.hasInteger()) {
-            relationalPreparedStatement.setInt(index, oneOfValue.getInteger());
+            return oneOfValue.getInteger();
         } else if (oneOfValue.hasFloat()) {
-            relationalPreparedStatement.setFloat(index, oneOfValue.getFloat());
+            return oneOfValue.getFloat();
         } else if (oneOfValue.hasDouble()) {
-            relationalPreparedStatement.setDouble(index, oneOfValue.getDouble());
+            return oneOfValue.getDouble();
         } else if (oneOfValue.hasBoolean()) {
-            relationalPreparedStatement.setBoolean(index, oneOfValue.getBoolean());
+            return oneOfValue.getBoolean();
         } else if (oneOfValue.hasBinary()) {
             if (parameter.hasMetadata() && parameter.getMetadata().hasVectorMetadata()) {
                 final var vectorProtoType = parameter.getMetadata().getVectorMetadata();
-                relationalPreparedStatement.setObject(index, VectorUtils.parseVector(oneOfValue.getBinary(), vectorProtoType.getPrecision()));
+                return VectorUtils.parseVector(oneOfValue.getBinary(), vectorProtoType.getPrecision());
             } else {
-                relationalPreparedStatement.setBytes(index, oneOfValue.getBinary().toByteArray());
+                return oneOfValue.getBinary().toByteArray();
             }
         } else if (oneOfValue.hasNullType()) {
-            relationalPreparedStatement.setNull(index, oneOfValue.getNullType());
+            return null;
         } else if (oneOfValue.hasUuid()) {
-            relationalPreparedStatement.setUUID(index, new UUID(oneOfValue.getUuid().getMostSignificantBits(), oneOfValue.getUuid().getLeastSignificantBits()));
+            return new UUID(oneOfValue.getUuid().getMostSignificantBits(), oneOfValue.getUuid().getLeastSignificantBits());
         } else if (oneOfValue.hasArray()) {
             final com.apple.foundationdb.relational.jdbc.grpc.v1.column.Array arrayProto = parameter.getParameter().getArray();
-            final Array relationalArray = relationalPreparedStatement.getConnection().createArrayOf(
+            return relationalPreparedStatement.getConnection().createArrayOf(
                     SqlTypeNamesSupport.getSqlTypeName(arrayProto.getElementType()),
                     TypeConversion.fromArray(arrayProto));
-            relationalPreparedStatement.setArray(index, relationalArray);
         } else {
             throw new SQLException("Unsupported value: " + parameter.getParameter());
         }
@@ -347,7 +378,7 @@ public class FRL implements AutoCloseable {
     }
 
     @Nonnull
-    public Response transactionalExecute(TransactionalToken token, String sql, List<Parameter> parameters, @Nullable Options options)
+    public Response transactionalExecute(TransactionalToken token, String sql, @Nullable Parameters parameters, @Nullable Options options)
             throws SQLException {
         assertValidToken(token);
         return executeInternal(token.getConnection(), sql, parameters, options);

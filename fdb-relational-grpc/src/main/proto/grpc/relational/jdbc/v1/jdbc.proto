@@ -103,7 +103,10 @@ message InsertResponse {
 
 // Parameters for PreparedStatement
 message Parameters {
+  // unnamed parameters
   repeated Parameter parameter = 1;
+  // named parameters
+  map<string, Parameter> named_parameter = 2;
 }
 
 // A parameter has java sql type as well as actual parameter.

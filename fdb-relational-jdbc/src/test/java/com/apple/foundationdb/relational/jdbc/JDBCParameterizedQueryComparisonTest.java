@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.jdbc;
 
 import com.apple.foundationdb.relational.api.RelationalArray;
 import com.apple.foundationdb.relational.api.RelationalConnection;
+import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.RelationalStruct;
@@ -468,6 +469,100 @@ public class JDBCParameterizedQueryComparisonTest {
         }
     }
 
+    @Nonnull
+    static Stream<Arguments> namedParameterTestCases() {
+        return ParameterizedTestUtils.cartesianProduct(
+                RandomizedTestUtils.randomSeeds(),
+                Arrays.stream(TypeTestCase.values()),
+                ParameterizedTestUtils.booleans("typedSetter", "setObject"),
+                ParameterizedTestUtils.booleans("insertJdbc", "insertEmbedded"),
+                ParameterizedTestUtils.booleans("readJdbc", "readEmbedded"));
+    }
+
+    /**
+     * Like {@link #testParameterizedInsertAndSelect}, but binds named parameters ({@code ?name}) instead of unnamed
+     * ones ({@code ?}), both to insert the value and to read it back.
+     */
+    @ParameterizedTest
+    @MethodSource("namedParameterTestCases")
+    void testNamedParameterInsertAndSelect(long seed, @Nonnull TypeTestCase testCase, boolean useTypedSetter,
+                                           boolean insertWithJdbc, boolean readWithJdbc) throws Exception {
+        if (insertWithJdbc || readWithJdbc) {
+            // JDBC does not support createStruct (always returns null), so inserting with jdbc is not supported.
+            // See: https://github.com/FoundationDB/fdb-record-layer/issues/4064
+            Assumptions.assumeFalse(testCase == TypeTestCase.STRUCT);
+        }
+
+        final Random random = new Random(seed);
+        createSchema(testCase.columnDdl, testCase.extraTypeDdl);
+
+        final Object insertedValue;
+        try (Connection insertConn = getConnection(insertWithJdbc)) {
+            insertedValue = testCase.createValue(insertConn, random);
+            Assertions.assertNotNull(insertedValue);
+            insertWithNamedParameters(insertConn, insertedValue, useTypedSetter
+                    ? (statement, value) -> setTypedNamed(testCase, statement, "val", value)
+                    : (statement, value) -> statement.setObject("val", value));
+        }
+
+        try (Connection readConn = getConnection(readWithJdbc)) {
+            readWithNamedParametersAndAssert(readConn, insertedValue, resultSet -> testCase.getTyped(resultSet, 1),
+                    testCase::assertEquals);
+        }
+    }
+
+    /**
+     * Like {@link #testArrayOfTypeInsertAndSelect}, but binds named parameters ({@code ?name}) instead of unnamed
+     * ones ({@code ?}), both to insert the array and to read it back.
+     */
+    @ParameterizedTest
+    @MethodSource("namedParameterTestCases")
+    void testArrayOfTypeNamedParameterInsertAndSelect(long seed, @Nonnull TypeTestCase testCase, boolean useTypedSetter,
+                                                      boolean insertWithJdbc, boolean readWithJdbc) throws Exception {
+        Assumptions.assumeFalse(testCase == TypeTestCase.STRUCT,
+                "createArrayOf does not support STRUCT in either implementation");
+
+        final Random random = new Random(seed);
+        createSchema(testCase.columnDdl + " array", testCase.extraTypeDdl);
+
+        final Array insertedArray;
+        try (Connection insertConn = getConnection(insertWithJdbc)) {
+            Object[] arrayValue = IntStream.range(0, random.nextInt(20) + 1)
+                    .mapToObj(i -> {
+                        try {
+                            return testCase.createValue(insertConn, random);
+                        } catch (SQLException e) {
+                            throw new RuntimeException(e);
+                        }
+                    })
+                    .toArray(Object[]::new);
+            insertedArray = insertConn.createArrayOf(testCase.arrayTypeName, arrayValue);
+            insertWithNamedParameters(insertConn, insertedArray, useTypedSetter
+                    ? (statement, value) -> statement.setArray("val", (Array) value)
+                    : (statement, value) -> statement.setObject("val", value));
+        }
+
+        try (Connection readConn = getConnection(readWithJdbc)) {
+            readWithNamedParametersAndAssert(readConn, insertedArray, resultSet -> resultSet.getArray(1),
+                    this::assertArrayEquals);
+        }
+    }
+
+    private static void setTypedNamed(@Nonnull TypeTestCase testCase, @Nonnull RelationalPreparedStatement statement,
+                                      @Nonnull String parameterName, @Nonnull Object value) throws SQLException {
+        switch (testCase) {
+            case BIGINT -> statement.setLong(parameterName, (Long)value);
+            case INTEGER -> statement.setInt(parameterName, (Integer)value);
+            case DOUBLE -> statement.setDouble(parameterName, (Double)value);
+            case FLOAT -> statement.setFloat(parameterName, (Float)value);
+            case STRING -> statement.setString(parameterName, (String)value);
+            case BOOLEAN -> statement.setBoolean(parameterName, (Boolean)value);
+            case BYTES -> statement.setBytes(parameterName, (byte[])value);
+            case STRUCT -> statement.setObject(parameterName, value);
+            default -> throw new IllegalArgumentException("unexpected type test case " + testCase);
+        }
+    }
+
     private void assertArrayEquals(@Nonnull String message, @Nonnull Object expected, @Nonnull Object actual) {
         try {
             List<Object> expectedElements = TypeTestCase.extractArrayElements(expected);
@@ -525,6 +620,11 @@ public class JDBCParameterizedQueryComparisonTest {
     }
 
     @FunctionalInterface
+    interface NamedValueSetter {
+        void set(@Nonnull RelationalPreparedStatement statement, @Nonnull Object value) throws SQLException;
+    }
+
+    @FunctionalInterface
     interface ValueReader {
         @Nonnull
         Object read(@Nonnull ResultSet resultSet) throws SQLException;
@@ -542,6 +642,29 @@ public class JDBCParameterizedQueryComparisonTest {
             statement.setLong(1, PRIMARY_KEY);
             setter.set(statement, value);
             statement.executeUpdate();
+        }
+    }
+
+    private void insertWithNamedParameters(@Nonnull Connection conn, @Nonnull Object value,
+                                           @Nonnull NamedValueSetter setter) throws SQLException {
+        try (RelationalPreparedStatement statement = conn.unwrap(RelationalConnection.class).prepareStatement(
+                "INSERT INTO test_table (pk, val) VALUES (?pk, ?val)")) {
+            statement.setLong("pk", PRIMARY_KEY);
+            setter.set(statement, value);
+            Assertions.assertEquals(1, statement.executeUpdate(), "insert should insert exactly one row");
+        }
+    }
+
+    private void readWithNamedParametersAndAssert(@Nonnull Connection conn, @Nonnull Object expectedValue,
+                                                  @Nonnull ValueReader reader, @Nonnull EqualityAssertion assertion) throws SQLException {
+        try (RelationalPreparedStatement statement = conn.unwrap(RelationalConnection.class).prepareStatement(
+                "SELECT val FROM test_table WHERE pk = ?pk")) {
+            statement.setLong("pk", PRIMARY_KEY);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                Assertions.assertTrue(resultSet.next(), "Expected row");
+                Object readValue = reader.read(resultSet);
+                assertion.assertEquals("read value should match expected", expectedValue, readValue);
+            }
         }
     }
 

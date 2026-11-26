@@ -31,7 +31,7 @@ import com.apple.foundationdb.relational.jdbc.grpc.GrpcSQLExceptionUtil;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.GetRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.GetResponse;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.InsertResponse;
-import com.apple.foundationdb.relational.jdbc.grpc.v1.Parameter;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.Parameters;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ScanRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.ScanResponse;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementResponse;
@@ -44,7 +44,6 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -112,12 +111,12 @@ class JDBCRelationalStatement implements RelationalStatement {
     /**
      * Package private method for use by this class but also by {@link JDBCRelationalPreparedStatement}.
      *
-     * @param parameters Parameters for <code>sql</code> SORTED by input order or null if this is a Statement execute
-     *                   (and non-null if preparedstatement).
+     * @param parameters Parameters for <code>sql</code>, or null if this is a Statement execute (and non-null if
+     *                   preparedstatement).
      * @return ResultSet object that contains the data produced by the given query; never null
      * @throws SQLException if a database access error occurs or this method is called on a closed Statement
      */
-    RelationalResultSet executeQuery(@Nonnull String sql, Collection<Parameter> parameters) throws SQLException {
+    RelationalResultSet executeQuery(@Nonnull String sql, @Nullable Parameters parameters) throws SQLException {
         if (execute(sql, parameters)) {
             return currentResultSet;
         } else {
@@ -127,19 +126,19 @@ class JDBCRelationalStatement implements RelationalStatement {
 
     @Override
     public int executeUpdate(@Nonnull String sql) throws SQLException {
-        return executeUpdate(sql, (Collection<Parameter>) null);
+        return executeUpdate(sql, (Parameters) null);
     }
 
     /**
      * Package private method for use by this class but also by {@link JDBCRelationalPreparedStatement}.
      *
-     * @param parameters Parameters for <code>sql</code> SORTED by input order or null if this is a Statement execute
-     *                   (and non-null if preparedstatement).
+     * @param parameters Parameters for <code>sql</code>, or null if this is a Statement execute (and non-null if
+     *                   preparedstatement).
      * @return either (1) the row count for SQL Data Manipulation Language (DML) statements or (2) 0 for SQL statements
      *  that return nothing
      * @throws SQLException if a database access error occurs or this method is called on a closed Statement
      */
-    int executeUpdate(@Nonnull String sql, Collection<Parameter> parameters) throws SQLException {
+    int executeUpdate(@Nonnull String sql, @Nullable Parameters parameters) throws SQLException {
         if (execute(sql, parameters)) {
             throw new SQLException(String.format(Locale.ROOT, "query '%s' returns a result set, use JDBC executeQuery method instead", sql), ErrorCode.EXECUTE_UPDATE_RETURNED_RESULT_SET.getErrorCode());
         }
@@ -149,12 +148,12 @@ class JDBCRelationalStatement implements RelationalStatement {
     /**
      * Package private method for use by this class but also by {@link JDBCRelationalPreparedStatement}.
      *
-     * @param parameters Parameters for <code>sql</code> SORTED by input order or null if this is a Statement execute
-     *                   (and non-null if preparedstatement).
+     * @param parameters Parameters for <code>sql</code>, or null if this is a Statement execute (and non-null if
+     *                   preparedstatement).
      * @return true if the execution produced a result set, false otherwise
      * @throws SQLException if a database access error occurs or this method is called on a closed Statement
      */
-    boolean execute(@Nonnull String sql, Collection<Parameter> parameters) throws SQLException {
+    boolean execute(@Nonnull String sql, @Nullable Parameters parameters) throws SQLException {
         StatementResponse response = execute(sql, this.options, parameters);
         this.currentResultSet = response.hasResultSet() ?
                 new RelationalResultSetFacade(response.getResultSet()) : RelationalResultSetFacade.EMPTY;
@@ -167,13 +166,13 @@ class JDBCRelationalStatement implements RelationalStatement {
      *
      * @param sql SQL to execute.
      * @param options Options to use executing <code>sql</code>
-     * @param parameters Parameters for <code>sql</code> SORTED by input order or null if this is a Statement execute
-     *                   (and non-null if preparedstatement).
+     * @param parameters Parameters for <code>sql</code>, or null if this is a Statement execute (and non-null if
+     *                   preparedstatement).
      * @return StatementResponse.
      * @throws SQLException if a database access error occurs or this method is called on a closed Statement
      */
     @SuppressWarnings({"PMD.UnusedFormalParameter"}) // Will use it later.
-    private StatementResponse execute(@Nonnull String sql, @Nonnull Options options, Collection<Parameter> parameters)
+    private StatementResponse execute(@Nonnull String sql, @Nonnull Options options, @Nullable Parameters parameters)
             throws SQLException {
         checkOpen();
         // Punt on transaction/autocommit consideration for now (autocommit==true).
@@ -220,7 +219,7 @@ class JDBCRelationalStatement implements RelationalStatement {
 
     @Override
     public boolean execute(String sql) throws SQLException {
-        return execute(sql, (Collection<Parameter>) null);
+        return execute(sql, (Parameters) null);
     }
 
     @Override

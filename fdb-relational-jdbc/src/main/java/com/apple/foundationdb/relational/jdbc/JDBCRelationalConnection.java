@@ -35,7 +35,6 @@ import com.apple.foundationdb.relational.jdbc.grpc.v1.EnableAutoCommitRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.InsertRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.InsertResponse;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.JDBCServiceGrpc;
-import com.apple.foundationdb.relational.jdbc.grpc.v1.Parameter;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.Parameters;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.RollbackRequest;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.StatementRequest;
@@ -66,7 +65,6 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Struct;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -187,14 +185,14 @@ class JDBCRelationalConnection implements RelationalConnection {
         return this.blockingStub;
     }
 
-    public StatementResponse execute(String sql, Options options, Collection<Parameter> parameters) throws SQLException {
+    public StatementResponse execute(String sql, Options options, @Nullable Parameters parameters) throws SQLException {
         StatementRequest.Builder builder = StatementRequest.newBuilder()
                 .setSql(sql)
                 .setDatabase(getDatabase()) // TODO: for transactional execution these are not required
                 .setSchema(getSchema())
                 .setOptions(TypeConversion.toProtobuf(options));
         if (parameters != null) {
-            builder.setParameters(Parameters.newBuilder().addAllParameter(parameters).build());
+            builder.setParameters(parameters);
         }
 
         try {
