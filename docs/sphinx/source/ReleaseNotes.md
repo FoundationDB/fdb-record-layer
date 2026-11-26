@@ -8,6 +8,33 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.19
 
+{#release-4-19-4-0}
+
+### 4.19.4.0
+
+<h4> New Features </h4>
+
+* Update client log event parsing for FDB versions 7.4 and 8.0 - [PR #4941](https://github.com/FoundationDB/fdb-record-layer/pull/4941)
+* Allow prepared statement parameters and expressions as the LIKE pattern and escape character - [PR #4942](https://github.com/FoundationDB/fdb-record-layer/pull/4942)
+<h4> Bug Fixes </h4>
+
+* Bind unnamed prepared statement parameters by their position in the statement - [PR #4945](https://github.com/FoundationDB/fdb-record-layer/pull/4945)
+* Match the explode of a fan-out value index only under an existential, as the index stores each element of a record once - [PR #4881](https://github.com/FoundationDB/fdb-record-layer/pull/4881)
+* Harden the thread-safety of planning SQL function calls - [PR #4921](https://github.com/FoundationDB/fdb-record-layer/pull/4921)
+
+
+**[Full Changelog (4.19.3.0...4.19.4.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.19.3.0...4.19.4.0)**
+
+<h4> Mixed Mode Test Results </h4>
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.17.1.0`, ❌`4.17.2.0`, ❌`4.18.1.0`, ❌`4.18.3.0`, ✅`4.18.4.0`, ✅`4.18.5.0`, ✅`4.18.7.0`, ✅`4.19.1.0`, ✅`4.19.2.0`, ✅`4.19.3.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/45859132011)
+
+
+
 {#release-4-19-3-0}
 
 ### 4.19.3.0
