@@ -6,12 +6,12 @@ in-query-union-sargable:
         ISCAN(NUM_VALUE2_NUM_VALUE3 [EQUALS q0._0]) | FILTER _.STR_VALUE_INDEXED EQUALS
         q1._0 } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED,
         _.NUM_VALUE_2)'
-    task_count: 2230
-    task_total_time_ms: 51
-    transform_count: 817
-    transform_time_ms: 21
+    task_count: 2232
+    task_total_time_ms: 59
+    transform_count: 819
+    transform_time_ms: 24
     transform_yield_count: 177
-    insert_time_ms: 6
+    insert_time_ms: 5
     insert_new_count: 282
     insert_reused_count: 28
 -   query: EXPLAIN select * from my_simple_record where num_value_2 in ? and str_value_indexed
@@ -21,12 +21,12 @@ in-query-union-sargable:
         ISCAN(NUM_VALUE2_NUM_VALUE3 [EQUALS q0._0]) | FILTER _.STR_VALUE_INDEXED EQUALS
         q1._0 } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED,
         _.NUM_VALUE_2)'
-    task_count: 2230
-    task_total_time_ms: 51
-    transform_count: 817
-    transform_time_ms: 21
+    task_count: 2232
+    task_total_time_ms: 59
+    transform_count: 819
+    transform_time_ms: 24
     transform_yield_count: 177
-    insert_time_ms: 6
+    insert_time_ms: 5
     insert_new_count: 282
     insert_reused_count: 28
 -   query: EXPLAIN select * from my_simple_record where num_value_2 in ? and str_value_indexed
@@ -36,11 +36,11 @@ in-query-union-sargable:
         ISCAN(NUM_VALUE2_NUM_VALUE3 [EQUALS q0._0]) | FILTER _.STR_VALUE_INDEXED EQUALS
         q1._0 } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED,
         _.NUM_VALUE_2)'
-    task_count: 2230
-    task_total_time_ms: 51
-    transform_count: 817
-    transform_time_ms: 21
+    task_count: 2232
+    task_total_time_ms: 59
+    transform_count: 819
+    transform_time_ms: 24
     transform_yield_count: 177
-    insert_time_ms: 6
+    insert_time_ms: 5
     insert_new_count: 282
     insert_reused_count: 28

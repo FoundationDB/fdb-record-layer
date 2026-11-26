@@ -8,12 +8,12 @@ in-query-sorted-extra-unordered-columns:
         | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED AS STR_VALUE_INDEXED,
         _.REC_NO AS REC_NO) } COMPARE BY (_.NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED,
         _.REC_NO)'
-    task_count: 1010
-    task_total_time_ms: 46
-    transform_count: 331
-    transform_time_ms: 21
+    task_count: 1014
+    task_total_time_ms: 61
+    transform_count: 335
+    transform_time_ms: 27
     transform_yield_count: 119
-    insert_time_ms: 2
+    insert_time_ms: 3
     insert_new_count: 104
     insert_reused_count: 3
 -   query: EXPLAIN select num_value_unique, str_value_indexed, rec_no from my_simple_record
@@ -26,12 +26,12 @@ in-query-sorted-extra-unordered-columns:
         STR_VALUE_INDEXED: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE,
         _.STR_VALUE_INDEXED AS STR_VALUE_INDEXED, _.REC_NO AS REC_NO) } COMPARE BY
         (_.NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED, _.REC_NO)'
-    task_count: 1010
-    task_total_time_ms: 33
-    transform_count: 331
-    transform_time_ms: 19
+    task_count: 1014
+    task_total_time_ms: 43
+    transform_count: 335
+    transform_time_ms: 24
     transform_yield_count: 119
-    insert_time_ms: 1
+    insert_time_ms: 2
     insert_new_count: 104
     insert_reused_count: 3
 in-query-sorted-extra-unordered-columns-prepared:
@@ -44,12 +44,12 @@ in-query-sorted-extra-unordered-columns-prepared:
         | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED AS STR_VALUE_INDEXED,
         _.REC_NO AS REC_NO) } COMPARE BY (_.NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED,
         _.REC_NO)'
-    task_count: 1010
-    task_total_time_ms: 36
-    transform_count: 331
-    transform_time_ms: 19
+    task_count: 1014
+    task_total_time_ms: 46
+    transform_count: 335
+    transform_time_ms: 24
     transform_yield_count: 119
-    insert_time_ms: 1
+    insert_time_ms: 2
     insert_new_count: 104
     insert_reused_count: 3
 -   query: EXPLAIN select num_value_unique, str_value_indexed, rec_no from my_simple_record
@@ -62,11 +62,11 @@ in-query-sorted-extra-unordered-columns-prepared:
         STR_VALUE_INDEXED: KEY:[3]]) | MAP (_.NUM_VALUE_UNIQUE AS NUM_VALUE_UNIQUE,
         _.STR_VALUE_INDEXED AS STR_VALUE_INDEXED, _.REC_NO AS REC_NO) } COMPARE BY
         (_.NUM_VALUE_UNIQUE, _.STR_VALUE_INDEXED, _.REC_NO)'
-    task_count: 1010
-    task_total_time_ms: 37
-    transform_count: 331
-    transform_time_ms: 20
+    task_count: 1014
+    task_total_time_ms: 48
+    transform_count: 335
+    transform_time_ms: 26
     transform_yield_count: 119
-    insert_time_ms: 1
+    insert_time_ms: 2
     insert_new_count: 104
     insert_reused_count: 3

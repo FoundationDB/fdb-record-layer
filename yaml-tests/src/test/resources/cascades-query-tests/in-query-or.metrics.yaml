@@ -6,12 +6,12 @@ in-query-or:
         [EQUALS q0._0] -> [NUM_VALUE_UNIQUE: KEY:[0], REC_NO: KEY:[1]]) } ∪ COVERING(MY_SIMPLE_RECORD_NUM_VALUE_UNIQUE
         [[GREATER_THAN promote(@c17 AS INT)]] -> [NUM_VALUE_UNIQUE: KEY:[0], REC_NO:
         KEY:[1]]) COMPARE BY (_.NUM_VALUE_UNIQUE, _.REC_NO) | FETCH'
-    task_count: 3625
-    task_total_time_ms: 157
-    transform_count: 687
-    transform_time_ms: 71
+    task_count: 3629
+    task_total_time_ms: 57
+    transform_count: 691
+    transform_time_ms: 23
     transform_yield_count: 220
-    insert_time_ms: 12
+    insert_time_ms: 4
     insert_new_count: 494
     insert_reused_count: 37
 -   query: EXPLAIN select * from my_simple_record where num_value_unique < 910 or
@@ -22,12 +22,12 @@ in-query-or:
         [[GREATER_THAN promote(@c12 AS INT)]]) | FILTER _.NUM_VALUE_2 EQUALS q0._0
         } COMPARE BY (_.NUM_VALUE_UNIQUE, _.REC_NO, _.NUM_VALUE_2) COMPARE BY (_.NUM_VALUE_UNIQUE,
         _.REC_NO)
-    task_count: 11385
-    task_total_time_ms: 523
-    transform_count: 1923
-    transform_time_ms: 277
+    task_count: 11389
+    task_total_time_ms: 299
+    transform_count: 1927
+    transform_time_ms: 158
     transform_yield_count: 604
-    insert_time_ms: 46
+    insert_time_ms: 25
     insert_new_count: 2128
     insert_reused_count: 382
 -   query: EXPLAIN select * from my_simple_record where str_value_indexed = 'odd'
@@ -38,12 +38,12 @@ in-query-or:
         INUNION q0 -> { COVERING(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED [EQUALS q0._0]
         -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[1]]) } COMPARE BY (_.REC_NO,
         _.NUM_VALUE_3_INDEXED) COMPARE BY (_.REC_NO) | FETCH'
-    task_count: 5731
-    task_total_time_ms: 218
-    transform_count: 926
-    transform_time_ms: 115
+    task_count: 5735
+    task_total_time_ms: 130
+    transform_count: 930
+    transform_time_ms: 71
     transform_yield_count: 275
-    insert_time_ms: 18
+    insert_time_ms: 10
     insert_new_count: 1115
     insert_reused_count: 234
 -   query: EXPLAIN select * from my_simple_record where num_value_2 in (1, 3, 5, 7,
@@ -52,12 +52,12 @@ in-query-or:
     explain: ISCAN(MY_SIMPLE_RECORD_NUM_VALUE_3_INDEXED <,>) | FLATMAP q0 -> { TF
         explode(arrayDistinct(@c7)) | FILTER _._0 EQUALS q0.NUM_VALUE_2 AS q1 RETURN
         q0 }
-    task_count: 559
+    task_count: 561
     task_total_time_ms: 12
-    transform_count: 179
-    transform_time_ms: 6
+    transform_count: 181
+    transform_time_ms: 5
     transform_yield_count: 60
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 58
     insert_reused_count: 3
 in-query-or-prepared:
@@ -65,11 +65,11 @@ in-query-or-prepared:
     ref: in-query-or.yamsql:258
     explain: ISCAN(MY_SIMPLE_RECORD_STR_VALUE_INDEXED <,>) | FILTER _.NUM_VALUE_2
         IN @c7
-    task_count: 521
-    task_total_time_ms: 19
-    transform_count: 126
-    transform_time_ms: 10
+    task_count: 523
+    task_total_time_ms: 10
+    transform_count: 128
+    transform_time_ms: 5
     transform_yield_count: 53
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 62
     insert_reused_count: 5

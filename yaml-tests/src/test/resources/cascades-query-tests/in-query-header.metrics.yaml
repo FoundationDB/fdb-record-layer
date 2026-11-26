@@ -5,12 +5,12 @@ in-query-header:
     explain: '[IN arrayDistinct(@c15)] | INJOIN q0 -> { COVERING(IND [EQUALS promote(@c9
         AS LONG), EQUALS q0._0] -> [STR_VALUE: KEY:[2], HEADER: [PATH: KEY:[1], REC_NO:
         KEY:[0]]]) } | FETCH'
-    task_count: 1051
-    task_total_time_ms: 233
-    transform_count: 257
-    transform_time_ms: 136
+    task_count: 1053
+    task_total_time_ms: 21
+    transform_count: 259
+    transform_time_ms: 10
     transform_yield_count: 73
-    insert_time_ms: 12
+    insert_time_ms: 1
     insert_new_count: 133
     insert_reused_count: 7
 -   query: EXPLAIN select * from my_record where header.rec_no in (1, 4) and header.path
@@ -19,12 +19,12 @@ in-query-header:
     explain: '[IN arrayDistinct(promote(@c9 AS ARRAY(LONG)))] | INJOIN q0 -> { [IN
         arrayDistinct(@c19)] | INJOIN q1 -> { COVERING(IND [EQUALS q0._0, EQUALS q1._0]
         -> [STR_VALUE: KEY:[2], HEADER: [PATH: KEY:[1], REC_NO: KEY:[0]]]) } } | FETCH'
-    task_count: 2851
-    task_total_time_ms: 59
-    transform_count: 855
-    transform_time_ms: 23
+    task_count: 2853
+    task_total_time_ms: 58
+    transform_count: 857
+    transform_time_ms: 21
     transform_yield_count: 161
-    insert_time_ms: 6
+    insert_time_ms: 5
     insert_new_count: 411
     insert_reused_count: 38
 -   query: EXPLAIN select * from my_record where header.rec_no in (1, 4) and header.path
@@ -35,9 +35,9 @@ in-query-header:
         { [IN arrayDistinct(@c19) SORTED] | INJOIN q1 -> { COVERING(IND [EQUALS q0._0,
         EQUALS q1._0] -> [STR_VALUE: KEY:[2], HEADER: [PATH: KEY:[1], REC_NO: KEY:[0]]])
         } } | FETCH'
-    task_count: 3172
-    task_total_time_ms: 49
-    transform_count: 921
+    task_count: 3174
+    task_total_time_ms: 52
+    transform_count: 923
     transform_time_ms: 18
     transform_yield_count: 175
     insert_time_ms: 5
@@ -49,12 +49,12 @@ in-query-header:
     explain: '[IN arrayDistinct(@c15)] | INJOIN q0 -> { COVERING(IND [EQUALS promote(@c9
         AS LONG), EQUALS q0._0] -> [STR_VALUE: KEY:[2], HEADER: [PATH: KEY:[1], REC_NO:
         KEY:[0]]]) } | FETCH'
-    task_count: 1051
-    task_total_time_ms: 233
-    transform_count: 257
-    transform_time_ms: 136
+    task_count: 1053
+    task_total_time_ms: 21
+    transform_count: 259
+    transform_time_ms: 10
     transform_yield_count: 73
-    insert_time_ms: 12
+    insert_time_ms: 1
     insert_new_count: 133
     insert_reused_count: 7
 -   query: EXPLAIN select * from my_record where header.rec_no = 1 and header.path
@@ -63,11 +63,11 @@ in-query-header:
     explain: '[IN arrayDistinct(@c15)] | INJOIN q0 -> { COVERING(IND [EQUALS promote(@c9
         AS LONG), EQUALS q0._0] -> [STR_VALUE: KEY:[2], HEADER: [PATH: KEY:[1], REC_NO:
         KEY:[0]]]) } | FETCH'
-    task_count: 1051
-    task_total_time_ms: 233
-    transform_count: 257
-    transform_time_ms: 136
+    task_count: 1053
+    task_total_time_ms: 21
+    transform_count: 259
+    transform_time_ms: 10
     transform_yield_count: 73
-    insert_time_ms: 12
+    insert_time_ms: 1
     insert_new_count: 133
     insert_reused_count: 7

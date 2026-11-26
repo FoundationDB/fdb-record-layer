@@ -9,12 +9,12 @@ in-query-union-intersection-no-nv3:
         KEY:[2]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO) | FETCH } COMPARE BY
         (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED) } COMPARE BY (_.NUM_VALUE_3_INDEXED,
         _.REC_NO, _.NUM_VALUE_2)'
-    task_count: 1839
-    task_total_time_ms: 50
-    transform_count: 725
-    transform_time_ms: 23
+    task_count: 1841
+    task_total_time_ms: 59
+    transform_count: 727
+    transform_time_ms: 25
     transform_yield_count: 148
-    insert_time_ms: 5
+    insert_time_ms: 6
     insert_new_count: 189
     insert_reused_count: 26
 -   query: EXPLAIN select * from my_simple_record where num_value_2 in ? and str_value_indexed
@@ -27,12 +27,12 @@ in-query-union-intersection-no-nv3:
         KEY:[2]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO) | FETCH } COMPARE BY
         (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED) } COMPARE BY (_.NUM_VALUE_3_INDEXED,
         _.REC_NO, _.NUM_VALUE_2)'
-    task_count: 1839
-    task_total_time_ms: 50
-    transform_count: 725
-    transform_time_ms: 23
+    task_count: 1841
+    task_total_time_ms: 59
+    transform_count: 727
+    transform_time_ms: 25
     transform_yield_count: 148
-    insert_time_ms: 5
+    insert_time_ms: 6
     insert_new_count: 189
     insert_reused_count: 26
 -   query: EXPLAIN select * from my_simple_record where num_value_2 in ? and str_value_indexed
@@ -45,11 +45,11 @@ in-query-union-intersection-no-nv3:
         KEY:[2]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO) | FETCH } COMPARE BY
         (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED) } COMPARE BY (_.NUM_VALUE_3_INDEXED,
         _.REC_NO, _.NUM_VALUE_2)'
-    task_count: 1839
-    task_total_time_ms: 50
-    transform_count: 725
-    transform_time_ms: 23
+    task_count: 1841
+    task_total_time_ms: 59
+    transform_count: 727
+    transform_time_ms: 25
     transform_yield_count: 148
-    insert_time_ms: 5
+    insert_time_ms: 6
     insert_new_count: 189
     insert_reused_count: 26

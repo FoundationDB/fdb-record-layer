@@ -7,12 +7,12 @@ permuted-min-max:
         [EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]])
         | MAP (_._0 AS NUM_VALUE_2, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE
         BY (_.M, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED)'
-    task_count: 556
-    task_total_time_ms: 33
-    transform_count: 221
-    transform_time_ms: 22
+    task_count: 560
+    task_total_time_ms: 21
+    transform_count: 225
+    transform_time_ms: 14
     transform_yield_count: 63
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 36
     insert_reused_count: 0
 -   query: EXPLAIN select num_value_2, num_value_3_indexed, max(num_value_unique)
@@ -23,12 +23,12 @@ permuted-min-max:
         [EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]])
         | MAP (_._0 AS NUM_VALUE_2, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE
         BY (_.M, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED)'
-    task_count: 556
-    task_total_time_ms: 33
-    transform_count: 221
-    transform_time_ms: 22
+    task_count: 560
+    task_total_time_ms: 21
+    transform_count: 225
+    transform_time_ms: 14
     transform_yield_count: 63
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 36
     insert_reused_count: 0
 -   query: EXPLAIN select num_value_2, num_value_3_indexed, max(num_value_unique)
@@ -39,12 +39,12 @@ permuted-min-max:
         [EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]])
         | MAP (_._0 AS NUM_VALUE_2, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE
         BY (_.M, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED)'
-    task_count: 556
-    task_total_time_ms: 33
-    transform_count: 221
-    transform_time_ms: 22
+    task_count: 560
+    task_total_time_ms: 21
+    transform_count: 225
+    transform_time_ms: 14
     transform_yield_count: 63
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 36
     insert_reused_count: 0
 permuted-min-max-prepared:
@@ -56,12 +56,12 @@ permuted-min-max-prepared:
         [EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]])
         | MAP (_._0 AS NUM_VALUE_2, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE
         BY (_.M, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED)'
-    task_count: 556
-    task_total_time_ms: 38
-    transform_count: 221
-    transform_time_ms: 27
+    task_count: 560
+    task_total_time_ms: 21
+    transform_count: 225
+    transform_time_ms: 13
     transform_yield_count: 63
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 36
     insert_reused_count: 0
 -   query: EXPLAIN select num_value_2, num_value_3_indexed, max(num_value_unique)
@@ -72,12 +72,12 @@ permuted-min-max-prepared:
         [EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]])
         | MAP (_._0 AS NUM_VALUE_2, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE
         BY (_.M, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED)'
-    task_count: 556
-    task_total_time_ms: 38
-    transform_count: 221
-    transform_time_ms: 27
+    task_count: 560
+    task_total_time_ms: 21
+    transform_count: 225
+    transform_time_ms: 13
     transform_yield_count: 63
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 36
     insert_reused_count: 0
 -   query: EXPLAIN select num_value_2, num_value_3_indexed, max(num_value_unique)
@@ -88,11 +88,11 @@ permuted-min-max-prepared:
         [EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]])
         | MAP (_._0 AS NUM_VALUE_2, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE
         BY (_.M, _.NUM_VALUE_2, _.NUM_VALUE_3_INDEXED)'
-    task_count: 556
-    task_total_time_ms: 38
-    transform_count: 221
-    transform_time_ms: 27
+    task_count: 560
+    task_total_time_ms: 21
+    transform_count: 225
+    transform_time_ms: 13
     transform_yield_count: 63
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 36
     insert_reused_count: 0

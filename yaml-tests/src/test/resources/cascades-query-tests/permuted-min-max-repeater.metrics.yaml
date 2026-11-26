@@ -8,10 +8,10 @@ permuted-min-max-repeater:
         [EQUALS promote(@c38 AS STRING), EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0],
         _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS X, _._2 AS NUM_VALUE_2,
         _._3 AS M) } COMPARE BY (_.M, _.X, _.NUM_VALUE_2)'
-    task_count: 678
-    task_total_time_ms: 53
-    transform_count: 273
-    transform_time_ms: 29
+    task_count: 688
+    task_total_time_ms: 33
+    transform_count: 283
+    transform_time_ms: 22
     transform_yield_count: 71
     insert_time_ms: 1
     insert_new_count: 54
@@ -25,10 +25,10 @@ permuted-min-max-repeater:
         [EQUALS promote(@c38 AS STRING), EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0],
         _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS X, _._2 AS NUM_VALUE_2,
         _._3 AS M) } COMPARE BY (_.M, _.X, _.NUM_VALUE_2)'
-    task_count: 678
-    task_total_time_ms: 53
-    transform_count: 273
-    transform_time_ms: 29
+    task_count: 688
+    task_total_time_ms: 33
+    transform_count: 283
+    transform_time_ms: 22
     transform_yield_count: 71
     insert_time_ms: 1
     insert_new_count: 54
@@ -43,12 +43,12 @@ permuted-min-max-repeater-prepared:
         [EQUALS promote(@c38 AS STRING), EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0],
         _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS X, _._2 AS NUM_VALUE_2,
         _._3 AS M) } COMPARE BY (_.M, _.X, _.NUM_VALUE_2)'
-    task_count: 678
-    task_total_time_ms: 47
-    transform_count: 273
-    transform_time_ms: 31
+    task_count: 688
+    task_total_time_ms: 29
+    transform_count: 283
+    transform_time_ms: 19
     transform_yield_count: 71
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 54
     insert_reused_count: 0
 -   query: EXPLAIN select sq.x, r.num_value_2, max(r.num_value_3_indexed) as m from
@@ -60,11 +60,11 @@ permuted-min-max-repeater-prepared:
         [EQUALS promote(@c38 AS STRING), EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0],
         _1: KEY:[1], _2: KEY:[3], _3: KEY:[2]]) | MAP (_._1 AS X, _._2 AS NUM_VALUE_2,
         _._3 AS M) } COMPARE BY (_.M, _.X, _.NUM_VALUE_2)'
-    task_count: 678
-    task_total_time_ms: 47
-    transform_count: 273
-    transform_time_ms: 31
+    task_count: 688
+    task_total_time_ms: 29
+    transform_count: 283
+    transform_time_ms: 19
     transform_yield_count: 71
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 54
     insert_reused_count: 0

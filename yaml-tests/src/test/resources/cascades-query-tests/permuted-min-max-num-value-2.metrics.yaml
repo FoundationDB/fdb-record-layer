@@ -7,12 +7,12 @@ permuted-min-max-num-value-2:
         [EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]])
         | MAP (_._0 AS STR_VALUE_INDEXED, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M)
         } COMPARE BY (_.M, _.STR_VALUE_INDEXED, _.NUM_VALUE_3_INDEXED)'
-    task_count: 556
-    task_total_time_ms: 26
-    transform_count: 221
-    transform_time_ms: 17
+    task_count: 560
+    task_total_time_ms: 19
+    transform_count: 225
+    transform_time_ms: 12
     transform_yield_count: 63
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 36
     insert_reused_count: 0
 permuted-min-max-num-value-2-prepared:
@@ -24,10 +24,10 @@ permuted-min-max-num-value-2-prepared:
         [EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]])
         | MAP (_._0 AS STR_VALUE_INDEXED, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M)
         } COMPARE BY (_.M, _.STR_VALUE_INDEXED, _.NUM_VALUE_3_INDEXED)'
-    task_count: 556
-    task_total_time_ms: 26
-    transform_count: 221
-    transform_time_ms: 18
+    task_count: 560
+    task_total_time_ms: 18
+    transform_count: 225
+    transform_time_ms: 11
     transform_yield_count: 63
     insert_time_ms: 0
     insert_new_count: 36
