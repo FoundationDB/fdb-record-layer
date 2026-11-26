@@ -65,6 +65,7 @@ import org.mockito.Mockito;
 import javax.annotation.Nonnull;
 import java.net.URI;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -478,6 +479,39 @@ public class TemporaryFunctionTests {
                             .hasNextRow()
                             .isRowExactly(4L, 40L)
                             .hasNoNextRow();
+                }
+            }
+            connection.rollback();
+        }
+    }
+
+    @Test
+    void createTemporaryFunctionWithPreparedParametersBindsThemByPosition() throws Exception {
+        // the SELECT list is planned after the WHERE clause, both in the body of the function and in the query invoking
+        // it, while unnamed parameters must be bound by their position in the statement text.
+        final String schemaTemplate = "create table t1(pk bigint, a bigint, b bigint, primary key(pk))";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (1, 5, 100), (2, 10, 200)");
+            }
+            final var connection = ddl.getConnection();
+            connection.setAutoCommit(false);
+            try (var statement = connection.prepareStatement("create temporary function sq1() on commit drop function as select a, b + ? as x from t1 where a = ?")) {
+                statement.setLong(1, 1000L);
+                statement.setLong(2, 5L);
+                statement.executeUpdate();
+            }
+            final var query = "select a, x + ? from sq1() where x > ?";
+            // plans the query, reuses the cached plan, then plans it again bypassing the plan cache.
+            for (final var queryInCacheMode : List.of(query, query, query + " options (nocache)")) {
+                try (var statement = connection.prepareStatement(queryInCacheMode)) {
+                    statement.setLong(1, 1L);
+                    statement.setLong(2, 0L);
+                    try (var resultSet = statement.executeQuery()) {
+                        ResultSetAssert.assertThat(resultSet).hasNextRow()
+                                .isRowExactly(5L, 1101L)
+                                .hasNoNextRow();
+                    }
                 }
             }
             connection.rollback();

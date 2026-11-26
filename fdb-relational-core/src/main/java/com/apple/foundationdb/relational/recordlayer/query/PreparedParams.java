@@ -25,7 +25,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.metadata.StoredQuery;
 import com.apple.foundationdb.relational.util.Assert;
-
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
@@ -35,8 +35,9 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Warn: this class is stateful.
- * TODO (Make prepared statement parameters stateless)
+ * The values bound to the parameters of a prepared statement. Named parameters are looked up by name. Unnamed
+ * parameters ({@code ?}) are looked up by their 1-based index, which is the rank of the parameter in the statement
+ * text (see {@link ParseHelpers#unnamedParameterIndexes}).
  */
 @API(API.Status.EXPERIMENTAL)
 public final class PreparedParams {
@@ -57,33 +58,31 @@ public final class PreparedParams {
     @Nonnull
     private final Map<String, String> declaredTypeParams;
 
-    private int nextParam = 1;
-
     private PreparedParams(@Nonnull Map<Integer, Object> unnamedParams,
                            @Nonnull Map<String, Object> namedParameters) {
-        this(unnamedParams, namedParameters, 1, Map.of());
+        this(unnamedParams, namedParameters, Map.of());
     }
 
     private PreparedParams(@Nonnull Map<Integer, Object> unnamedParams,
                            @Nonnull Map<String, Object> namedParameters,
-                           int nextParam,
                            @Nonnull Map<String, String> declaredTypeParams) {
         this.unnamedParams = unnamedParams;
         this.namedParams = namedParameters;
-        this.nextParam = nextParam;
         this.declaredTypeParams = declaredTypeParams;
     }
 
-    public int currentUnnamedParamIndex() {
-        return nextParam;
-    }
-
+    /**
+     * Returns the value of an unnamed parameter.
+     *
+     * @param index the 1-based index of the parameter, that is, the rank of its {@code ?} in the statement text
+     * @return the value bound to the parameter
+     */
     @Nullable
-    public Object nextUnnamedParamValue() {
-        Assert.thatUnchecked(unnamedParams.containsKey(nextParam),
-                ErrorCode.UNDEFINED_PARAMETER, "No value found for parameter " + nextParam
+    public Object unnamedParamValue(int index) {
+        Assert.thatUnchecked(unnamedParams.containsKey(index),
+                ErrorCode.UNDEFINED_PARAMETER, "No value found for parameter " + index
         );
-        return unnamedParams.get(nextParam++);
+        return unnamedParams.get(index);
     }
 
     @Nullable
@@ -112,7 +111,7 @@ public final class PreparedParams {
      */
     @Nonnull
     public PreparedParams withDeclaredTypeParams(@Nonnull Map<String, String> declaredTypeParams) {
-        return new PreparedParams(unnamedParams, namedParams, nextParam, ImmutableMap.copyOf(declaredTypeParams));
+        return new PreparedParams(unnamedParams, namedParams, ImmutableMap.copyOf(declaredTypeParams));
     }
 
     public boolean isEmpty() {
@@ -131,6 +130,7 @@ public final class PreparedParams {
     }
 
     @Nonnull
+    @VisibleForTesting
     public static PreparedParams ofUnnamed(@Nonnull Map<Integer, Object> parameters) {
         return of(parameters, ImmutableMap.of());
     }
@@ -180,15 +180,6 @@ public final class PreparedParams {
 
     @Nonnull
     public static PreparedParams copyOf(@Nonnull PreparedParams other) {
-        return copyOf(other, false);
-    }
-
-    @Nonnull
-    public static PreparedParams copyOf(@Nonnull PreparedParams other, boolean withCurrentUnnamedParamIndex) {
-        if (withCurrentUnnamedParamIndex) {
-            return new PreparedParams(other.unnamedParams, other.namedParams, other.currentUnnamedParamIndex(), other.declaredTypeParams);
-        } else {
-            return new PreparedParams(other.unnamedParams, other.namedParams, 1, other.declaredTypeParams);
-        }
+        return new PreparedParams(other.unnamedParams, other.namedParams, other.declaredTypeParams);
     }
 }

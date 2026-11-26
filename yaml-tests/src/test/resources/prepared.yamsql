@@ -31,6 +31,8 @@ schema_template:
     create table type_with_arrays(pk bigint, bigint_array bigint array, integer_array integer array,
                                   double_array double array, float_array float array, string_array string array,
                                   boolean_array boolean array, bytes_array bytes array, primary key(pk))
+    create table parameter_order(id bigint, a bigint, b bigint, s string, primary key(id))
+    create index parameter_order_a as select a from parameter_order order by a
 # Note: STRUCT is not included because it is not supported in JDBC
 # See: https://github.com/FoundationDB/fdb-record-layer/issues/4064
 ---
@@ -47,6 +49,7 @@ setup:
                (15, 16.01, false, 1566, [17, 18, 19], 'black widow'),
                (17, 18.01, true, 1744, [19, 20, 21], 'jessica jones'),
                (19, 20.01, false, 1853, [21, 22, 23], 'luke cage')
+    - query: INSERT INTO parameter_order VALUES (1, 5, 100, 'r1'), (2, 10, 200, 'r2')
 ---
 test_block:
   name: prepared-tests
@@ -218,4 +221,64 @@ test_block:
     -
       - query: select * from type_with_arrays where pk = !! !l 2 !!
       - result: [{!l 2, [!l 3000000000, !l -5000000000], [-1, 0, 1], [1.0E300, 3.141592653589793], [!f 0.125, !f 3.75], ['', 'prepared'], [false, false, true], [x'deadbeef', x'0ff1ce', x'baadf00d']}]
+---
+# Unnamed parameters must be bound by their position in the statement text, even when a parameter appears in a clause
+# that is planned after a clause appearing later in the text (for instance, the SELECT list is planned after FROM and
+# WHERE, and the SET clause of an UPDATE after its WHERE).
+test_block:
+  name: parameter-order-queries
+  options:
+    statement_type: prepared
+    supported_version: !current_version
+  tests:
+    -
+      - query: select a, b + !! 10 !! from parameter_order where a = !! !l 5 !!
+      - result: [{5, 110}]
+    -
+      - query: select b + !! !l 1 !!, b - !! !l 1000 !! from parameter_order where a = 5
+      - result: [{101, -900}]
+    -
+      - query: select a, case when b > !! !l 150 !! then 'big' else 'small' end from parameter_order where a = !! !l 10 !!
+      - result: [{10, 'big'}]
+    -
+      - query: select x.a, x.b + !! 10 !! from (select a, b from parameter_order where a = !! !l 5 !!) as x
+      - result: [{5, 110}]
+    -
+      - query: with c as (select a, b from parameter_order where b > !! !l 150 !!) select a + !! !l 1 !! from c where a = !! !l 10 !!
+      - result: [{11}]
+    -
+      - query: select t1.a, t2.b + !! !l 1000 !! from parameter_order t1 inner join parameter_order t2 on t1.id = t2.id and t2.b > !! !l 150 !! where t1.a = !! !l 10 !!
+      - result: [{10, 1200}]
+    -
+      - query: select a, count(*) + !! !l 100 !! from parameter_order where b > !! !l 150 !! group by a having count(*) > !! !l 0 !!
+      - result: [{10, 101}]
+    -
+      - query: select a, b + !! !l 1000 !! from parameter_order where a in !! [!l 5] !!
+      - result: [{5, 1100}]
+---
+test_block:
+  name: parameter-order-updates
+  preset: single_repetition_ordered
+  options:
+    statement_type: prepared
+    supported_version: !current_version
+  tests:
+    -
+      - query: update parameter_order set b = !! !l 10 !! where a = !! !l 5 !!
+      - count: 1
+    -
+      - query: select id, a, b, s from parameter_order
+      - unorderedResult: [{1, 5, 10, 'r1'}, {2, 10, 200, 'r2'}]
+    -
+      - query: update parameter_order set b = !! 7 !!, s = !! 'changed' !! where a = !! !l 10 !!
+      - count: 1
+    -
+      - query: select id, a, b, s from parameter_order
+      - unorderedResult: [{1, 5, 10, 'r1'}, {2, 10, 7, 'changed'}]
+    -
+      - query: insert into parameter_order select id + !! !l 100 !!, a, b + !! !l 1 !!, s from parameter_order where a = !! !l 5 !!
+      - count: 1
+    -
+      - query: select id, a, b, s from parameter_order where id > 100
+      - result: [{101, 5, 11, 'r1'}]
 ...

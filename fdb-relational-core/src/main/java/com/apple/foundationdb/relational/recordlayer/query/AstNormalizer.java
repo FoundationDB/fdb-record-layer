@@ -130,6 +130,13 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     @Nonnull
     private final PreparedParams preparedStatementParameters;
 
+    /**
+     * The 1-based indexes of the unnamed parameters of the statement being normalized, by the index of their token.
+     * Set from the parse tree of the statement before it is visited.
+     */
+    @Nonnull
+    private Map<Integer, Integer> unnamedParameterIndexes = Map.of();
+
     @Nonnull
     private final Set<NormalizationResult.QueryCachingFlags> queryCachingFlags;
 
@@ -398,8 +405,9 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     public Object visitPreparedStatementParameter(@Nonnull RelationalParser.PreparedStatementParameterContext ctx) {
         Object param;
         if (ctx.QUESTION() != null) {
-            final int currentUnnamedParameterIndex = preparedStatementParameters.currentUnnamedParamIndex();
-            param = preparedStatementParameters.nextUnnamedParamValue();
+            final int currentUnnamedParameterIndex = Assert.notNullUnchecked(unnamedParameterIndexes.get(ctx.getStart().getTokenIndex()),
+                    ErrorCode.INTERNAL_ERROR, "unnamed parameter not found in its statement");
+            param = preparedStatementParameters.unnamedParamValue(currentUnnamedParameterIndex);
             if (param instanceof Array || param instanceof Struct) {
                 allowLiteralAddition = false;
             }
@@ -699,6 +707,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                                                    @Nonnull final String query,
                                                    @Nonnull final QueryEvaluationConstants queryEvaluationConstants) throws RelationalException {
         final var astNormalizer = new AstNormalizer(preparedStatementParameters, caseSensitive, currentPlanHashMode, parseTreeInfo.getQueryType() == ParseTreeInfo.QueryType.DESCRIBE_QUERY, queryEvaluationConstants);
+        astNormalizer.unnamedParameterIndexes = ParseHelpers.unnamedParameterIndexes(parseTreeInfo.getRootContext());
         astNormalizer.visit(parseTreeInfo.getRootContext());
         final var recordLayerSchemaTemplate = Assert.castUnchecked(schemaTemplate, RecordLayerSchemaTemplate.class);
 
