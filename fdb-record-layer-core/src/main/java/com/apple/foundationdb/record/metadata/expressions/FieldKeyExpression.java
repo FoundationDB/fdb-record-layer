@@ -277,14 +277,16 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
     }
 
     @Nonnull
-    public Quantifier.ForEach explodeField(@Nonnull Quantifier.ForEach baseQuantifier, @Nonnull List<String> fieldNamePrefix) {
+    public Quantifier.ForEach explodeField(@Nonnull Quantifier.ForEach baseQuantifier, @Nonnull List<String> fieldNamePrefix,
+                                           final boolean distinct) {
         final List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
                 .add(ProtoUtils.toUserIdentifier(fieldName))
                 .build();
         if (fanType == FanType.FanOut) {
             return Quantifier.forEach(Reference.initialOf(new TableFunctionExpression(
-                    new ExplodeValue(FieldValue.ofFieldNames(baseQuantifier.getFlowedObjectValue(), fieldNames)))));
+                    new ExplodeValue(FieldValue.ofFieldNames(baseQuantifier.getFlowedObjectValue(), fieldNames),
+                            false, false, false, distinct))));
         }
         throw new RecordCoreException("unrecognized fan type");
     }

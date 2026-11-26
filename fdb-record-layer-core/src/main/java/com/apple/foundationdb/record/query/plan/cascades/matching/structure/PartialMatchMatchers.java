@@ -96,6 +96,26 @@ public class PartialMatchMatchers {
     }
 
     /**
+     * Matches any {@link PartialMatch} that does not require an existential. Only such a match can become a data
+     * access. A match that requires an existential is correct only under an existential quantifier, see
+     * {@link com.apple.foundationdb.record.query.plan.cascades.MatchInfo#requiresExistential()}.
+     *
+     * @return a matcher matching any partial match that does not require an existential
+     */
+    @Nonnull
+    public static BindingMatcher<PartialMatch> notRequiringExistential() {
+        return new TypedMatcher<>(PartialMatch.class) {
+            @Nonnull
+            @Override
+            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final RecordQueryPlannerConfiguration plannerConfiguration,
+                                                             @Nonnull final PlannerBindings outerBindings, @Nonnull final PartialMatch in) {
+                return super.bindMatchesSafely(plannerConfiguration, outerBindings, in)
+                        .filter(bindings -> !in.getMatchInfo().requiresExistential());
+            }
+        };
+    }
+
+    /**
      * Matches any {@link PartialMatch} that is a match with a
      * {@link com.apple.foundationdb.record.query.plan.cascades.MatchCandidate} that is backed by data structure that
      * understands the concept of a primary key. Those match candidates are primary scan candidates, value indexes,

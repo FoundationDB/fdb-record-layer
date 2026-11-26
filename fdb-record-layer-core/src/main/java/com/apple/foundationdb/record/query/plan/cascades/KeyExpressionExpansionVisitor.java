@@ -145,7 +145,8 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         switch (fanType) {
             case FanOut:
                 // explode this field and prefixes of this field
-                final Quantifier.ForEach childBase = fieldKeyExpression.explodeField(baseQuantifier, fieldNamePrefix);
+                final Quantifier.ForEach childBase = fieldKeyExpression.explodeField(baseQuantifier, fieldNamePrefix,
+                        isFanOutDistinct());
                 value = state.registerValue(ExplodeValue.elementValue(childBase.getFlowedObjectValue()));
                 //
                 // The select over the explode flows the explode's whole (element, ordinal) struct rather than just the
@@ -316,7 +317,8 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 }
             case FanOut:
                 // explode the parent field(s) also depending on the prefix
-                final Quantifier.ForEach childBaseQuantifier = parent.explodeField(baseQuantifier, fieldNamePrefix);
+                final Quantifier.ForEach childBaseQuantifier = parent.explodeField(baseQuantifier, fieldNamePrefix,
+                        isFanOutDistinct());
                 // expand the children of the key expression and then unify them into an expansion of this expression
                 final GraphExpansion childExpansion =
                         pop(child.expand(push(state.withBaseQuantifier(childBaseQuantifier)
@@ -376,6 +378,17 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
             default:
                 throw new RecordCoreException("unsupported fan type");
         }
+    }
+
+    /**
+     * Whether the expansion makes a {@linkplain ExplodeValue#isDistinct() distinct} explode for a field that fans
+     * out. This is correct for an index that keeps one entry for each distinct element of a record: equal elements
+     * give the same entry key, so they use one entry. See {@link MatchInfo#requiresExistential()}.
+     *
+     * @return {@code true} if a field that fans out is exploded distinct
+     */
+    protected boolean isFanOutDistinct() {
+        return false;
     }
 
     @Nonnull

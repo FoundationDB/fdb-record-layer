@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.protobuf.Message;
@@ -61,4 +62,20 @@ public interface StreamingValue extends Value {
     @API(API.Status.INTERNAL)
     @Nonnull
     CardinalitiesProperty.Cardinalities getCardinalities();
+
+    /**
+     * Whether this streaming value of a query implies a streaming value of a match candidate, that is, whether the
+     * candidate's value produces everything this value may produce. By default, a value only implies a semantically
+     * equal one.
+     *
+     * @param candidateValue the streaming value of the match candidate
+     * @param bindingAliasMap a map of aliases defining the equivalence between quantifiers of the query and of the
+     *        match candidate
+     * @return whether this value implies the candidate's value
+     */
+    @API(API.Status.INTERNAL)
+    default boolean impliesCandidateValue(@Nonnull final StreamingValue candidateValue,
+                                          @Nonnull final AliasMap bindingAliasMap) {
+        return semanticEquals(candidateValue, bindingAliasMap);
+    }
 }
