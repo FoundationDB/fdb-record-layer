@@ -430,7 +430,7 @@ public interface Compensation {
                              @Nonnull final ResultCompensationFunction resultCompensationFunction,
                              @Nonnull final GroupByMappings groupByMappings) {
         return derived(isImpossible, predicateCompensationMap, matchedQuantifiers, unmatchedQuantifiers,
-                compensatedAliases, ImmutableSet.of(), resultCompensationFunction, groupByMappings);
+                compensatedAliases, null, resultCompensationFunction, groupByMappings);
     }
 
     @Nonnull
@@ -439,7 +439,7 @@ public interface Compensation {
                              @Nonnull final Collection<? extends Quantifier> matchedQuantifiers,
                              @Nonnull final Set<? extends Quantifier> unmatchedQuantifiers,
                              @Nonnull final Set<CorrelationIdentifier> compensatedAliases,
-                             @Nonnull final Set<CorrelationIdentifier> childCompensatedAliases,
+                             @Nullable final CorrelationIdentifier childCompensatedAlias,
                              @Nonnull final ResultCompensationFunction resultCompensationFunction,
                              @Nonnull final GroupByMappings groupByMappings) {
         //
@@ -454,7 +454,7 @@ public interface Compensation {
                 !predicateCompensationMap.isEmpty() || resultCompensationFunction.isNeeded() || isNeededForFiltering());
 
         return new ForMatch(isImpossible, this, predicateCompensationMap, matchedQuantifiers,
-                unmatchedQuantifiers, compensatedAliases, childCompensatedAliases, resultCompensationFunction,
+                unmatchedQuantifiers, compensatedAliases, childCompensatedAlias, resultCompensationFunction,
                 groupByMappings);
     }
 
@@ -578,10 +578,13 @@ public interface Compensation {
         Set<CorrelationIdentifier> getCompensatedAliases();
 
         /**
-         * {@return the aliases of the matched for-each quantifiers whose child match needs compensation of its own}
+         * {@return the alias of the matched for-each quantifier of this compensation's own expression whose child
+         * match needs compensation of its own, if there is one}
+         * A match over several for-each quantifiers is compensated over only one of them, so at most one of them can
+         * need compensation of its own.
          */
         @Nonnull
-        Set<CorrelationIdentifier> getChildCompensatedAliases();
+        Optional<CorrelationIdentifier> getChildCompensatedAliasMaybe();
 
         @Nonnull
         Set<Quantifier> getUnmatchedForEachQuantifiers();
@@ -684,12 +687,19 @@ public interface Compensation {
                 return unionedChildCompensation;
             }
 
+            final var childCompensatedAlias = getChildCompensatedAliasMaybe().orElse(null);
+            final var otherChildCompensatedAlias = otherWithSelectCompensation.getChildCompensatedAliasMaybe().orElse(null);
+            if (areDifferent(childCompensatedAlias, otherChildCompensatedAlias)) {
+                // the two sides need compensation over different for-each quantifiers, but only one is possible
+                return impossibleCompensation();
+            }
+
             return unionedChildCompensation.derived(false,
                     combinedPredicateMap,
                     unionedMatchedQuantifiers,
                     ImmutableSet.of(),
                     Sets.union(getCompensatedAliases(), otherWithSelectCompensation.getCompensatedAliases()),
-                    Sets.union(getChildCompensatedAliases(), otherWithSelectCompensation.getChildCompensatedAliases()),
+                    childCompensatedAlias != null ? childCompensatedAlias : otherChildCompensatedAlias,
                     newResultResultCompensationFunction,
                     GroupByMappings.empty());
         }
@@ -823,14 +833,32 @@ public interface Compensation {
                         .anyMatch(unmatchedQuantifierAliases::contains);
             }
 
+            final var childCompensatedAlias = getChildCompensatedAliasMaybe().orElse(null);
+            final var otherChildCompensatedAlias = otherWithSelectCompensation.getChildCompensatedAliasMaybe().orElse(null);
+            // the two sides may need compensation over different for-each quantifiers, but only one is possible
+            isImpossible |= areDifferent(childCompensatedAlias, otherChildCompensatedAlias);
+
             return intersectedChildCompensation.derived(isImpossible,
                     combinedPredicateMap,
                     intersectedMatchedQuantifiers,
                     intersectedUnmatchedQuantifiers,
                     getCompensatedAliases(), // both compensated aliases must be identical, but too expensive to check
-                    Sets.union(getChildCompensatedAliases(), otherWithSelectCompensation.getChildCompensatedAliases()),
+                    childCompensatedAlias != null ? childCompensatedAlias : otherChildCompensatedAlias,
                     newResultResultCompensationFunction,
                     newGroupByMappings);
+        }
+
+        /**
+         * Returns whether two compensations need compensation over different for-each quantifiers.
+         *
+         * @param childCompensatedAlias the alias one compensation needs compensation over, or {@code null}
+         * @param otherChildCompensatedAlias the alias the other compensation needs compensation over, or {@code null}
+         * @return {@code true} if both compensations name an alias and the aliases are not the same
+         */
+        private static boolean areDifferent(@Nullable final CorrelationIdentifier childCompensatedAlias,
+                                            @Nullable final CorrelationIdentifier otherChildCompensatedAlias) {
+            return childCompensatedAlias != null && otherChildCompensatedAlias != null &&
+                    !childCompensatedAlias.equals(otherChildCompensatedAlias);
         }
     }
 
@@ -858,12 +886,12 @@ public interface Compensation {
         @Nonnull
         private final Set<CorrelationIdentifier> compensatedAliases;
         /**
-         * The aliases of the matched for-each quantifiers whose child match needs compensation of its own. A match
-         * over several for-each quantifiers is compensated over only one of them, which has to be this one if there
-         * is one.
+         * The alias of the matched for-each quantifier whose child match needs compensation of its own, if there is
+         * one. A match over several for-each quantifiers is compensated over only one of them, which has to be this one
+         * if there is one.
          */
-        @Nonnull
-        private final Set<CorrelationIdentifier> childCompensatedAliases;
+        @Nullable
+        private final CorrelationIdentifier childCompensatedAlias;
         @Nonnull
         private final ResultCompensationFunction resultCompensationFunction;
         @Nonnull
@@ -878,7 +906,7 @@ public interface Compensation {
                          @Nonnull final Collection<? extends Quantifier> matchedQuantifiers,
                          @Nonnull final Collection<? extends Quantifier> unmatchedQuantifiers,
                          @Nonnull final Set<CorrelationIdentifier> compensatedAliases,
-                         @Nonnull final Set<CorrelationIdentifier> childCompensatedAliases,
+                         @Nullable final CorrelationIdentifier childCompensatedAlias,
                          @Nonnull final ResultCompensationFunction resultCompensationFunction,
                          @Nonnull final GroupByMappings groupByMappings) {
             this.isImpossible = isImpossible;
@@ -890,7 +918,7 @@ public interface Compensation {
             this.unmatchedQuantifiers = new LinkedIdentitySet<>();
             this.unmatchedQuantifiers.addAll(unmatchedQuantifiers);
             this.compensatedAliases = ImmutableSet.copyOf(compensatedAliases);
-            this.childCompensatedAliases = ImmutableSet.copyOf(childCompensatedAliases);
+            this.childCompensatedAlias = childCompensatedAlias;
             this.resultCompensationFunction = resultCompensationFunction;
             this.groupByMappings = groupByMappings;
             this.unmatchedForEachQuantifiersSupplier = Suppliers.memoize(this::computeUnmatchedForEachQuantifiers);
@@ -927,8 +955,8 @@ public interface Compensation {
 
         @Nonnull
         @Override
-        public Set<CorrelationIdentifier> getChildCompensatedAliases() {
-            return childCompensatedAliases;
+        public Optional<CorrelationIdentifier> getChildCompensatedAliasMaybe() {
+            return Optional.ofNullable(childCompensatedAlias);
         }
 
         @Nonnull
@@ -1100,14 +1128,12 @@ public interface Compensation {
         private CorrelationIdentifier getMatchedForEachAliasToCompensateOver() {
             final var matchedForEachAliases = getMatchedForEachAliases();
             Verify.verify(!matchedForEachAliases.isEmpty(), "no for-each quantifier is matched");
-            final var childCompensatedForEachAliases = matchedForEachAliases.stream()
-                    .filter(childCompensatedAliases::contains)
-                    .collect(ImmutableList.toImmutableList());
-            Verify.verify(childCompensatedForEachAliases.size() <= 1,
-                    "the child matches of more than one matched for-each quantifier need compensation");
-            return childCompensatedForEachAliases.isEmpty()
-                    ? matchedForEachAliases.iterator().next()
-                    : Iterables.getOnlyElement(childCompensatedForEachAliases);
+            if (childCompensatedAlias == null) {
+                return matchedForEachAliases.iterator().next();
+            }
+            Verify.verify(matchedForEachAliases.contains(childCompensatedAlias),
+                    "the child compensated alias is not of a matched for-each quantifier");
+            return childCompensatedAlias;
         }
 
         @Nonnull

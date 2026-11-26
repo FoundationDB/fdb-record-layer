@@ -842,7 +842,7 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
         // own, as a match over several of them is compensated over only one of them.
         //
         Compensation childCompensation = Compensation.noCompensation();
-        final var childCompensatedAliasesBuilder = ImmutableSet.<CorrelationIdentifier>builder();
+        final var childCompensatedAliasesBuilder = ImmutableList.<CorrelationIdentifier>builder();
         for (final var quantifier : quantifiers) {
             if (!(quantifier instanceof Quantifier.ForEach)) {
                 continue;
@@ -974,7 +974,7 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
                 getMatchedQuantifiers(partialMatch),
                 partialMatch.getUnmatchedQuantifiers(),
                 partialMatch.getCompensatedAliases(),
-                childCompensatedAliases,
+                Iterables.getFirst(childCompensatedAliases, null),
                 compensatedResult.getResultCompensationFunction(),
                 compensatedResult.getGroupByMappings());
     }

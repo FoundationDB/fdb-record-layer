@@ -171,7 +171,6 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
                                                     Objects.requireNonNull(aliasToQuantifierMap.get(matchedAlias)) instanceof Quantifier.ForEach)
                                             .collect(ImmutableSet.toImmutableSet());
                             if (matchedForEachAliases.isEmpty()) {
-                                // only existential quantifiers...
                                 return Stream.empty();
                             }
                             return Stream.of(NonnullPair.of(matchedForEachAliases, match));
@@ -203,7 +202,7 @@ public abstract class AbstractDataAccessRule extends AbstractCascadesRule<MatchP
                                     ImmutableList.toImmutableList()));
 
             //
-            // Note that the matches in this partition all compensate the same set of for-each quantifiers, plus
+            // Note that the matches in this partition all cover the same set of for-each quantifiers, plus
             // potentially 0 - n existential quantifiers. A match may therefore stand in for a join, which is the case
             // for a candidate over a synthetic record type. That is sound because a match reaching here compensates
             // every quantifier the expression owns, so the data access accounts for the whole expression rather than
