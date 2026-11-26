@@ -7,7 +7,7 @@ inputs:
     default: "7.4.10"
   gradle_command:
     description: 'Gradle command to run'
-    default: build destructiveTest
+    default: build isolatedTests
     required: false
   gradle_args:
     description: 'Gradle arguments for running'

@@ -66,7 +66,7 @@ jobs:
       - name: Run Gradle Build
         uses: ./actions/run-gradle
         with:
-          gradle_command: build -x test -x destructiveTest -x scalarFallbackTest -x clientLogTest -x clientLogChecksumTest -PreleaseBuild=true -PpublishBuild=false -PspotbugsEnableHtmlReport
+          gradle_command: build -x test -PreleaseBuild=true -PpublishBuild=false -PspotbugsEnableHtmlReport
 
   tests:
     needs: get-update-type
@@ -90,20 +90,10 @@ jobs:
       - name: Increment version
         shell: bash
         run: python build/versionutils.py gradle.properties --increment -u ${{ needs.get-update-type.outputs.update-type }}
-      - name: Compute extra tasks
-        id: extra_tasks
-        run: |
-          # fdb-extensions also runs its scalar-fallback and client log event test tasks here (not in
-          # the style job, which is test-free) so its JaCoCo execution data is produced alongside the other
-          # test tasks and picked up by the coverage-data upload below. These are separated from the main
-          # test task because they require their own JVM in order to override certain global settings.
-          if [[ ${{ matrix.subproject }} == 'fdb-extensions' ]] ; then
-            echo "task=:fdb-extensions:scalarFallbackTest :fdb-extensions:clientLogTest :fdb-extensions:clientLogChecksumTest" >> "$GITHUB_OUTPUT"
-          fi
       - name: Run Gradle Test
         uses: ./actions/gradle-test
         with:
-          gradle_command: :${{ matrix.subproject }}:jar :${{ matrix.subproject }}:test :${{ matrix.subproject }}:destructiveTest ${{ steps.extra_tasks.outputs.task }}
+          gradle_command: :${{ matrix.subproject }}:jar :${{ matrix.subproject }}:test :${{ matrix.subproject }}:isolatedTests
           gradle_args: -PreleaseBuild=true -PpublishBuild=false
           report_name: ${{ matrix.subproject }}-test-reports
       - name: Publish Coverage Data
@@ -143,11 +133,11 @@ jobs:
             -x :fdb-record-layer-core:test
             -x :fdb-record-layer-lucene:test
             -x :yaml-tests:test
-            destructiveTest
-            -x :fdb-extensions:destructiveTest
-            -x :fdb-record-layer-core:destructiveTest
-            -x :fdb-record-layer-lucene:destructiveTest
-            -x :yaml-tests:destructiveTest
+            isolatedTests
+            -x :fdb-extensions:isolatedTests
+            -x :fdb-record-layer-core:isolatedTests
+            -x :fdb-record-layer-lucene:isolatedTests
+            -x :yaml-tests:isolatedTests
           gradle_args: -PreleaseBuild=true -PpublishBuild=false
           report_name: other-test-reports
       - name: Publish Coverage Data

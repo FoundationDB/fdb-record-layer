@@ -4,6 +4,9 @@ inputs:
   fdb_version:
     description: 'Version of FDB to run'
     required: false
+    # This is the version that all of the jobs that do not pick one run against. The nightly workflow also runs the tests
+    # against the other versions of FDB that we test against, which it lists (get-fdb-versions) without this one. If this
+    # is changed, change that list to match.
     default: "7.4.10"
 
 runs:
