@@ -281,4 +281,61 @@ test_block:
     -
       - query: select id, a, b, s from parameter_order where id > 100
       - result: [{101, 5, 11, 'r1'}]
+---
+# Named parameters (?name). A snippet that starts with ?name is a named parameter when the query is executed as a
+# prepared statement. Exactly one snippet of a named parameter gives its value, and the other snippets of the same
+# parameter only give its name; all the snippets of a parameter take the same value.
+test_block:
+  name: named-parameters-scalars-roundtrip
+  preset: single_repetition_ordered
+  options:
+    statement_type: prepared
+    supported_version: !current_version
+  tests:
+    -
+      - query: insert into type_with_scalars(pk, bigint_value, integer_value, double_value, float_value, string_value, boolean_value, bytes_value)
+          values (!! ?pk !l 4 !!, !! ?big !l 3000000000 !!, !! ?int 42 !!, !! ?dbl 3.14 !!, !! ?flt !f 1.5 !!, !! ?str 'named' !!, !! ?bool true !!, !! ?bytes !b x'deadbeef' !!)
+      - count: 1
+    -
+      - query: select * from type_with_scalars where pk = !! ?pk !l 4 !!
+      - result: [{!l 4, !l 3000000000, 42, 3.14, !f 1.5, 'named', true, x'deadbeef'}]
+---
+test_block:
+  name: named-parameters-arrays-roundtrip
+  preset: single_repetition_ordered
+  options:
+    statement_type: prepared
+    supported_version: !current_version
+  tests:
+    -
+      - query: insert into type_with_arrays(pk, bigint_array, integer_array, double_array, float_array, string_array, boolean_array, bytes_array)
+          values (!! ?pk !l 3 !!, !! ?bigs [!l 10, !l 3000000000] !!, !! ?ints [1, 2, 3] !!, !! ?dbls [1.1, 2.2] !!, !! ?flts [!f 1.5, !f 2.5] !!, !! ?strs ['a', 'b'] !!, !! ?bools [true, false] !!, !! ?bytes [!b x'cafe', !b x'f00d'] !!)
+      - count: 1
+    -
+      - query: select * from type_with_arrays where pk = !! ?pk !l 3 !!
+      - result: [{!l 3, [!l 10, !l 3000000000], [1, 2, 3], [1.1, 2.2], [!f 1.5, !f 2.5], ['a', 'b'], [true, false], [x'cafe', x'f00d']}]
+---
+test_block:
+  name: named-parameters-queries
+  options:
+    supported_version: !current_version
+  tests:
+    -
+      - query: select a, f from ta where a = !! ?x !l 5 !!
+      - result: [{5, 'iron man'}]
+    -
+      # all the snippets of a named parameter take the same value
+      - query: select a, d from ta where a = !! ?x !l 3 !! and d > !! ?x !! * 100
+      - result: [{3, 354}]
+    -
+      # a random named parameter is bound once per execution
+      - query: select count(*) from ta where a >= !! ?bound !r {5, 9} !! and a <= !! ?bound !!
+      - result: [{1}]
+    -
+      # named and unnamed parameters in one query, including an unnamed parameter in the SELECT list
+      - query: select a, d + !! 1 !! from ta where a = !! ?x !l 9 !! and d > !! 0 !!
+      - result: [{9, 1000}]
+    -
+      - query: select a from ta where a in !! ?xs !in {[!l 5, !l 7]} !! and d < !! ?max 600 !!
+      - result: [{5}]
 ...

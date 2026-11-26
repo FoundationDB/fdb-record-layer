@@ -510,6 +510,15 @@ setup:
 #   !! !in {!a [1, 3]} !!           - IN list: (1, 2, 3)
 #   !! !l 42 !!                      - Long literal
 #
+# Named parameters: a snippet that starts with `?name` is a named parameter (`?name`) instead of an
+# unnamed one (`?`) when the query runs as a prepared statement. Exactly one snippet of a named
+# parameter gives its value; the other snippets of the same parameter only give its name, and take
+# the same value (also a random one), in both simple and prepared statements:
+#   ... WHERE a = !! ?x !l 5 !! OR b = !! ?x !!
+#   ... WHERE a >= !! ?lo !r [1, 10] !! AND a < !! ?lo !! + 5
+# Named parameters need a server that supports them over JDBC, so gate such blocks on
+# `supported_version`.
+#
 # See: null-extraction-tests.yamsql, prepared.yamsql
 #
 # STATEMENT TYPE CONTROL
