@@ -405,7 +405,8 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     public Object visitPreparedStatementParameter(@Nonnull RelationalParser.PreparedStatementParameterContext ctx) {
         Object param;
         if (ctx.QUESTION() != null) {
-            final int currentUnnamedParameterIndex = unnamedParameterIndexes.get(ctx.getStart().getTokenIndex());
+            final int currentUnnamedParameterIndex = Assert.notNullUnchecked(unnamedParameterIndexes.get(ctx.getStart().getTokenIndex()),
+                    ErrorCode.INTERNAL_ERROR, "unnamed parameter not found in its statement");
             param = preparedStatementParameters.unnamedParamValue(currentUnnamedParameterIndex);
             if (param instanceof Array || param instanceof Struct) {
                 allowLiteralAddition = false;

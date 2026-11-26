@@ -63,6 +63,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.DATATYPE_MISMATCH;
+import static com.apple.foundationdb.relational.api.exceptions.ErrorCode.INTERNAL_ERROR;
 
 /**
  * Context keeping state related to plan generation, it also captures execution-specific attributes that influences
@@ -565,7 +566,8 @@ public class MutablePlanGenerationContext implements QueryExecutionContext {
      */
     @Nonnull
     public Value processUnnamedPreparedParam(int tokenIndex) {
-        final int unnamedParameterIndex = unnamedParameterIndexes.get(tokenIndex);
+        final int unnamedParameterIndex = Assert.notNullUnchecked(unnamedParameterIndexes.get(tokenIndex),
+                INTERNAL_ERROR, "unnamed parameter not found in its statement");
         final Object param = preparedParams.unnamedParamValue(unnamedParameterIndex);
         return processPreparedStatementParameter(param, getObjectType(param), unnamedParameterIndex, null, tokenIndex);
     }
