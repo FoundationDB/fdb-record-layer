@@ -201,6 +201,57 @@ public enum FDBClientKnob {
      * @since FDB 7.3.78 and 7.4.7
      */
     SHRINK_PROXY_LIST_CLEAR_CACHE_BELOW_THRESHOLD(KnobValueType.BOOLEAN),
+    /**
+     * Whether the client should compute a checksum for each mutation of the transactions that it commits. If enabled,
+     * the checksum is sent along with the mutation so that the processes that receive the mutation can check
+     * for corruption. This is off by default. The checksums are also recorded with the mutations in the client
+     * transaction log (see {@link #CSI_SAMPLING_PROBABILITY}), where
+     * {@link com.apple.foundationdb.clientlog.FDBClientLogEvents} can read them.
+     *
+     * @since FDB 7.4.0
+     */
+    ENABLE_MUTATION_CHECKSUM(KnobValueType.BOOLEAN),
+    /**
+     * The fraction of the transactions that this client samples. Information about each sampled transaction
+     * (such as its latencies and mutations) is included in the client transaction log, which can be read with
+     * {@link com.apple.foundationdb.clientlog.FDBClientLogEvents}. Values should be between {@code 0.0} and
+     * {@code 1.0}. The default of {@code -1.0} means that no transactions are sampled.
+     *
+     * <p>A sampling rate can also be set for the cluster as a whole with the {@code fdbcli} command
+     * {@code profile client set <RATE|default> <SIZE|default>}. If one has been set, it takes precedence over this
+     * knob. For example, {@code profile client set 0.01 100MB} samples 1% of the transactions of every client and
+     * keeps up to 100MB of what is recorded. See the
+     * <a href="https://apple.github.io/foundationdb/transaction-profiler-analyzer.html">FDB documentation on the
+     * transaction profiler</a> for more information.
+     *
+     * @see #CSI_SIZE_LIMIT
+     * @see #CSI_STATUS_DELAY
+     */
+    CSI_SAMPLING_PROBABILITY(KnobValueType.DOUBLE),
+    /**
+     * The maximum number of bytes of sampled transaction information to keep in the client transaction log. When the
+     * log grows beyond this size, the client removes the oldest entries. By default, there is effectively no limit.
+     * As with the {@linkplain #CSI_SAMPLING_PROBABILITY sampling rate}, a size limit can be set for the cluster
+     * as a whole with {@code fdbcli}, and if one has been set, it takes precedence over this knob.
+     *
+     * @see #CSI_SAMPLING_PROBABILITY
+     */
+    CSI_SIZE_LIMIT(KnobValueType.LONG),
+    /**
+     * The number of seconds that the client waits between writes of its sampled transaction information to the
+     * database. This bounds the delay between an operation occurring and it being readable by
+     * {@link com.apple.foundationdb.clientlog.FDBClientLogEvents}. Lowering it makes the information available
+     * sooner, at the cost of more frequent (and smaller) writes.
+     *
+     * <p>This only has an effect if transaction sampling is enabled, which it is not by default. Sampling can be
+     * enabled for a single client with {@link #CSI_SAMPLING_PROBABILITY}, or for every client of the cluster with
+     * the {@code fdbcli} command {@code profile client set}. See {@link #CSI_SAMPLING_PROBABILITY} for more details.
+     *
+     * @see #CSI_SAMPLING_PROBABILITY
+     * @see #CSI_SIZE_LIMIT
+     * @since FDB 7.1.0
+     */
+    CSI_STATUS_DELAY(KnobValueType.DOUBLE),
     ;
 
     @Nonnull

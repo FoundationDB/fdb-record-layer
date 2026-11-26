@@ -151,6 +151,9 @@ test {
     // module that has RequiresScalar-tagged tests and the only one that sets the SIMD JVM flags.
     useJUnitPlatform()
     testFramework.options.excludeTags.add('RequiresScalar')
+    // ClientLog tests set FDB client knobs, which has to happen before any other test starts the FDB
+    // network, so they run in their own JVM in the dedicated clientLogTest and clientLogChecksumTest tasks below.
+    testFramework.options.excludeTags.add('ClientLog')
 }
 
 //
@@ -227,6 +230,48 @@ tasks.register('scalarFallbackTest', Test) {
 }
 tasks.named('check').configure {
     dependsOn 'scalarFallbackTest'
+}
+
+//
+// Tests of the client latency log against a live cluster (FDBClientLogEventsClusterTest). They set FDB client
+// knobs, which is only possible before the FDB network starts, so they cannot share a JVM with the tests of the
+// default test task that open a database. Selected by the ClientLog tag, which the default test task excludes. Like
+// the other test tasks they need a running FDB, so CI runs them in the test jobs and not in the style job, which
+// excludes them with -x.
+//
+// The client only records a checksum with each mutation if told to (protocol version 7.4 and later), which is a
+// client knob and so a setting of the whole JVM. The test is therefore run once for each setting, by two tasks:
+//   clientLogTest          the default, with no checksums. Works with any FDB version, and is part of check.
+//   clientLogChecksumTest  has the client record checksums. Needs a 7.4 or later client library, which the knob
+//                          does not exist in before, so it is only part of check when asked for with
+//                          -Ptests.clientLogChecksum.
+// Either can also be given -Dfdb.clientlog.capture_dir=<dir> to write the raw log entries that were read there,
+// which is how to add to the log entries that FDBClientLogEventsParsingTest checks.
+//
+def registerClientLogTest = { String taskName, String taskDescription, boolean mutationChecksum ->
+    tasks.register(taskName, Test) {
+        description = taskDescription
+        group = 'verification'
+        useJUnitPlatform {
+            includeTags 'ClientLog'
+        }
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath       = sourceSets.test.runtimeClasspath
+        systemProperty 'fdb.clientlog.mutation_checksum', mutationChecksum
+        if (System.getProperty('fdb.clientlog.capture_dir') != null) {
+            systemProperty 'fdb.clientlog.capture_dir', System.getProperty('fdb.clientlog.capture_dir')
+        }
+    }
+}
+registerClientLogTest('clientLogTest',
+        'Runs the ClientLog tagged tests with a client that does not record mutation checksums.', false)
+registerClientLogTest('clientLogChecksumTest',
+        'Runs the ClientLog tagged tests with a client that records mutation checksums (7.4 or later client library).', true)
+tasks.named('check').configure {
+    dependsOn 'clientLogTest'
+    if (project.hasProperty('tests.clientLogChecksum')) {
+        dependsOn 'clientLogChecksumTest'
+    }
 }
 
 publishing {

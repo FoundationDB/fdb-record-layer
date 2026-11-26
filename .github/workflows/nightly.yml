@@ -43,7 +43,7 @@ jobs:
       - name: Run Gradle Test
         uses: ./actions/gradle-test
         with:
-          gradle_command: jar test destructiveTest :fdb-extensions:scalarFallbackTest codeCoverageReport
+          gradle_command: jar test destructiveTest :fdb-extensions:scalarFallbackTest :fdb-extensions:clientLogTest :fdb-extensions:clientLogChecksumTest codeCoverageReport
           gradle_args: -PreleaseBuild=false -PpublishBuild=false -DallTest.timeoutMinutes=330
       - name: Upload coverage to teamscale
         uses: ./actions/teamscale-upload
@@ -153,12 +153,14 @@ jobs:
     strategy:
       matrix:
         subproject: [fdb-extensions, fdb-record-layer-core, fdb-record-layer-lucene, yaml-tests]
-        # fdb-extensions also runs its scalar-fallback test task here so its JaCoCo execution data
-        # is produced alongside the other test tasks and picked up by the coverage-data upload
-        # below. matrix.extra_tasks is unset (empty) for the other subprojects.
+        # fdb-extensions also runs its scalar-fallback and client log event test tasks here so its JaCoCo
+        # execution data is produced alongside the other test tasks and picked up by the coverage-data
+        # upload below. These are separated from the main test task because they require their own JVM
+        # in order to override certain global settings. matrix.extra_tasks is unset (empty) for the other
+        # subprojects.
         include:
           - subproject: fdb-extensions
-            extra_tasks: ':fdb-extensions:scalarFallbackTest'
+            extra_tasks: ':fdb-extensions:scalarFallbackTest :fdb-extensions:clientLogTest :fdb-extensions:clientLogChecksumTest'
     runs-on: ubuntu-latest
     # See the timeout comment on the `test` job
     timeout-minutes: 360

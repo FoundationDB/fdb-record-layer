@@ -30,6 +30,7 @@ import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.system.SystemKeyspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.Longs;
 
 import javax.annotation.Nonnull;
@@ -68,9 +69,13 @@ public class FDBClientLogEvents {
     public static final long PROTOCOL_VERSION_7_1 = 0x0FDB00B071010000L;
     public static final long PROTOCOL_VERSION_7_2 = 0x0FDB00B072000000L;
     public static final long PROTOCOL_VERSION_7_3 = 0x0FDB00B073000000L;
-    private static final long[] SUPPORTED_PROTOCOL_VERSIONS = {
+    public static final long PROTOCOL_VERSION_7_4 = 0x0FDB00B074000000L;
+    public static final long PROTOCOL_VERSION_8_0 = 0x0FDB00B080000000L;
+    @VisibleForTesting
+    static final long[] SUPPORTED_PROTOCOL_VERSIONS = {
             PROTOCOL_VERSION_5_2, PROTOCOL_VERSION_6_0, PROTOCOL_VERSION_6_1, PROTOCOL_VERSION_6_2, PROTOCOL_VERSION_6_3,
-            PROTOCOL_VERSION_7_0, PROTOCOL_VERSION_7_1, PROTOCOL_VERSION_7_2, PROTOCOL_VERSION_7_3
+            PROTOCOL_VERSION_7_0, PROTOCOL_VERSION_7_1, PROTOCOL_VERSION_7_2, PROTOCOL_VERSION_7_3,
+            PROTOCOL_VERSION_7_4, PROTOCOL_VERSION_8_0
     };
 
     //                    0               1         2         3         4         5         6         7
@@ -482,16 +487,40 @@ public class FDBClientLogEvents {
         public static final int MIN_V2 = 18;
         public static final int AND_V2 = 19;
 
+        // Starting with protocol version 7.4, the two high bits of the serialized type indicate that a checksum
+        // and/or an accumulative checksum index have been appended to the parameter.
+        static final int CHECKSUM_FLAG_MASK = 0x80;
+        static final int ACCUMULATIVE_CHECKSUM_INDEX_FLAG_MASK = 0x40;
+        static final int TYPE_MASK = ~(CHECKSUM_FLAG_MASK | ACCUMULATIVE_CHECKSUM_INDEX_FLAG_MASK) & 0xFF;
+
         private final int type;
         @Nonnull
         private final byte[] key;
         @Nonnull
         private final byte[] param;
+        @Nullable
+        private final Integer checksum;
+        @Nullable
+        private final Integer accumulativeChecksumIndex;
 
-        public Mutation(int type, @Nonnull byte[] key, @Nonnull byte[] param) {
+        /**
+         * Create a mutation object representing an FDB mutation. Note that the checksum information is nullable,
+         * as it is optional as it was only added with protocol version 7.4. After that protocol version, it
+         * is still optional and off by default.
+         *
+         * @param type the type of the mutation, without any flags
+         * @param key the key (or the beginning of the range for a clear)
+         * @param param the value or operand (or the end of the range for a clear), without any checksum suffix
+         * @param checksum the checksum, or {@code null} if there is none
+         * @param accumulativeChecksumIndex the accumulative checksum index, or {@code null} if there is none
+         */
+        public Mutation(int type, @Nonnull byte[] key, @Nonnull byte[] param,
+                        @Nullable Integer checksum, @Nullable Integer accumulativeChecksumIndex) {
             this.type = type;
             this.key = key;
             this.param = param;
+            this.checksum = checksum;
+            this.accumulativeChecksumIndex = accumulativeChecksumIndex;
         }
 
         public int getType() {
@@ -506,6 +535,26 @@ public class FDBClientLogEvents {
         @Nonnull
         public byte[] getParam() {
             return param;
+        }
+
+        /**
+         * Get the checksum recorded with this mutation, if any.
+         *
+         * @return the checksum or {@code null} if none was recorded (including for protocol versions before 7.4)
+         */
+        @Nullable
+        public Integer getChecksum() {
+            return checksum;
+        }
+
+        /**
+         * Get the accumulative checksum index recorded with this mutation, if any.
+         *
+         * @return the index or {@code null} if none was recorded
+         */
+        @Nullable
+        public Integer getAccumulativeChecksumIndex() {
+            return accumulativeChecksumIndex;
         }
 
         @Override
@@ -524,11 +573,17 @@ public class FDBClientLogEvents {
             } else {
                 typeName = Integer.toString(type);
             }
-            return new StringJoiner(", ", getClass().getSimpleName() + "[", "]")
+            final StringJoiner joiner = new StringJoiner(", ", getClass().getSimpleName() + "[", "]")
                     .add("type=" + typeName)
                     .add("key=" + ByteArrayUtil.printable(key))
-                    .add("param=" + ByteArrayUtil.printable(param))
-                    .toString();
+                    .add("param=" + ByteArrayUtil.printable(param));
+            if (checksum != null) {
+                joiner.add("checksum=" + Integer.toUnsignedString(checksum));
+            }
+            if (accumulativeChecksumIndex != null) {
+                joiner.add("accumulativeChecksumIndex=" + accumulativeChecksumIndex);
+            }
+            return joiner.toString();
         }
     }
 
@@ -699,9 +754,41 @@ public class FDBClientLogEvents {
         return result;
     }
 
+    /**
+     * Read a range that was written as its two keys, as the events for reading a range do.
+     *
+     * @param buffer the buffer to read from
+     * @return the range
+     */
     @Nonnull
     protected static Range deserializeRange(@Nonnull ByteBuffer buffer) {
         return new Range(deserializeByteArray(buffer), deserializeByteArray(buffer));
+    }
+
+    /**
+     * Read a conflict range of a commit. Unlike the ranges of the events for reading a range, these are written
+     * by FDB's {@code KeyRangeRef::serialize}, which writes a range of a single key as just its exclusive end
+     * (the key followed by a zero byte) and an empty string.
+     *
+     * @param buffer the buffer to read from
+     * @return the range
+     */
+    @Nonnull
+    protected static Range deserializeConflictRange(@Nonnull ByteBuffer buffer) {
+        final byte[] begin = deserializeByteArray(buffer);
+        final byte[] end = deserializeByteArray(buffer);
+        if (end.length == 0 && begin.length > 0) {
+            return new Range(withoutTerminator(begin), begin);
+        }
+        return new Range(begin, end);
+    }
+
+    @Nonnull
+    private static byte[] withoutTerminator(@Nonnull byte[] exclusiveEnd) {
+        if (exclusiveEnd[exclusiveEnd.length - 1] != 0) {
+            throw new IllegalStateException("Key of single key range does not end with a zero byte");
+        }
+        return Arrays.copyOf(exclusiveEnd, exclusiveEnd.length - 1);
     }
 
     @Nonnull
@@ -709,22 +796,56 @@ public class FDBClientLogEvents {
         final int length = buffer.getInt();
         final Range[] result = new Range[length];
         for (int i = 0; i < length; i++) {
-            result[i] = deserializeRange(buffer);
+            result[i] = deserializeConflictRange(buffer);
         }
         return result;
     }
 
     @Nonnull
-    protected static Mutation deserializeMutation(@Nonnull ByteBuffer buffer) {
-        return new Mutation(buffer.get(), deserializeByteArray(buffer), deserializeByteArray(buffer));
+    protected static Mutation deserializeMutation(long protocolVersion, @Nonnull ByteBuffer buffer) {
+        int type = buffer.get() & 0xFF;
+        byte[] key = deserializeByteArray(buffer);
+        byte[] param = deserializeByteArray(buffer);
+        Integer checksum = null;
+        Integer accumulativeChecksumIndex = null;
+        if (protocolVersion >= PROTOCOL_VERSION_7_4) {
+            final boolean hasChecksum = (type & Mutation.CHECKSUM_FLAG_MASK) != 0;
+            final boolean hasIndex = (type & Mutation.ACCUMULATIVE_CHECKSUM_INDEX_FLAG_MASK) != 0;
+            type &= Mutation.TYPE_MASK;
+            if (hasIndex && !hasChecksum) {
+                // FDB only ever appends an index after a checksum.
+                throw new IllegalStateException("Mutation has an accumulative checksum index but no checksum");
+            }
+            if (param.length < (hasChecksum ? Integer.BYTES : 0) + (hasIndex ? Short.BYTES : 0)) {
+                throw new IllegalStateException("Mutation parameter is too short for its checksum");
+            }
+            // The suffixes were appended checksum first, then index, so strip them in the reverse order.
+            final ByteBuffer paramBuffer = ByteBuffer.wrap(param).order(ByteOrder.LITTLE_ENDIAN);
+            int paramLength = param.length;
+            if (hasIndex) {
+                paramLength -= Short.BYTES;
+                accumulativeChecksumIndex = (int)paramBuffer.getShort(paramLength) & 0xFFFF;
+            }
+            if (hasChecksum) {
+                paramLength -= Integer.BYTES;
+                checksum = paramBuffer.getInt(paramLength);
+            }
+            param = Arrays.copyOf(param, paramLength);
+        }
+        if (type == Mutation.CLEAR_RANGE && param.length == 0 && key.length > 0) {
+            // A single-key clear is serialized as just the exclusive end key, which is the key followed by a zero byte.
+            param = key;
+            key = withoutTerminator(key);
+        }
+        return new Mutation(type, key, param, checksum, accumulativeChecksumIndex);
     }
 
     @Nonnull
-    protected static Mutation[] deserializeMutationArray(@Nonnull ByteBuffer buffer) {
+    protected static Mutation[] deserializeMutationArray(long protocolVersion, @Nonnull ByteBuffer buffer) {
         final int length = buffer.getInt();
         final Mutation[] result = new Mutation[length];
         for (int i = 0; i < length; i++) {
-            result[i] = deserializeMutation(buffer);
+            result[i] = deserializeMutation(protocolVersion, buffer);
         }
         return result;
     }
@@ -733,7 +854,7 @@ public class FDBClientLogEvents {
     protected static CommitRequest deserializeCommit(long protocolVersion, @Nonnull ByteBuffer buffer) {
         final Range[] readConflictRanges = deserializeRangeArray(buffer);
         final Range[] writeConflictRanges = deserializeRangeArray(buffer);
-        final Mutation[] mutations = deserializeMutationArray(buffer);
+        final Mutation[] mutations = deserializeMutationArray(protocolVersion, buffer);
         final long snapshotVersion = buffer.getLong();
         boolean reportConflictingKeys = false;
         if (protocolVersion >= PROTOCOL_VERSION_6_3) {
@@ -843,7 +964,9 @@ public class FDBClientLogEvents {
                     splitBuffer = ByteBuffer.allocate(numChunks * keyValue.getValue().length);
                     splitId = transactionId;
                     splitPosition = 1;
-                } else if (chunkNumber == splitPosition && Arrays.equals(transactionId, splitId)) {
+                }
+                // Chunks are numbered from one, and the first is part of the entry like all the others.
+                if (splitBuffer != null && chunkNumber == splitPosition && Arrays.equals(transactionId, splitId)) {
                     if (splitBuffer.remaining() < keyValue.getValue().length) {
                         final ByteBuffer newBuffer = ByteBuffer.allocate(splitBuffer.position() + keyValue.getValue().length);
                         splitBuffer.flip();
@@ -852,7 +975,7 @@ public class FDBClientLogEvents {
                     }
                     splitBuffer.put(keyValue.getValue());
                     splitPosition++;
-                    if (splitPosition == numChunks) {
+                    if (chunkNumber == numChunks) {
                         splitBuffer.flip();
                         ByteBuffer buffer = splitBuffer;
                         splitBuffer = null;
