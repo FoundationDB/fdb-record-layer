@@ -5,12 +5,12 @@ merge-comparison-keys:
         V: KEY:[0]]) ∪ COVERING(T_STR_A_V [EQUALS promote(@c11 AS STRING)] -> [ID:
         KEY:[2], V: KEY:[0]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V)
         | MAP (_.ID AS ID)'
-    task_count: 3881
-    task_total_time_ms: 253
-    transform_count: 638
-    transform_time_ms: 120
+    task_count: 3887
+    task_total_time_ms: 40
+    transform_count: 644
+    transform_time_ms: 12
     transform_yield_count: 181
-    insert_time_ms: 19
+    insert_time_ms: 2
     insert_new_count: 446
     insert_reused_count: 38
 -   query: EXPLAIN select id from t_str_a where v in ('y', 'x') order by v asc
@@ -18,12 +18,12 @@ merge-comparison-keys:
     explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_A_V [EQUALS
         q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP
         (_.ID AS ID)'
-    task_count: 1505
-    task_total_time_ms: 15
-    transform_count: 391
-    transform_time_ms: 6
+    task_count: 1509
+    task_total_time_ms: 31
+    transform_count: 395
+    transform_time_ms: 10
     transform_yield_count: 111
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 179
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_str_a where a = 1 and c = 1 order by v asc
@@ -32,12 +32,12 @@ merge-comparison-keys:
         KEY:[3], V: KEY:[1]]) ∩ COVERING(T_STR_A_A [EQUALS promote(@c7 AS LONG)] ->
         [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID
         AS ID, _.V AS V) | MAP (_.ID AS ID)'
-    task_count: 542
-    task_total_time_ms: 29
-    transform_count: 140
-    transform_time_ms: 14
+    task_count: 546
+    task_total_time_ms: 10
+    transform_count: 144
+    transform_time_ms: 5
     transform_yield_count: 46
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 56
     insert_reused_count: 3
 -   query: EXPLAIN select id from t_str_a where v = 'x' or v = 'y' order by v desc
@@ -46,12 +46,12 @@ merge-comparison-keys:
     explain: ISCAN(T_STR_A_V [EQUALS promote(@c7 AS STRING)]) ∪ ISCAN(T_STR_A_V [EQUALS
         promote(@c11 AS STRING)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST),
         _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3521
-    task_total_time_ms: 99
-    transform_count: 587
-    transform_time_ms: 36
+    task_count: 3527
+    task_total_time_ms: 34
+    transform_count: 593
+    transform_time_ms: 11
     transform_yield_count: 170
-    insert_time_ms: 8
+    insert_time_ms: 2
     insert_new_count: 405
     insert_reused_count: 37
 -   query: EXPLAIN select id from t_str_a where v in ('y', 'x') order by v desc nulls
@@ -60,12 +60,12 @@ merge-comparison-keys:
     explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_A_V
         [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V)
         } | MAP (_.ID AS ID)'
-    task_count: 1577
-    task_total_time_ms: 17
-    transform_count: 403
-    transform_time_ms: 5
+    task_count: 1581
+    task_total_time_ms: 25
+    transform_count: 407
+    transform_time_ms: 9
     transform_yield_count: 117
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 187
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_str_a where a = 1 and c = 1 order by v desc nulls
@@ -75,10 +75,10 @@ merge-comparison-keys:
         ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_STR_A_A [EQUALS promote(@c7 AS LONG)]
         REVERSE -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) |
         MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
-    task_count: 542
-    task_total_time_ms: 19
-    transform_count: 140
-    transform_time_ms: 9
+    task_count: 546
+    task_total_time_ms: 8
+    transform_count: 144
+    transform_time_ms: 3
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 56
@@ -89,12 +89,12 @@ merge-comparison-keys:
         ∪ ISCAN(T_STR_D_V [EQUALS to_ordered_bytes(promote(@c11 AS STRING), DESC_NULLS_LAST)])
         COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID,
         _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3389
-    task_total_time_ms: 89
-    transform_count: 571
-    transform_time_ms: 37
+    task_count: 3395
+    task_total_time_ms: 32
+    transform_count: 577
+    transform_time_ms: 10
     transform_yield_count: 163
-    insert_time_ms: 7
+    insert_time_ms: 2
     insert_new_count: 389
     insert_reused_count: 35
 -   query: EXPLAIN select id from t_str_d where v in ('y', 'x') order by v desc
@@ -102,10 +102,10 @@ merge-comparison-keys:
     explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_D_V
         [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)'
-    task_count: 1505
-    task_total_time_ms: 16
-    transform_count: 391
-    transform_time_ms: 6
+    task_count: 1509
+    task_total_time_ms: 21
+    transform_count: 395
+    transform_time_ms: 7
     transform_yield_count: 111
     insert_time_ms: 0
     insert_new_count: 179
@@ -115,10 +115,10 @@ merge-comparison-keys:
     explain: ISCAN(T_STR_D_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_STR_D_A [EQUALS
         promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST),
         _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 464
-    task_total_time_ms: 17
-    transform_count: 127
-    transform_time_ms: 9
+    task_count: 468
+    task_total_time_ms: 7
+    transform_count: 131
+    transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -131,12 +131,12 @@ merge-comparison-keys:
         ∪ COVERING(T_STR_D_V [EQUALS to_ordered_bytes(promote(@c11 AS STRING), DESC_NULLS_LAST)]
         -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) COMPARE
         BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
-    task_count: 3683
-    task_total_time_ms: 79
-    transform_count: 611
-    transform_time_ms: 28
+    task_count: 3689
+    task_total_time_ms: 36
+    transform_count: 617
+    transform_time_ms: 11
     transform_yield_count: 176
-    insert_time_ms: 7
+    insert_time_ms: 2
     insert_new_count: 425
     insert_reused_count: 39
 -   query: EXPLAIN select id from t_str_d where v in ('y', 'x') order by v asc nulls
@@ -145,12 +145,12 @@ merge-comparison-keys:
     explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_D_V [EQUALS
         to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)'
-    task_count: 1577
-    task_total_time_ms: 18
-    transform_count: 403
+    task_count: 1581
+    task_total_time_ms: 21
+    transform_count: 407
     transform_time_ms: 6
     transform_yield_count: 117
-    insert_time_ms: 2
+    insert_time_ms: 0
     insert_new_count: 187
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_str_d where a = 1 and c = 1 order by v asc nulls
@@ -159,10 +159,10 @@ merge-comparison-keys:
     explain: ISCAN(T_STR_D_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_STR_D_A
         [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (_.V, to_ordered_bytes(_.ID,
         DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 464
-    task_total_time_ms: 16
-    transform_count: 127
-    transform_time_ms: 8
+    task_count: 468
+    task_total_time_ms: 7
+    transform_count: 131
+    transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -174,12 +174,12 @@ merge-comparison-keys:
         V: KEY:[0]]) ∪ COVERING(T_STR_ANF_V [EQUALS promote(@c11 AS STRING)] -> [ID:
         KEY:[2], V: KEY:[0]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V)
         | MAP (_.ID AS ID)'
-    task_count: 3881
-    task_total_time_ms: 70
-    transform_count: 638
-    transform_time_ms: 24
+    task_count: 3887
+    task_total_time_ms: 37
+    transform_count: 644
+    transform_time_ms: 10
     transform_yield_count: 181
-    insert_time_ms: 6
+    insert_time_ms: 2
     insert_new_count: 446
     insert_reused_count: 38
 -   query: EXPLAIN select id from t_str_anf where v in ('y', 'x') order by v asc nulls
@@ -188,12 +188,12 @@ merge-comparison-keys:
     explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_ANF_V
         [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V)
         } | MAP (_.ID AS ID)'
-    task_count: 1505
-    task_total_time_ms: 17
-    transform_count: 391
-    transform_time_ms: 6
+    task_count: 1509
+    task_total_time_ms: 22
+    transform_count: 395
+    transform_time_ms: 7
     transform_yield_count: 111
-    insert_time_ms: 2
+    insert_time_ms: 1
     insert_new_count: 179
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_str_anf where a = 1 and c = 1 order by v asc nulls
@@ -203,12 +203,12 @@ merge-comparison-keys:
         KEY:[3], V: KEY:[1]]) ∩ COVERING(T_STR_ANF_A [EQUALS promote(@c7 AS LONG)]
         -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID
         AS ID, _.V AS V) | MAP (_.ID AS ID)'
-    task_count: 542
-    task_total_time_ms: 16
-    transform_count: 140
-    transform_time_ms: 8
+    task_count: 546
+    task_total_time_ms: 8
+    transform_count: 144
+    transform_time_ms: 3
     transform_yield_count: 46
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 56
     insert_reused_count: 3
 -   query: EXPLAIN select id from t_str_anf where v = 'x' or v = 'y' order by v desc
@@ -217,12 +217,12 @@ merge-comparison-keys:
     explain: ISCAN(T_STR_ANF_V [EQUALS promote(@c7 AS STRING)]) ∪ ISCAN(T_STR_ANF_V
         [EQUALS promote(@c11 AS STRING)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST),
         _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3521
-    task_total_time_ms: 61
-    transform_count: 587
-    transform_time_ms: 22
+    task_count: 3527
+    task_total_time_ms: 35
+    transform_count: 593
+    transform_time_ms: 10
     transform_yield_count: 170
-    insert_time_ms: 7
+    insert_time_ms: 2
     insert_new_count: 405
     insert_reused_count: 37
 -   query: EXPLAIN select id from t_str_anf where v in ('y', 'x') order by v desc
@@ -231,12 +231,12 @@ merge-comparison-keys:
     explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_ANF_V
         [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V)
         } | MAP (_.ID AS ID)'
-    task_count: 1577
-    task_total_time_ms: 15
-    transform_count: 403
-    transform_time_ms: 5
+    task_count: 1581
+    task_total_time_ms: 22
+    transform_count: 407
+    transform_time_ms: 7
     transform_yield_count: 117
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 187
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_str_anf where a = 1 and c = 1 order by v desc
@@ -246,10 +246,10 @@ merge-comparison-keys:
         ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_STR_ANF_A [EQUALS promote(@c7 AS LONG)]
         REVERSE -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) |
         MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
-    task_count: 542
-    task_total_time_ms: 15
-    transform_count: 140
-    transform_time_ms: 7
+    task_count: 546
+    task_total_time_ms: 8
+    transform_count: 144
+    transform_time_ms: 3
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 56
@@ -261,12 +261,12 @@ merge-comparison-keys:
         ∪ ISCAN(T_STR_ANL_V [EQUALS to_ordered_bytes(promote(@c11 AS STRING), ASC_NULLS_LAST)])
         COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID,
         _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3389
-    task_total_time_ms: 57
-    transform_count: 571
-    transform_time_ms: 21
+    task_count: 3395
+    task_total_time_ms: 35
+    transform_count: 577
+    transform_time_ms: 10
     transform_yield_count: 163
-    insert_time_ms: 5
+    insert_time_ms: 2
     insert_new_count: 389
     insert_reused_count: 35
 -   query: EXPLAIN select id from t_str_anl where v in ('y', 'x') order by v asc nulls
@@ -276,12 +276,12 @@ merge-comparison-keys:
         to_ordered_bytes(q0._0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V,
         ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)'
-    task_count: 1463
-    task_total_time_ms: 15
-    transform_count: 388
-    transform_time_ms: 5
+    task_count: 1467
+    task_total_time_ms: 23
+    transform_count: 392
+    transform_time_ms: 8
     transform_yield_count: 108
-    insert_time_ms: 2
+    insert_time_ms: 1
     insert_new_count: 174
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_str_anl where a = 1 and c = 1 order by v asc nulls
@@ -290,10 +290,10 @@ merge-comparison-keys:
     explain: ISCAN(T_STR_ANL_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_STR_ANL_A
         [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST),
         _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 464
-    task_total_time_ms: 12
-    transform_count: 127
-    transform_time_ms: 6
+    task_count: 468
+    task_total_time_ms: 7
+    transform_count: 131
+    transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -305,12 +305,12 @@ merge-comparison-keys:
         ∪ ISCAN(T_STR_ANL_V [EQUALS to_ordered_bytes(promote(@c11 AS STRING), ASC_NULLS_LAST)])
         COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS
         ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3437
-    task_total_time_ms: 56
-    transform_count: 576
-    transform_time_ms: 20
+    task_count: 3443
+    task_total_time_ms: 30
+    transform_count: 582
+    transform_time_ms: 9
     transform_yield_count: 167
-    insert_time_ms: 4
+    insert_time_ms: 1
     insert_new_count: 395
     insert_reused_count: 36
 -   query: EXPLAIN select id from t_str_anl where v in ('y', 'x') order by v desc
@@ -320,12 +320,12 @@ merge-comparison-keys:
         to_ordered_bytes(q0._0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V,
         DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)'
-    task_count: 1509
-    task_total_time_ms: 18
-    transform_count: 397
+    task_count: 1513
+    task_total_time_ms: 21
+    transform_count: 401
     transform_time_ms: 6
     transform_yield_count: 112
-    insert_time_ms: 2
+    insert_time_ms: 0
     insert_new_count: 179
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_str_anl where a = 1 and c = 1 order by v desc
@@ -334,10 +334,10 @@ merge-comparison-keys:
     explain: ISCAN(T_STR_ANL_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_STR_ANL_A
         [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST),
         _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 464
-    task_total_time_ms: 13
-    transform_count: 127
-    transform_time_ms: 7
+    task_count: 468
+    task_total_time_ms: 7
+    transform_count: 131
+    transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -349,12 +349,12 @@ merge-comparison-keys:
         ∪ ISCAN(T_STR_DNF_V [EQUALS to_ordered_bytes(promote(@c11 AS STRING), DESC_NULLS_FIRST)])
         COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS
         ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3389
-    task_total_time_ms: 50
-    transform_count: 571
-    transform_time_ms: 18
+    task_count: 3395
+    task_total_time_ms: 35
+    transform_count: 577
+    transform_time_ms: 10
     transform_yield_count: 163
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 389
     insert_reused_count: 35
 -   query: EXPLAIN select id from t_str_dnf where v in ('y', 'x') order by v desc
@@ -364,10 +364,10 @@ merge-comparison-keys:
         to_ordered_bytes(q0._0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V,
         DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)'
-    task_count: 1463
-    task_total_time_ms: 17
-    transform_count: 388
-    transform_time_ms: 6
+    task_count: 1467
+    task_total_time_ms: 28
+    transform_count: 392
+    transform_time_ms: 9
     transform_yield_count: 108
     insert_time_ms: 1
     insert_new_count: 174
@@ -378,10 +378,10 @@ merge-comparison-keys:
     explain: ISCAN(T_STR_DNF_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_STR_DNF_A
         [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST),
         _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 464
-    task_total_time_ms: 12
-    transform_count: 127
-    transform_time_ms: 6
+    task_count: 468
+    task_total_time_ms: 7
+    transform_count: 131
+    transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -393,12 +393,12 @@ merge-comparison-keys:
         ∪ ISCAN(T_STR_DNF_V [EQUALS to_ordered_bytes(promote(@c11 AS STRING), DESC_NULLS_FIRST)])
         COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID,
         _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3437
-    task_total_time_ms: 53
-    transform_count: 576
-    transform_time_ms: 20
+    task_count: 3443
+    task_total_time_ms: 31
+    transform_count: 582
+    transform_time_ms: 9
     transform_yield_count: 167
-    insert_time_ms: 4
+    insert_time_ms: 1
     insert_new_count: 395
     insert_reused_count: 36
 -   query: EXPLAIN select id from t_str_dnf where v in ('y', 'x') order by v asc nulls
@@ -408,12 +408,12 @@ merge-comparison-keys:
         to_ordered_bytes(q0._0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V,
         ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)'
-    task_count: 1509
-    task_total_time_ms: 16
-    transform_count: 397
-    transform_time_ms: 5
+    task_count: 1513
+    task_total_time_ms: 22
+    transform_count: 401
+    transform_time_ms: 7
     transform_yield_count: 112
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 179
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_str_dnf where a = 1 and c = 1 order by v asc nulls
@@ -423,10 +423,10 @@ merge-comparison-keys:
         [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST),
         to_ordered_bytes(_.ID, DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP
         (_.ID AS ID)
-    task_count: 464
-    task_total_time_ms: 12
-    transform_count: 127
-    transform_time_ms: 6
+    task_count: 468
+    task_total_time_ms: 7
+    transform_count: 131
+    transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -438,12 +438,12 @@ merge-comparison-keys:
         ∪ ISCAN(T_STR_DNL_V [EQUALS to_ordered_bytes(promote(@c11 AS STRING), DESC_NULLS_LAST)])
         COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID,
         _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3389
-    task_total_time_ms: 49
-    transform_count: 571
-    transform_time_ms: 17
+    task_count: 3395
+    task_total_time_ms: 33
+    transform_count: 577
+    transform_time_ms: 10
     transform_yield_count: 163
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 389
     insert_reused_count: 35
 -   query: EXPLAIN select id from t_str_dnl where v in ('y', 'x') order by v desc
@@ -452,12 +452,12 @@ merge-comparison-keys:
     explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_DNL_V
         [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)'
-    task_count: 1505
-    task_total_time_ms: 15
-    transform_count: 391
-    transform_time_ms: 5
+    task_count: 1509
+    task_total_time_ms: 22
+    transform_count: 395
+    transform_time_ms: 8
     transform_yield_count: 111
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 179
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_str_dnl where a = 1 and c = 1 order by v desc
@@ -466,10 +466,10 @@ merge-comparison-keys:
     explain: ISCAN(T_STR_DNL_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_STR_DNL_A
         [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST),
         _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 464
-    task_total_time_ms: 12
-    transform_count: 127
-    transform_time_ms: 6
+    task_count: 468
+    task_total_time_ms: 8
+    transform_count: 131
+    transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -482,12 +482,12 @@ merge-comparison-keys:
         ∪ COVERING(T_STR_DNL_V [EQUALS to_ordered_bytes(promote(@c11 AS STRING), DESC_NULLS_LAST)]
         -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) COMPARE
         BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
-    task_count: 3683
-    task_total_time_ms: 56
-    transform_count: 611
-    transform_time_ms: 20
+    task_count: 3689
+    task_total_time_ms: 37
+    transform_count: 617
+    transform_time_ms: 11
     transform_yield_count: 176
-    insert_time_ms: 4
+    insert_time_ms: 2
     insert_new_count: 425
     insert_reused_count: 39
 -   query: EXPLAIN select id from t_str_dnl where v in ('y', 'x') order by v asc nulls
@@ -496,10 +496,10 @@ merge-comparison-keys:
     explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_DNL_V
         [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)'
-    task_count: 1577
-    task_total_time_ms: 16
-    transform_count: 403
-    transform_time_ms: 6
+    task_count: 1581
+    task_total_time_ms: 23
+    transform_count: 407
+    transform_time_ms: 8
     transform_yield_count: 117
     insert_time_ms: 1
     insert_new_count: 187
@@ -510,10 +510,10 @@ merge-comparison-keys:
     explain: ISCAN(T_STR_DNL_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_STR_DNL_A
         [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (_.V, to_ordered_bytes(_.ID,
         DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 464
-    task_total_time_ms: 13
-    transform_count: 127
-    transform_time_ms: 6
+    task_count: 468
+    task_total_time_ms: 7
+    transform_count: 131
+    transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -525,12 +525,12 @@ merge-comparison-keys:
         KEY:[0]]) ∪ COVERING(T_BYT_A_V [EQUALS promote(@c11 AS BYTES)] -> [ID: KEY:[2],
         V: KEY:[0]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID
         AS ID)'
-    task_count: 3881
-    task_total_time_ms: 52
-    transform_count: 638
-    transform_time_ms: 17
+    task_count: 3887
+    task_total_time_ms: 66
+    transform_count: 644
+    transform_time_ms: 11
     transform_yield_count: 181
-    insert_time_ms: 4
+    insert_time_ms: 3
     insert_new_count: 446
     insert_reused_count: 38
 -   query: EXPLAIN select id from t_byt_a where v in (X'ff', X'01') order by v asc
@@ -538,10 +538,10 @@ merge-comparison-keys:
     explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_A_V [EQUALS
         q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP
         (_.ID AS ID)'
-    task_count: 1505
-    task_total_time_ms: 15
-    transform_count: 391
-    transform_time_ms: 5
+    task_count: 1509
+    task_total_time_ms: 23
+    transform_count: 395
+    transform_time_ms: 8
     transform_yield_count: 111
     insert_time_ms: 1
     insert_new_count: 179
@@ -552,10 +552,10 @@ merge-comparison-keys:
         KEY:[3], V: KEY:[1]]) ∩ COVERING(T_BYT_A_A [EQUALS promote(@c7 AS LONG)] ->
         [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID
         AS ID, _.V AS V) | MAP (_.ID AS ID)'
-    task_count: 542
-    task_total_time_ms: 12
-    transform_count: 140
-    transform_time_ms: 6
+    task_count: 546
+    task_total_time_ms: 8
+    transform_count: 144
+    transform_time_ms: 3
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 56
@@ -566,12 +566,12 @@ merge-comparison-keys:
     explain: ISCAN(T_BYT_A_V [EQUALS promote(@c7 AS BYTES)]) ∪ ISCAN(T_BYT_A_V [EQUALS
         promote(@c11 AS BYTES)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST),
         _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3521
-    task_total_time_ms: 49
-    transform_count: 587
-    transform_time_ms: 20
+    task_count: 3527
+    task_total_time_ms: 31
+    transform_count: 593
+    transform_time_ms: 9
     transform_yield_count: 170
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 405
     insert_reused_count: 37
 -   query: EXPLAIN select id from t_byt_a where v in (X'ff', X'01') order by v desc
@@ -580,10 +580,10 @@ merge-comparison-keys:
     explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_A_V
         [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V)
         } | MAP (_.ID AS ID)'
-    task_count: 1577
-    task_total_time_ms: 15
-    transform_count: 403
-    transform_time_ms: 5
+    task_count: 1581
+    task_total_time_ms: 23
+    transform_count: 407
+    transform_time_ms: 7
     transform_yield_count: 117
     insert_time_ms: 1
     insert_new_count: 187
@@ -595,10 +595,10 @@ merge-comparison-keys:
         ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_BYT_A_A [EQUALS promote(@c7 AS LONG)]
         REVERSE -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) |
         MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
-    task_count: 542
-    task_total_time_ms: 12
-    transform_count: 140
-    transform_time_ms: 5
+    task_count: 546
+    task_total_time_ms: 8
+    transform_count: 144
+    transform_time_ms: 3
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 56
@@ -610,12 +610,12 @@ merge-comparison-keys:
         ∪ ISCAN(T_BYT_D_V [EQUALS to_ordered_bytes(promote(@c11 AS BYTES), DESC_NULLS_LAST)])
         COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID,
         _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3389
-    task_total_time_ms: 45
-    transform_count: 571
-    transform_time_ms: 16
+    task_count: 3395
+    task_total_time_ms: 44
+    transform_count: 577
+    transform_time_ms: 13
     transform_yield_count: 163
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 389
     insert_reused_count: 35
 -   query: EXPLAIN select id from t_byt_d where v in (X'ff', X'01') order by v desc
@@ -623,12 +623,12 @@ merge-comparison-keys:
     explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_D_V
         [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)'
-    task_count: 1505
-    task_total_time_ms: 16
-    transform_count: 391
-    transform_time_ms: 6
+    task_count: 1509
+    task_total_time_ms: 21
+    transform_count: 395
+    transform_time_ms: 7
     transform_yield_count: 111
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 179
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_byt_d where a = 1 and c = 1 order by v desc
@@ -636,10 +636,10 @@ merge-comparison-keys:
     explain: ISCAN(T_BYT_D_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_BYT_D_A [EQUALS
         promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST),
         _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 464
-    task_total_time_ms: 10
-    transform_count: 127
-    transform_time_ms: 5
+    task_count: 468
+    task_total_time_ms: 6
+    transform_count: 131
+    transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -652,12 +652,12 @@ merge-comparison-keys:
         [EQUALS to_ordered_bytes(promote(@c11 AS BYTES), DESC_NULLS_LAST)] -> [ID:
         KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) COMPARE BY (_.V,
         _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
-    task_count: 3683
-    task_total_time_ms: 50
-    transform_count: 611
-    transform_time_ms: 17
+    task_count: 3689
+    task_total_time_ms: 34
+    transform_count: 617
+    transform_time_ms: 9
     transform_yield_count: 176
-    insert_time_ms: 4
+    insert_time_ms: 2
     insert_new_count: 425
     insert_reused_count: 39
 -   query: EXPLAIN select id from t_byt_d where v in (X'ff', X'01') order by v asc
@@ -666,10 +666,10 @@ merge-comparison-keys:
     explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_D_V [EQUALS
         to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)'
-    task_count: 1577
-    task_total_time_ms: 16
-    transform_count: 403
-    transform_time_ms: 6
+    task_count: 1581
+    task_total_time_ms: 26
+    transform_count: 407
+    transform_time_ms: 9
     transform_yield_count: 117
     insert_time_ms: 1
     insert_new_count: 187
@@ -680,10 +680,10 @@ merge-comparison-keys:
     explain: ISCAN(T_BYT_D_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_BYT_D_A
         [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (_.V, to_ordered_bytes(_.ID,
         DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 464
-    task_total_time_ms: 11
-    transform_count: 127
-    transform_time_ms: 5
+    task_count: 468
+    task_total_time_ms: 7
+    transform_count: 131
+    transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -695,12 +695,12 @@ merge-comparison-keys:
         V: KEY:[0]]) ∪ COVERING(T_BYT_ANF_V [EQUALS promote(@c11 AS BYTES)] -> [ID:
         KEY:[2], V: KEY:[0]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V)
         | MAP (_.ID AS ID)'
-    task_count: 3881
-    task_total_time_ms: 53
-    transform_count: 638
-    transform_time_ms: 15
+    task_count: 3887
+    task_total_time_ms: 39
+    transform_count: 644
+    transform_time_ms: 10
     transform_yield_count: 181
-    insert_time_ms: 4
+    insert_time_ms: 2
     insert_new_count: 446
     insert_reused_count: 38
 -   query: EXPLAIN select id from t_byt_anf where v in (X'ff', X'01') order by v asc
@@ -709,10 +709,10 @@ merge-comparison-keys:
     explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_ANF_V
         [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V)
         } | MAP (_.ID AS ID)'
-    task_count: 1505
-    task_total_time_ms: 14
-    transform_count: 391
-    transform_time_ms: 5
+    task_count: 1509
+    task_total_time_ms: 22
+    transform_count: 395
+    transform_time_ms: 7
     transform_yield_count: 111
     insert_time_ms: 1
     insert_new_count: 179
@@ -724,10 +724,10 @@ merge-comparison-keys:
         KEY:[3], V: KEY:[1]]) ∩ COVERING(T_BYT_ANF_A [EQUALS promote(@c7 AS LONG)]
         -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID
         AS ID, _.V AS V) | MAP (_.ID AS ID)'
-    task_count: 542
-    task_total_time_ms: 10
-    transform_count: 140
-    transform_time_ms: 4
+    task_count: 546
+    task_total_time_ms: 8
+    transform_count: 144
+    transform_time_ms: 3
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 56
@@ -738,12 +738,12 @@ merge-comparison-keys:
     explain: ISCAN(T_BYT_ANF_V [EQUALS promote(@c7 AS BYTES)]) ∪ ISCAN(T_BYT_ANF_V
         [EQUALS promote(@c11 AS BYTES)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST),
         _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3521
-    task_total_time_ms: 42
-    transform_count: 587
-    transform_time_ms: 14
+    task_count: 3527
+    task_total_time_ms: 34
+    transform_count: 593
+    transform_time_ms: 9
     transform_yield_count: 170
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 405
     insert_reused_count: 37
 -   query: EXPLAIN select id from t_byt_anf where v in (X'ff', X'01') order by v desc
@@ -752,9 +752,9 @@ merge-comparison-keys:
     explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_ANF_V
         [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V)
         } | MAP (_.ID AS ID)'
-    task_count: 1577
-    task_total_time_ms: 20
-    transform_count: 403
+    task_count: 1581
+    task_total_time_ms: 22
+    transform_count: 407
     transform_time_ms: 7
     transform_yield_count: 117
     insert_time_ms: 1
@@ -767,10 +767,10 @@ merge-comparison-keys:
         ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_BYT_ANF_A [EQUALS promote(@c7 AS LONG)]
         REVERSE -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) |
         MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
-    task_count: 542
-    task_total_time_ms: 10
-    transform_count: 140
-    transform_time_ms: 4
+    task_count: 546
+    task_total_time_ms: 9
+    transform_count: 144
+    transform_time_ms: 3
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 56
@@ -782,12 +782,12 @@ merge-comparison-keys:
         ∪ ISCAN(T_BYT_ANL_V [EQUALS to_ordered_bytes(promote(@c11 AS BYTES), ASC_NULLS_LAST)])
         COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID,
         _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3389
-    task_total_time_ms: 43
-    transform_count: 571
-    transform_time_ms: 15
+    task_count: 3395
+    task_total_time_ms: 33
+    transform_count: 577
+    transform_time_ms: 10
     transform_yield_count: 163
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 389
     insert_reused_count: 35
 -   query: EXPLAIN select id from t_byt_anl where v in (X'ff', X'01') order by v asc
@@ -797,10 +797,10 @@ merge-comparison-keys:
         to_ordered_bytes(q0._0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V,
         ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)'
-    task_count: 1463
-    task_total_time_ms: 17
-    transform_count: 388
-    transform_time_ms: 6
+    task_count: 1467
+    task_total_time_ms: 23
+    transform_count: 392
+    transform_time_ms: 8
     transform_yield_count: 108
     insert_time_ms: 1
     insert_new_count: 174
@@ -811,10 +811,10 @@ merge-comparison-keys:
     explain: ISCAN(T_BYT_ANL_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_BYT_ANL_A
         [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST),
         _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 464
-    task_total_time_ms: 14
-    transform_count: 127
-    transform_time_ms: 9
+    task_count: 468
+    task_total_time_ms: 8
+    transform_count: 131
+    transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -826,12 +826,12 @@ merge-comparison-keys:
         ∪ ISCAN(T_BYT_ANL_V [EQUALS to_ordered_bytes(promote(@c11 AS BYTES), ASC_NULLS_LAST)])
         COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS
         ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3437
-    task_total_time_ms: 43
-    transform_count: 576
-    transform_time_ms: 15
+    task_count: 3443
+    task_total_time_ms: 36
+    transform_count: 582
+    transform_time_ms: 11
     transform_yield_count: 167
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 395
     insert_reused_count: 36
 -   query: EXPLAIN select id from t_byt_anl where v in (X'ff', X'01') order by v desc
@@ -841,10 +841,10 @@ merge-comparison-keys:
         to_ordered_bytes(q0._0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V,
         DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)'
-    task_count: 1509
-    task_total_time_ms: 16
-    transform_count: 397
-    transform_time_ms: 6
+    task_count: 1513
+    task_total_time_ms: 25
+    transform_count: 401
+    transform_time_ms: 9
     transform_yield_count: 112
     insert_time_ms: 1
     insert_new_count: 179
@@ -855,10 +855,10 @@ merge-comparison-keys:
     explain: ISCAN(T_BYT_ANL_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_BYT_ANL_A
         [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST),
         _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 464
-    task_total_time_ms: 9
-    transform_count: 127
-    transform_time_ms: 4
+    task_count: 468
+    task_total_time_ms: 7
+    transform_count: 131
+    transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -870,12 +870,12 @@ merge-comparison-keys:
         ∪ ISCAN(T_BYT_DNF_V [EQUALS to_ordered_bytes(promote(@c11 AS BYTES), DESC_NULLS_FIRST)])
         COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS
         ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3389
-    task_total_time_ms: 39
-    transform_count: 571
-    transform_time_ms: 13
+    task_count: 3395
+    task_total_time_ms: 33
+    transform_count: 577
+    transform_time_ms: 10
     transform_yield_count: 163
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 389
     insert_reused_count: 35
 -   query: EXPLAIN select id from t_byt_dnf where v in (X'ff', X'01') order by v desc
@@ -885,10 +885,10 @@ merge-comparison-keys:
         to_ordered_bytes(q0._0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V,
         DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)'
-    task_count: 1463
-    task_total_time_ms: 16
-    transform_count: 388
-    transform_time_ms: 5
+    task_count: 1467
+    task_total_time_ms: 27
+    transform_count: 392
+    transform_time_ms: 10
     transform_yield_count: 108
     insert_time_ms: 1
     insert_new_count: 174
@@ -899,10 +899,10 @@ merge-comparison-keys:
     explain: ISCAN(T_BYT_DNF_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_BYT_DNF_A
         [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST),
         _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 464
-    task_total_time_ms: 9
-    transform_count: 127
-    transform_time_ms: 4
+    task_count: 468
+    task_total_time_ms: 7
+    transform_count: 131
+    transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -914,12 +914,12 @@ merge-comparison-keys:
         ∪ ISCAN(T_BYT_DNF_V [EQUALS to_ordered_bytes(promote(@c11 AS BYTES), DESC_NULLS_FIRST)])
         COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID,
         _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3437
-    task_total_time_ms: 40
-    transform_count: 576
-    transform_time_ms: 14
+    task_count: 3443
+    task_total_time_ms: 34
+    transform_count: 582
+    transform_time_ms: 10
     transform_yield_count: 167
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 395
     insert_reused_count: 36
 -   query: EXPLAIN select id from t_byt_dnf where v in (X'ff', X'01') order by v asc
@@ -929,12 +929,12 @@ merge-comparison-keys:
         to_ordered_bytes(q0._0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V,
         ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)'
-    task_count: 1509
-    task_total_time_ms: 16
-    transform_count: 397
-    transform_time_ms: 5
+    task_count: 1513
+    task_total_time_ms: 21
+    transform_count: 401
+    transform_time_ms: 7
     transform_yield_count: 112
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 179
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_byt_dnf where a = 1 and c = 1 order by v asc nulls
@@ -944,10 +944,10 @@ merge-comparison-keys:
         [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST),
         to_ordered_bytes(_.ID, DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP
         (_.ID AS ID)
-    task_count: 464
-    task_total_time_ms: 11
-    transform_count: 127
-    transform_time_ms: 5
+    task_count: 468
+    task_total_time_ms: 6
+    transform_count: 131
+    transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -959,12 +959,12 @@ merge-comparison-keys:
         ∪ ISCAN(T_BYT_DNL_V [EQUALS to_ordered_bytes(promote(@c11 AS BYTES), DESC_NULLS_LAST)])
         COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID,
         _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3389
-    task_total_time_ms: 42
-    transform_count: 571
-    transform_time_ms: 15
+    task_count: 3395
+    task_total_time_ms: 29
+    transform_count: 577
+    transform_time_ms: 8
     transform_yield_count: 163
-    insert_time_ms: 3
+    insert_time_ms: 1
     insert_new_count: 389
     insert_reused_count: 35
 -   query: EXPLAIN select id from t_byt_dnl where v in (X'ff', X'01') order by v desc
@@ -973,10 +973,10 @@ merge-comparison-keys:
     explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_DNL_V
         [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)'
-    task_count: 1505
-    task_total_time_ms: 15
-    transform_count: 391
-    transform_time_ms: 5
+    task_count: 1509
+    task_total_time_ms: 26
+    transform_count: 395
+    transform_time_ms: 8
     transform_yield_count: 111
     insert_time_ms: 1
     insert_new_count: 179
@@ -987,10 +987,10 @@ merge-comparison-keys:
     explain: ISCAN(T_BYT_DNL_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_BYT_DNL_A
         [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST),
         _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 464
-    task_total_time_ms: 9
-    transform_count: 127
-    transform_time_ms: 4
+    task_count: 468
+    task_total_time_ms: 7
+    transform_count: 131
+    transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -1003,12 +1003,12 @@ merge-comparison-keys:
         ∪ COVERING(T_BYT_DNL_V [EQUALS to_ordered_bytes(promote(@c11 AS BYTES), DESC_NULLS_LAST)]
         -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) COMPARE
         BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
-    task_count: 3683
-    task_total_time_ms: 44
-    transform_count: 611
-    transform_time_ms: 14
+    task_count: 3689
+    task_total_time_ms: 38
+    transform_count: 617
+    transform_time_ms: 11
     transform_yield_count: 176
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 425
     insert_reused_count: 39
 -   query: EXPLAIN select id from t_byt_dnl where v in (X'ff', X'01') order by v asc
@@ -1017,10 +1017,10 @@ merge-comparison-keys:
     explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_DNL_V
         [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)'
-    task_count: 1577
-    task_total_time_ms: 17
-    transform_count: 403
-    transform_time_ms: 6
+    task_count: 1581
+    task_total_time_ms: 24
+    transform_count: 407
+    transform_time_ms: 8
     transform_yield_count: 117
     insert_time_ms: 1
     insert_new_count: 187
@@ -1031,10 +1031,10 @@ merge-comparison-keys:
     explain: ISCAN(T_BYT_DNL_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_BYT_DNL_A
         [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (_.V, to_ordered_bytes(_.ID,
         DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 464
-    task_total_time_ms: 10
-    transform_count: 127
-    transform_time_ms: 5
+    task_count: 468
+    task_total_time_ms: 6
+    transform_count: 131
+    transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -1046,12 +1046,12 @@ merge-comparison-keys:
         -> [ID: KEY:[2], V: KEY:[0]]) ∪ COVERING(T_ENM_A_V [EQUALS promote(@c11 AS
         ENUM<red(0), green(1), blue(2)>)] -> [ID: KEY:[2], V: KEY:[0]]) COMPARE BY
         (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
-    task_count: 3867
-    task_total_time_ms: 41
-    transform_count: 633
-    transform_time_ms: 12
+    task_count: 3871
+    task_total_time_ms: 34
+    transform_count: 637
+    transform_time_ms: 9
     transform_yield_count: 179
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 442
     insert_reused_count: 38
 -   query: EXPLAIN select id from t_enm_a where a = 1 and c = 1 order by v asc
@@ -1060,10 +1060,10 @@ merge-comparison-keys:
         KEY:[3], V: KEY:[1]]) ∩ COVERING(T_ENM_A_A [EQUALS promote(@c7 AS LONG)] ->
         [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID
         AS ID, _.V AS V) | MAP (_.ID AS ID)'
-    task_count: 542
-    task_total_time_ms: 11
-    transform_count: 140
-    transform_time_ms: 5
+    task_count: 546
+    task_total_time_ms: 9
+    transform_count: 144
+    transform_time_ms: 3
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 56
@@ -1075,12 +1075,12 @@ merge-comparison-keys:
         ∪ ISCAN(T_ENM_A_V [EQUALS promote(@c11 AS ENUM<red(0), green(1), blue(2)>)])
         COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID,
         _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3507
-    task_total_time_ms: 39
-    transform_count: 582
-    transform_time_ms: 14
+    task_count: 3511
+    task_total_time_ms: 36
+    transform_count: 586
+    transform_time_ms: 10
     transform_yield_count: 168
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 401
     insert_reused_count: 37
 -   query: EXPLAIN select id from t_enm_a where a = 1 and c = 1 order by v desc nulls
@@ -1090,10 +1090,10 @@ merge-comparison-keys:
         ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_ENM_A_A [EQUALS promote(@c7 AS LONG)]
         REVERSE -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) |
         MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
-    task_count: 542
-    task_total_time_ms: 10
-    transform_count: 140
-    transform_time_ms: 4
+    task_count: 546
+    task_total_time_ms: 9
+    transform_count: 144
+    transform_time_ms: 3
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 56
@@ -1105,12 +1105,12 @@ merge-comparison-keys:
         green(1), blue(2)>), DESC_NULLS_LAST)]) ∪ ISCAN(T_ENM_D_V [EQUALS to_ordered_bytes(promote(@c11
         AS ENUM<red(0), green(1), blue(2)>), DESC_NULLS_LAST)]) COMPARE BY (to_ordered_bytes(_.V,
         DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3375
-    task_total_time_ms: 38
-    transform_count: 566
-    transform_time_ms: 13
+    task_count: 3379
+    task_total_time_ms: 32
+    transform_count: 570
+    transform_time_ms: 9
     transform_yield_count: 161
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 385
     insert_reused_count: 35
 -   query: EXPLAIN select id from t_enm_d where a = 1 and c = 1 order by v desc
@@ -1118,10 +1118,10 @@ merge-comparison-keys:
     explain: ISCAN(T_ENM_D_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_ENM_D_A [EQUALS
         promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST),
         _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 464
-    task_total_time_ms: 9
-    transform_count: 127
-    transform_time_ms: 4
+    task_count: 468
+    task_total_time_ms: 6
+    transform_count: 131
+    transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -1135,12 +1135,12 @@ merge-comparison-keys:
         AS ENUM<red(0), green(1), blue(2)>), DESC_NULLS_LAST)] -> [ID: KEY:[2], V:
         from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) COMPARE BY (_.V, _.ID) | MAP
         (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
-    task_count: 3669
-    task_total_time_ms: 39
-    transform_count: 606
-    transform_time_ms: 13
+    task_count: 3673
+    task_total_time_ms: 35
+    transform_count: 610
+    transform_time_ms: 9
     transform_yield_count: 174
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 421
     insert_reused_count: 39
 -   query: EXPLAIN select id from t_enm_d where a = 1 and c = 1 order by v asc nulls
@@ -1149,10 +1149,10 @@ merge-comparison-keys:
     explain: ISCAN(T_ENM_D_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_ENM_D_A
         [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (_.V, to_ordered_bytes(_.ID,
         DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 464
-    task_total_time_ms: 8
-    transform_count: 127
-    transform_time_ms: 4
+    task_count: 468
+    task_total_time_ms: 7
+    transform_count: 131
+    transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -1164,12 +1164,12 @@ merge-comparison-keys:
         -> [ID: KEY:[2], V: KEY:[0]]) ∪ COVERING(T_ENM_ANF_V [EQUALS promote(@c11
         AS ENUM<red(0), green(1), blue(2)>)] -> [ID: KEY:[2], V: KEY:[0]]) COMPARE
         BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
-    task_count: 3867
-    task_total_time_ms: 41
-    transform_count: 633
-    transform_time_ms: 13
+    task_count: 3871
+    task_total_time_ms: 38
+    transform_count: 637
+    transform_time_ms: 9
     transform_yield_count: 179
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 442
     insert_reused_count: 38
 -   query: EXPLAIN select id from t_enm_anf where a = 1 and c = 1 order by v asc nulls
@@ -1179,10 +1179,10 @@ merge-comparison-keys:
         KEY:[3], V: KEY:[1]]) ∩ COVERING(T_ENM_ANF_A [EQUALS promote(@c7 AS LONG)]
         -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID
         AS ID, _.V AS V) | MAP (_.ID AS ID)'
-    task_count: 542
-    task_total_time_ms: 15
-    transform_count: 140
-    transform_time_ms: 4
+    task_count: 546
+    task_total_time_ms: 8
+    transform_count: 144
+    transform_time_ms: 3
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 56
@@ -1194,10 +1194,10 @@ merge-comparison-keys:
         ∪ ISCAN(T_ENM_ANF_V [EQUALS promote(@c11 AS ENUM<red(0), green(1), blue(2)>)])
         COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID,
         _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3507
-    task_total_time_ms: 36
-    transform_count: 582
-    transform_time_ms: 12
+    task_count: 3511
+    task_total_time_ms: 34
+    transform_count: 586
+    transform_time_ms: 10
     transform_yield_count: 168
     insert_time_ms: 2
     insert_new_count: 401
@@ -1209,10 +1209,10 @@ merge-comparison-keys:
         ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_ENM_ANF_A [EQUALS promote(@c7 AS LONG)]
         REVERSE -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) |
         MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
-    task_count: 542
-    task_total_time_ms: 10
-    transform_count: 140
-    transform_time_ms: 4
+    task_count: 546
+    task_total_time_ms: 7
+    transform_count: 144
+    transform_time_ms: 3
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 56
@@ -1224,12 +1224,12 @@ merge-comparison-keys:
         green(1), blue(2)>), ASC_NULLS_LAST)]) ∪ ISCAN(T_ENM_ANL_V [EQUALS to_ordered_bytes(promote(@c11
         AS ENUM<red(0), green(1), blue(2)>), ASC_NULLS_LAST)]) COMPARE BY (to_ordered_bytes(_.V,
         ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3375
-    task_total_time_ms: 36
-    transform_count: 566
-    transform_time_ms: 12
+    task_count: 3379
+    task_total_time_ms: 29
+    transform_count: 570
+    transform_time_ms: 8
     transform_yield_count: 161
-    insert_time_ms: 2
+    insert_time_ms: 1
     insert_new_count: 385
     insert_reused_count: 35
 -   query: EXPLAIN select id from t_enm_anl where a = 1 and c = 1 order by v asc nulls
@@ -1238,10 +1238,10 @@ merge-comparison-keys:
     explain: ISCAN(T_ENM_ANL_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_ENM_ANL_A
         [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST),
         _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 464
-    task_total_time_ms: 9
-    transform_count: 127
-    transform_time_ms: 4
+    task_count: 468
+    task_total_time_ms: 7
+    transform_count: 131
+    transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -1253,9 +1253,9 @@ merge-comparison-keys:
         green(1), blue(2)>), ASC_NULLS_LAST)]) ∪ ISCAN(T_ENM_ANL_V [EQUALS to_ordered_bytes(promote(@c11
         AS ENUM<red(0), green(1), blue(2)>), ASC_NULLS_LAST)]) COMPARE BY (to_ordered_bytes(_.V,
         DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3423
-    task_total_time_ms: 37
-    transform_count: 571
+    task_count: 3427
+    task_total_time_ms: 36
+    transform_count: 575
     transform_time_ms: 13
     transform_yield_count: 165
     insert_time_ms: 2
@@ -1267,10 +1267,10 @@ merge-comparison-keys:
     explain: ISCAN(T_ENM_ANL_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_ENM_ANL_A
         [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST),
         _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 464
-    task_total_time_ms: 8
-    transform_count: 127
-    transform_time_ms: 4
+    task_count: 468
+    task_total_time_ms: 7
+    transform_count: 131
+    transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -1282,10 +1282,10 @@ merge-comparison-keys:
         green(1), blue(2)>), DESC_NULLS_FIRST)]) ∪ ISCAN(T_ENM_DNF_V [EQUALS to_ordered_bytes(promote(@c11
         AS ENUM<red(0), green(1), blue(2)>), DESC_NULLS_FIRST)]) COMPARE BY (to_ordered_bytes(_.V,
         DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3375
-    task_total_time_ms: 36
-    transform_count: 566
-    transform_time_ms: 12
+    task_count: 3379
+    task_total_time_ms: 32
+    transform_count: 570
+    transform_time_ms: 9
     transform_yield_count: 161
     insert_time_ms: 2
     insert_new_count: 385
@@ -1296,10 +1296,10 @@ merge-comparison-keys:
     explain: ISCAN(T_ENM_DNF_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_ENM_DNF_A
         [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST),
         _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 464
-    task_total_time_ms: 10
-    transform_count: 127
-    transform_time_ms: 5
+    task_count: 468
+    task_total_time_ms: 7
+    transform_count: 131
+    transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -1311,12 +1311,12 @@ merge-comparison-keys:
         green(1), blue(2)>), DESC_NULLS_FIRST)]) ∪ ISCAN(T_ENM_DNF_V [EQUALS to_ordered_bytes(promote(@c11
         AS ENUM<red(0), green(1), blue(2)>), DESC_NULLS_FIRST)]) COMPARE BY (to_ordered_bytes(_.V,
         ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3423
-    task_total_time_ms: 41
-    transform_count: 571
-    transform_time_ms: 13
+    task_count: 3427
+    task_total_time_ms: 30
+    transform_count: 575
+    transform_time_ms: 9
     transform_yield_count: 165
-    insert_time_ms: 6
+    insert_time_ms: 1
     insert_new_count: 391
     insert_reused_count: 36
 -   query: EXPLAIN select id from t_enm_dnf where a = 1 and c = 1 order by v asc nulls
@@ -1326,10 +1326,10 @@ merge-comparison-keys:
         [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST),
         to_ordered_bytes(_.ID, DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP
         (_.ID AS ID)
-    task_count: 464
-    task_total_time_ms: 8
-    transform_count: 127
-    transform_time_ms: 4
+    task_count: 468
+    task_total_time_ms: 7
+    transform_count: 131
+    transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -1341,10 +1341,10 @@ merge-comparison-keys:
         green(1), blue(2)>), DESC_NULLS_LAST)]) ∪ ISCAN(T_ENM_DNL_V [EQUALS to_ordered_bytes(promote(@c11
         AS ENUM<red(0), green(1), blue(2)>), DESC_NULLS_LAST)]) COMPARE BY (to_ordered_bytes(_.V,
         DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3375
-    task_total_time_ms: 34
-    transform_count: 566
-    transform_time_ms: 11
+    task_count: 3379
+    task_total_time_ms: 36
+    transform_count: 570
+    transform_time_ms: 10
     transform_yield_count: 161
     insert_time_ms: 2
     insert_new_count: 385
@@ -1355,10 +1355,10 @@ merge-comparison-keys:
     explain: ISCAN(T_ENM_DNL_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_ENM_DNL_A
         [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST),
         _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 464
-    task_total_time_ms: 8
-    transform_count: 127
-    transform_time_ms: 4
+    task_count: 468
+    task_total_time_ms: 7
+    transform_count: 131
+    transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -1372,10 +1372,10 @@ merge-comparison-keys:
         AS ENUM<red(0), green(1), blue(2)>), DESC_NULLS_LAST)] -> [ID: KEY:[2], V:
         from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) COMPARE BY (_.V, _.ID) | MAP
         (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
-    task_count: 3669
-    task_total_time_ms: 37
-    transform_count: 606
-    transform_time_ms: 12
+    task_count: 3673
+    task_total_time_ms: 36
+    transform_count: 610
+    transform_time_ms: 10
     transform_yield_count: 174
     insert_time_ms: 2
     insert_new_count: 421
@@ -1386,10 +1386,10 @@ merge-comparison-keys:
     explain: ISCAN(T_ENM_DNL_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_ENM_DNL_A
         [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (_.V, to_ordered_bytes(_.ID,
         DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 464
-    task_total_time_ms: 9
-    transform_count: 127
-    transform_time_ms: 5
+    task_count: 468
+    task_total_time_ms: 7
+    transform_count: 131
+    transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -1401,10 +1401,10 @@ merge-comparison-keys:
         KEY:[0]]) ∪ COVERING(T_UID_A_V [EQUALS promote(@c11 AS UUID)] -> [ID: KEY:[2],
         V: KEY:[0]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID
         AS ID)'
-    task_count: 3867
-    task_total_time_ms: 37
-    transform_count: 633
-    transform_time_ms: 12
+    task_count: 3871
+    task_total_time_ms: 32
+    transform_count: 637
+    transform_time_ms: 8
     transform_yield_count: 179
     insert_time_ms: 2
     insert_new_count: 442
@@ -1415,10 +1415,10 @@ merge-comparison-keys:
         KEY:[3], V: KEY:[1]]) ∩ COVERING(T_UID_A_A [EQUALS promote(@c7 AS LONG)] ->
         [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID
         AS ID, _.V AS V) | MAP (_.ID AS ID)'
-    task_count: 542
-    task_total_time_ms: 9
-    transform_count: 140
-    transform_time_ms: 4
+    task_count: 546
+    task_total_time_ms: 8
+    transform_count: 144
+    transform_time_ms: 3
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 56
@@ -1429,10 +1429,10 @@ merge-comparison-keys:
     explain: ISCAN(T_UID_A_V [EQUALS promote(@c7 AS UUID)]) ∪ ISCAN(T_UID_A_V [EQUALS
         promote(@c11 AS UUID)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST),
         _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3507
-    task_total_time_ms: 37
-    transform_count: 582
-    transform_time_ms: 12
+    task_count: 3511
+    task_total_time_ms: 36
+    transform_count: 586
+    transform_time_ms: 10
     transform_yield_count: 168
     insert_time_ms: 2
     insert_new_count: 401
@@ -1444,10 +1444,10 @@ merge-comparison-keys:
         ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_UID_A_A [EQUALS promote(@c7 AS LONG)]
         REVERSE -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) |
         MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
-    task_count: 542
+    task_count: 546
     task_total_time_ms: 9
-    transform_count: 140
-    transform_time_ms: 4
+    transform_count: 144
+    transform_time_ms: 3
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 56
@@ -1459,9 +1459,9 @@ merge-comparison-keys:
         ∪ ISCAN(T_UID_D_V [EQUALS to_ordered_bytes(promote(@c11 AS UUID), DESC_NULLS_LAST)])
         COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID,
         _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3375
-    task_total_time_ms: 32
-    transform_count: 566
+    task_count: 3379
+    task_total_time_ms: 33
+    transform_count: 570
     transform_time_ms: 10
     transform_yield_count: 161
     insert_time_ms: 2
@@ -1472,10 +1472,10 @@ merge-comparison-keys:
     explain: ISCAN(T_UID_D_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_UID_D_A [EQUALS
         promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST),
         _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 464
-    task_total_time_ms: 8
-    transform_count: 127
-    transform_time_ms: 4
+    task_count: 468
+    task_total_time_ms: 7
+    transform_count: 131
+    transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -1488,10 +1488,10 @@ merge-comparison-keys:
         [EQUALS to_ordered_bytes(promote(@c11 AS UUID), DESC_NULLS_LAST)] -> [ID:
         KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) COMPARE BY (_.V,
         _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
-    task_count: 3669
-    task_total_time_ms: 38
-    transform_count: 606
-    transform_time_ms: 12
+    task_count: 3673
+    task_total_time_ms: 33
+    transform_count: 610
+    transform_time_ms: 9
     transform_yield_count: 174
     insert_time_ms: 2
     insert_new_count: 421
@@ -1502,10 +1502,10 @@ merge-comparison-keys:
     explain: ISCAN(T_UID_D_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_UID_D_A
         [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (_.V, to_ordered_bytes(_.ID,
         DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 464
-    task_total_time_ms: 8
-    transform_count: 127
-    transform_time_ms: 4
+    task_count: 468
+    task_total_time_ms: 7
+    transform_count: 131
+    transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -1517,10 +1517,10 @@ merge-comparison-keys:
         V: KEY:[0]]) ∪ COVERING(T_UID_ANF_V [EQUALS promote(@c11 AS UUID)] -> [ID:
         KEY:[2], V: KEY:[0]]) COMPARE BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V)
         | MAP (_.ID AS ID)'
-    task_count: 3867
+    task_count: 3871
     task_total_time_ms: 37
-    transform_count: 633
-    transform_time_ms: 11
+    transform_count: 637
+    transform_time_ms: 10
     transform_yield_count: 179
     insert_time_ms: 2
     insert_new_count: 442
@@ -1532,10 +1532,10 @@ merge-comparison-keys:
         KEY:[3], V: KEY:[1]]) ∩ COVERING(T_UID_ANF_A [EQUALS promote(@c7 AS LONG)]
         -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) | MAP (_.ID
         AS ID, _.V AS V) | MAP (_.ID AS ID)'
-    task_count: 542
-    task_total_time_ms: 9
-    transform_count: 140
-    transform_time_ms: 4
+    task_count: 546
+    task_total_time_ms: 8
+    transform_count: 144
+    transform_time_ms: 3
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 56
@@ -1546,10 +1546,10 @@ merge-comparison-keys:
     explain: ISCAN(T_UID_ANF_V [EQUALS promote(@c7 AS UUID)]) ∪ ISCAN(T_UID_ANF_V
         [EQUALS promote(@c11 AS UUID)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST),
         _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3507
-    task_total_time_ms: 38
-    transform_count: 582
-    transform_time_ms: 11
+    task_count: 3511
+    task_total_time_ms: 35
+    transform_count: 586
+    transform_time_ms: 10
     transform_yield_count: 168
     insert_time_ms: 2
     insert_new_count: 401
@@ -1561,10 +1561,10 @@ merge-comparison-keys:
         ID: KEY:[3], V: KEY:[1]]) ∩ COVERING(T_UID_ANF_A [EQUALS promote(@c7 AS LONG)]
         REVERSE -> [A: KEY:[0], ID: KEY:[3], V: KEY:[1]]) COMPARE BY (_.V, _.ID) |
         MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
-    task_count: 542
-    task_total_time_ms: 10
-    transform_count: 140
-    transform_time_ms: 4
+    task_count: 546
+    task_total_time_ms: 8
+    transform_count: 144
+    transform_time_ms: 3
     transform_yield_count: 46
     insert_time_ms: 0
     insert_new_count: 56
@@ -1576,12 +1576,12 @@ merge-comparison-keys:
         ∪ ISCAN(T_UID_ANL_V [EQUALS to_ordered_bytes(promote(@c11 AS UUID), ASC_NULLS_LAST)])
         COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID,
         _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3375
-    task_total_time_ms: 33
-    transform_count: 566
-    transform_time_ms: 11
+    task_count: 3379
+    task_total_time_ms: 29
+    transform_count: 570
+    transform_time_ms: 8
     transform_yield_count: 161
-    insert_time_ms: 2
+    insert_time_ms: 1
     insert_new_count: 385
     insert_reused_count: 35
 -   query: EXPLAIN select id from t_uid_anl where a = 1 and c = 1 order by v asc nulls
@@ -1590,10 +1590,10 @@ merge-comparison-keys:
     explain: ISCAN(T_UID_ANL_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_UID_ANL_A
         [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST),
         _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 464
-    task_total_time_ms: 8
-    transform_count: 127
-    transform_time_ms: 4
+    task_count: 468
+    task_total_time_ms: 7
+    transform_count: 131
+    transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -1605,10 +1605,10 @@ merge-comparison-keys:
         ∪ ISCAN(T_UID_ANL_V [EQUALS to_ordered_bytes(promote(@c11 AS UUID), ASC_NULLS_LAST)])
         COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS
         ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3423
-    task_total_time_ms: 34
-    transform_count: 571
-    transform_time_ms: 11
+    task_count: 3427
+    task_total_time_ms: 33
+    transform_count: 575
+    transform_time_ms: 10
     transform_yield_count: 165
     insert_time_ms: 2
     insert_new_count: 391
@@ -1619,10 +1619,10 @@ merge-comparison-keys:
     explain: ISCAN(T_UID_ANL_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_UID_ANL_A
         [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST),
         _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 464
-    task_total_time_ms: 8
-    transform_count: 127
-    transform_time_ms: 4
+    task_count: 468
+    task_total_time_ms: 10
+    transform_count: 131
+    transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -1634,10 +1634,10 @@ merge-comparison-keys:
         ∪ ISCAN(T_UID_DNF_V [EQUALS to_ordered_bytes(promote(@c11 AS UUID), DESC_NULLS_FIRST)])
         COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS
         ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3375
+    task_count: 3379
     task_total_time_ms: 33
-    transform_count: 566
-    transform_time_ms: 11
+    transform_count: 570
+    transform_time_ms: 10
     transform_yield_count: 161
     insert_time_ms: 2
     insert_new_count: 385
@@ -1648,10 +1648,10 @@ merge-comparison-keys:
     explain: ISCAN(T_UID_DNF_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_UID_DNF_A
         [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST),
         _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 464
-    task_total_time_ms: 8
-    transform_count: 127
-    transform_time_ms: 4
+    task_count: 468
+    task_total_time_ms: 7
+    transform_count: 131
+    transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -1663,12 +1663,12 @@ merge-comparison-keys:
         ∪ ISCAN(T_UID_DNF_V [EQUALS to_ordered_bytes(promote(@c11 AS UUID), DESC_NULLS_FIRST)])
         COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID,
         _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3423
-    task_total_time_ms: 34
-    transform_count: 571
-    transform_time_ms: 11
+    task_count: 3427
+    task_total_time_ms: 29
+    transform_count: 575
+    transform_time_ms: 8
     transform_yield_count: 165
-    insert_time_ms: 2
+    insert_time_ms: 1
     insert_new_count: 391
     insert_reused_count: 36
 -   query: EXPLAIN select id from t_uid_dnf where a = 1 and c = 1 order by v asc nulls
@@ -1678,10 +1678,10 @@ merge-comparison-keys:
         [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST),
         to_ordered_bytes(_.ID, DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP
         (_.ID AS ID)
-    task_count: 464
-    task_total_time_ms: 9
-    transform_count: 127
-    transform_time_ms: 4
+    task_count: 468
+    task_total_time_ms: 7
+    transform_count: 131
+    transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -1693,10 +1693,10 @@ merge-comparison-keys:
         ∪ ISCAN(T_UID_DNL_V [EQUALS to_ordered_bytes(promote(@c11 AS UUID), DESC_NULLS_LAST)])
         COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST), _.ID) | MAP (_.ID AS ID,
         _.V AS V) | MAP (_.ID AS ID)
-    task_count: 3375
+    task_count: 3379
     task_total_time_ms: 33
-    transform_count: 566
-    transform_time_ms: 10
+    transform_count: 570
+    transform_time_ms: 9
     transform_yield_count: 161
     insert_time_ms: 2
     insert_new_count: 385
@@ -1707,10 +1707,10 @@ merge-comparison-keys:
     explain: ISCAN(T_UID_DNL_C [EQUALS promote(@c7 AS LONG)]) ∩ ISCAN(T_UID_DNL_A
         [EQUALS promote(@c7 AS LONG)]) COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_LAST),
         _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 464
-    task_total_time_ms: 8
-    transform_count: 127
-    transform_time_ms: 4
+    task_count: 468
+    task_total_time_ms: 7
+    transform_count: 131
+    transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0
     insert_new_count: 46
@@ -1723,10 +1723,10 @@ merge-comparison-keys:
         ∪ COVERING(T_UID_DNL_V [EQUALS to_ordered_bytes(promote(@c11 AS UUID), DESC_NULLS_LAST)]
         -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) COMPARE
         BY (_.V, _.ID) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)'
-    task_count: 3669
-    task_total_time_ms: 35
-    transform_count: 606
-    transform_time_ms: 11
+    task_count: 3673
+    task_total_time_ms: 38
+    transform_count: 610
+    transform_time_ms: 10
     transform_yield_count: 174
     insert_time_ms: 2
     insert_new_count: 421
@@ -1737,9 +1737,9 @@ merge-comparison-keys:
     explain: ISCAN(T_UID_DNL_C [EQUALS promote(@c7 AS LONG)] REVERSE) ∩ ISCAN(T_UID_DNL_A
         [EQUALS promote(@c7 AS LONG)] REVERSE) COMPARE BY (_.V, to_ordered_bytes(_.ID,
         DESC_NULLS_LAST)) | MAP (_.ID AS ID, _.V AS V) | MAP (_.ID AS ID)
-    task_count: 464
+    task_count: 468
     task_total_time_ms: 7
-    transform_count: 127
+    transform_count: 131
     transform_time_ms: 3
     transform_yield_count: 43
     insert_time_ms: 0

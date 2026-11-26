@@ -9,12 +9,12 @@ recursive-cte-tests:
         [EQUALS q0.PARENT] -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT
         AS PARENT, q0.LEVEL + @c48 AS LEVEL) } | MAP (_.ID AS ID, _.PARENT AS PARENT,
         _.LEVEL AS LEVEL)'
-    task_count: 1847
-    task_total_time_ms: 39
-    transform_count: 417
-    transform_time_ms: 11
+    task_count: 1856
+    task_total_time_ms: 172
+    transform_count: 426
+    transform_time_ms: 34
     transform_yield_count: 121
-    insert_time_ms: 1
+    insert_time_ms: 3
     insert_new_count: 260
     insert_reused_count: 8
 -   query: EXPLAIN with recursive c1 as ( select id, parent, 0 as level from t1 where
@@ -27,12 +27,12 @@ recursive-cte-tests:
         [EQUALS q0.PARENT] -> [ID: KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT
         AS PARENT, q0.LEVEL + @c48 AS LEVEL) } | MAP (_.ID AS ID, _.PARENT AS PARENT,
         _.LEVEL AS LEVEL)'
-    task_count: 1847
-    task_total_time_ms: 169
-    transform_count: 417
-    transform_time_ms: 38
+    task_count: 1856
+    task_total_time_ms: 58
+    transform_count: 426
+    transform_time_ms: 14
     transform_yield_count: 121
-    insert_time_ms: 3
+    insert_time_ms: 1
     insert_new_count: 260
     insert_reused_count: 8
 -   query: EXPLAIN with recursive c1 as ( select id, parent, 0 as level from t1 where
@@ -46,12 +46,12 @@ recursive-cte-tests:
         AS q3 RETURN (q3.ID AS ID, q3.PARENT AS PARENT, q2.LEVEL + @c44 AS LEVEL)
         } | INSERT INTO TEMP q1 }} | MAP (_.ID AS ID, _.PARENT AS PARENT, _.LEVEL
         AS LEVEL)
-    task_count: 1404
-    task_total_time_ms: 134
-    transform_count: 353
-    transform_time_ms: 34
+    task_count: 1413
+    task_total_time_ms: 111
+    transform_count: 362
+    transform_time_ms: 29
     transform_yield_count: 104
-    insert_time_ms: 3
+    insert_time_ms: 2
     insert_new_count: 190
     insert_reused_count: 8
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where parent =
@@ -61,12 +61,12 @@ recursive-cte-tests:
     explain: 'RUNION-DFS PREORDER q0 { ISCAN(PARENTIDX [EQUALS promote(@c14 AS LONG)])
         } { RECURSIVE COVERING(PARENTIDX [EQUALS q0.ID] -> [ID: KEY:[1], PARENT: KEY:[0]])
         } | MAP (_.ID AS ID)'
-    task_count: 1723
-    task_total_time_ms: 126
-    transform_count: 388
-    transform_time_ms: 30
+    task_count: 1729
+    task_total_time_ms: 143
+    transform_count: 394
+    transform_time_ms: 31
     transform_yield_count: 125
-    insert_time_ms: 1
+    insert_time_ms: 2
     insert_new_count: 252
     insert_reused_count: 8
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where parent =
@@ -76,10 +76,10 @@ recursive-cte-tests:
     explain: 'RUNION-DFS POSTORDER q0 { ISCAN(PARENTIDX [EQUALS promote(@c14 AS LONG)])
         } { RECURSIVE COVERING(PARENTIDX [EQUALS q0.ID] -> [ID: KEY:[1], PARENT: KEY:[0]])
         } | MAP (_.ID AS ID)'
-    task_count: 1684
-    task_total_time_ms: 128
-    transform_count: 382
-    transform_time_ms: 27
+    task_count: 1690
+    task_total_time_ms: 141
+    transform_count: 388
+    transform_time_ms: 31
     transform_yield_count: 122
     insert_time_ms: 2
     insert_new_count: 244
@@ -92,12 +92,12 @@ recursive-cte-tests:
         | INSERT INTO TEMP q1 } RECURSIVE  { TEMP SCAN base() | FLATMAP q2 -> { ISCAN(PARENTIDX
         [EQUALS q2.ID]) AS q3 RETURN (q3.ID AS ID, q3.PARENT AS PARENT) } | INSERT
         INTO TEMP q1 }} | MAP (_.ID AS ID)
-    task_count: 1351
-    task_total_time_ms: 108
-    transform_count: 328
-    transform_time_ms: 30
+    task_count: 1357
+    task_total_time_ms: 122
+    transform_count: 334
+    transform_time_ms: 34
     transform_yield_count: 105
-    insert_time_ms: 1
+    insert_time_ms: 2
     insert_new_count: 186
     insert_reused_count: 8
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where id = 250
@@ -107,10 +107,10 @@ recursive-cte-tests:
     explain: 'RUNION-DFS PREORDER q0 { ISCAN(CHILDIDX [EQUALS promote(@c14 AS LONG)])
         } { RECURSIVE COVERING(CHILDIDX [EQUALS q0.PARENT] -> [ID: KEY:[0], PARENT:
         KEY:[1]]) } | MAP (_.ID AS ID)'
-    task_count: 1985
-    task_total_time_ms: 134
-    transform_count: 425
-    transform_time_ms: 28
+    task_count: 1991
+    task_total_time_ms: 176
+    transform_count: 431
+    transform_time_ms: 29
     transform_yield_count: 138
     insert_time_ms: 3
     insert_new_count: 308
@@ -123,10 +123,10 @@ recursive-cte-tests:
         | INSERT INTO TEMP q1 } RECURSIVE  { TEMP SCAN base() | FLATMAP q2 -> { ISCAN(CHILDIDX
         [EQUALS q2.PARENT]) AS q3 RETURN (q3.ID AS ID, q3.PARENT AS PARENT) } | INSERT
         INTO TEMP q1 }} | MAP (_.ID AS ID)
-    task_count: 1261
-    task_total_time_ms: 114
-    transform_count: 309
-    transform_time_ms: 31
+    task_count: 1267
+    task_total_time_ms: 122
+    transform_count: 315
+    transform_time_ms: 27
     transform_yield_count: 100
     insert_time_ms: 2
     insert_new_count: 174
@@ -138,10 +138,10 @@ recursive-cte-tests:
     explain: 'RUNION-DFS PREORDER q0 { ISCAN(CHILDIDX [EQUALS promote(@c14 AS LONG)])
         } { RECURSIVE COVERING(CHILDIDX [EQUALS q0.PARENT] -> [ID: KEY:[0], PARENT:
         KEY:[1]]) } | MAP (_.ID AS ID)'
-    task_count: 1946
-    task_total_time_ms: 146
-    transform_count: 419
-    transform_time_ms: 19
+    task_count: 1952
+    task_total_time_ms: 126
+    transform_count: 425
+    transform_time_ms: 26
     transform_yield_count: 135
     insert_time_ms: 2
     insert_new_count: 298
@@ -153,12 +153,12 @@ recursive-cte-tests:
     explain: 'RUNION-DFS POSTORDER q0 { ISCAN(CHILDIDX [EQUALS promote(@c14 AS LONG)])
         } { RECURSIVE COVERING(CHILDIDX [EQUALS q0.PARENT] -> [ID: KEY:[0], PARENT:
         KEY:[1]]) } | MAP (_.ID AS ID)'
-    task_count: 1946
-    task_total_time_ms: 101
-    transform_count: 419
-    transform_time_ms: 20
+    task_count: 1952
+    task_total_time_ms: 147
+    transform_count: 425
+    transform_time_ms: 25
     transform_yield_count: 135
-    insert_time_ms: 1
+    insert_time_ms: 2
     insert_new_count: 298
     insert_reused_count: 7
 -   query: EXPLAIN with recursive allDescendants as ( with recursive ancestorsOf250
@@ -172,12 +172,12 @@ recursive-cte-tests:
         -> [ID: KEY:[0], PARENT: KEY:[1]]) } | MAP (_.ID AS ID, _.PARENT AS PARENT)
         } { RECURSIVE COVERING(PARENTIDX [EQUALS q0.ID] -> [ID: KEY:[1], PARENT: KEY:[0]])
         } | MAP (_.ID AS ID, _.PARENT AS PARENT)'
-    task_count: 3121
-    task_total_time_ms: 244
-    transform_count: 684
-    transform_time_ms: 53
+    task_count: 3131
+    task_total_time_ms: 197
+    transform_count: 694
+    transform_time_ms: 42
     transform_yield_count: 211
-    insert_time_ms: 6
+    insert_time_ms: 4
     insert_new_count: 486
     insert_reused_count: 12
 -   query: EXPLAIN with recursive allDescendants as ( with recursive ancestorsOf250
@@ -192,12 +192,12 @@ recursive-cte-tests:
         -> [ID: KEY:[0], PARENT: KEY:[1]]) } | MAP (_.ID AS ID, _.PARENT AS PARENT)
         } { RECURSIVE COVERING(PARENTIDX [EQUALS q0.ID] -> [ID: KEY:[1], PARENT: KEY:[0]])
         } | MAP (_.ID AS ID, _.PARENT AS PARENT)'
-    task_count: 2868
-    task_total_time_ms: 184
-    transform_count: 644
-    transform_time_ms: 51
+    task_count: 2878
+    task_total_time_ms: 242
+    transform_count: 654
+    transform_time_ms: 49
     transform_yield_count: 196
-    insert_time_ms: 5
+    insert_time_ms: 4
     insert_new_count: 435
     insert_reused_count: 12
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where parent =
@@ -207,12 +207,12 @@ recursive-cte-tests:
     explain: 'RUNION-DFS PREORDER q0 { ISCAN(PARENTIDX [EQUALS promote(@c14 AS LONG)])
         } { RECURSIVE COVERING(PARENTIDX [EQUALS q0.ID] -> [ID: KEY:[1], PARENT: KEY:[0]])
         } | MAP (_.ID AS ID)'
-    task_count: 1723
-    task_total_time_ms: 126
-    transform_count: 388
-    transform_time_ms: 30
+    task_count: 1729
+    task_total_time_ms: 143
+    transform_count: 394
+    transform_time_ms: 31
     transform_yield_count: 125
-    insert_time_ms: 1
+    insert_time_ms: 2
     insert_new_count: 252
     insert_reused_count: 8
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where parent =
@@ -222,12 +222,12 @@ recursive-cte-tests:
     explain: 'RUNION-DFS PREORDER q0 { ISCAN(PARENTIDX [EQUALS promote(@c14 AS LONG)])
         } { RECURSIVE COVERING(PARENTIDX [EQUALS q0.ID] -> [ID: KEY:[1], PARENT: KEY:[0]])
         } | MAP (_.ID AS ID)'
-    task_count: 1723
-    task_total_time_ms: 126
-    transform_count: 388
-    transform_time_ms: 30
+    task_count: 1729
+    task_total_time_ms: 143
+    transform_count: 394
+    transform_time_ms: 31
     transform_yield_count: 125
-    insert_time_ms: 1
+    insert_time_ms: 2
     insert_new_count: 252
     insert_reused_count: 8
 -   query: EXPLAIN with recursive c1 as ( select id, parent from t1 where parent =
@@ -237,10 +237,10 @@ recursive-cte-tests:
     explain: 'RUNION-DFS POSTORDER q0 { ISCAN(PARENTIDX [EQUALS promote(@c14 AS LONG)])
         } { RECURSIVE COVERING(PARENTIDX [EQUALS q0.ID] -> [ID: KEY:[1], PARENT: KEY:[0]])
         } | MAP (_.ID AS ID)'
-    task_count: 1684
-    task_total_time_ms: 128
-    transform_count: 382
-    transform_time_ms: 27
+    task_count: 1690
+    task_total_time_ms: 141
+    transform_count: 388
+    transform_time_ms: 31
     transform_yield_count: 122
     insert_time_ms: 2
     insert_new_count: 244
@@ -256,12 +256,12 @@ recursive-cte-tests:
         -> [ID: KEY:[0], PARENT: KEY:[1]]) } | MAP (_.ID AS ID, _.PARENT AS PARENT)
         } { RECURSIVE COVERING(PARENTIDX [EQUALS q0.ID] -> [ID: KEY:[1], PARENT: KEY:[0]])
         } | MAP (_.ID AS ID, _.PARENT AS PARENT)'
-    task_count: 3121
-    task_total_time_ms: 244
-    transform_count: 684
-    transform_time_ms: 53
+    task_count: 3131
+    task_total_time_ms: 197
+    transform_count: 694
+    transform_time_ms: 42
     transform_yield_count: 211
-    insert_time_ms: 6
+    insert_time_ms: 4
     insert_new_count: 486
     insert_reused_count: 12
 -   query: EXPLAIN with recursive allDescendants as ( with recursive ancestorsOf250
@@ -275,12 +275,12 @@ recursive-cte-tests:
         -> [ID: KEY:[0], PARENT: KEY:[1]]) } | MAP (_.ID AS ID, _.PARENT AS PARENT)
         } { RECURSIVE COVERING(PARENTIDX [EQUALS q0.ID] -> [ID: KEY:[1], PARENT: KEY:[0]])
         } | MAP (_.ID AS ID, _.PARENT AS PARENT)'
-    task_count: 3121
-    task_total_time_ms: 244
-    transform_count: 684
-    transform_time_ms: 53
+    task_count: 3131
+    task_total_time_ms: 197
+    transform_count: 694
+    transform_time_ms: 42
     transform_yield_count: 211
-    insert_time_ms: 6
+    insert_time_ms: 4
     insert_new_count: 486
     insert_reused_count: 12
 -   query: EXPLAIN with recursive allDescendants as ( with recursive ancestorsOf250
@@ -295,12 +295,12 @@ recursive-cte-tests:
         -> [ID: KEY:[0], PARENT: KEY:[1]]) } | MAP (_.ID AS ID, _.PARENT AS PARENT)
         } { RECURSIVE COVERING(PARENTIDX [EQUALS q0.ID] -> [ID: KEY:[1], PARENT: KEY:[0]])
         } | MAP (_.ID AS ID, _.PARENT AS PARENT)'
-    task_count: 2868
-    task_total_time_ms: 184
-    transform_count: 644
-    transform_time_ms: 51
+    task_count: 2878
+    task_total_time_ms: 242
+    transform_count: 654
+    transform_time_ms: 49
     transform_yield_count: 196
-    insert_time_ms: 5
+    insert_time_ms: 4
     insert_new_count: 435
     insert_reused_count: 12
 recursive-cte-tests-with-hints:
@@ -313,15 +313,15 @@ recursive-cte-tests-with-hints:
     explain: 'RUNION-DFS PREORDER q0 { COVERING(PARENTIDX <,> -> [ID: KEY:[1], PARENT:
         KEY:[0]]) | FILTER _.ID EQUALS promote(@c23 AS LONG) | MAP (_.ID AS ID, _.PARENT
         AS PARENT, @c10 AS LEVEL) } { RECURSIVE COVERING(PARENTIDX <,> -> [ID: KEY:[1],
-        PARENT: KEY:[0]]) | FILTER q0.PARENT EQUALS _.ID | MAP (_.ID AS ID, _.PARENT
+        PARENT: KEY:[0]]) | FILTER _.ID EQUALS q0.PARENT | MAP (_.ID AS ID, _.PARENT
         AS PARENT, q0.LEVEL + @c58 AS LEVEL) } | MAP (_.ID AS ID, _.PARENT AS PARENT,
         _.LEVEL AS LEVEL)'
-    task_count: 1060
-    task_total_time_ms: 60
-    transform_count: 262
-    transform_time_ms: 13
+    task_count: 1069
+    task_total_time_ms: 29
+    transform_count: 271
+    transform_time_ms: 6
     transform_yield_count: 59
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 132
     insert_reused_count: 4
 -   query: EXPLAIN with recursive c1 as ( select id, parent, 0 as level from t1 use
@@ -335,9 +335,9 @@ recursive-cte-tests-with-hints:
         @c10 AS LEVEL) } { RECURSIVE COVERING(CHILDIDX [EQUALS q0.PARENT] -> [ID:
         KEY:[0], PARENT: KEY:[1]]) | MAP (_.ID AS ID, _.PARENT AS PARENT, q0.LEVEL
         + @c58 AS LEVEL) } | MAP (_.ID AS ID, _.PARENT AS PARENT, _.LEVEL AS LEVEL)'
-    task_count: 1027
-    task_total_time_ms: 60
-    transform_count: 255
+    task_count: 1036
+    task_total_time_ms: 84
+    transform_count: 264
     transform_time_ms: 12
     transform_yield_count: 58
     insert_time_ms: 1
@@ -356,10 +356,10 @@ recursive-cte-tests-with-hints:
         [NOT_NULL]] -> [ID: KEY:[0], PARENT: KEY:[1]]) | FILTER _.ID NOT_NULL | MAP
         (_.ID AS ID, _.PARENT AS PARENT, q0.LEVEL + @c80 AS LEVEL) } | MAP (_.ID AS
         ID, _.PARENT AS PARENT, _.LEVEL AS LEVEL)'
-    task_count: 1244
-    task_total_time_ms: 63
-    transform_count: 305
-    transform_time_ms: 14
+    task_count: 1255
+    task_total_time_ms: 25
+    transform_count: 316
+    transform_time_ms: 6
     transform_yield_count: 69
     insert_time_ms: 1
     insert_new_count: 155
@@ -372,10 +372,10 @@ recursive-cte-tests-with-hints:
     explain: 'RUNION-DFS PREORDER q0 { ISCAN(CHILDIDX [EQUALS promote(@c12 AS LONG)])
         } { RECURSIVE COVERING(CHILDIDXNONULLS <,> -> [ID: KEY:[0], PARENT: KEY:[1]])
         | FILTER _.PARENT EQUALS q0.ID AND _.PARENT NOT_NULL }'
-    task_count: 950
-    task_total_time_ms: 57
-    transform_count: 248
-    transform_time_ms: 12
+    task_count: 956
+    task_total_time_ms: 66
+    transform_count: 254
+    transform_time_ms: 13
     transform_yield_count: 72
     insert_time_ms: 1
     insert_new_count: 109

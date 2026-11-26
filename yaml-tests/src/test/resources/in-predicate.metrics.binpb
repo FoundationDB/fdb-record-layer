@@ -1,7 +1,7 @@
-∞
+Ø
 @
-	unnamed-23EXPLAIN select a, b from ta where b in (1, 3, 5, 7)Î
-∫ﬁÑ˘¢ –Îı(D0≥±◊8w@ñISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(promote(@c9 AS ARRAY(LONG)))) | FILTER _._0 EQUALS q0.B AS q1 RETURN (q0.A AS A, q0.B AS B) }≤digraph G {
+	unnamed-23EXPLAIN select a, b from ta where b in (1, 3, 5, 7)Í
+º◊Î#§ –Œ‰(D0•¯g8w@ñISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(promote(@c9 AS ARRAY(LONG)))) | FILTER _._0 EQUALS q0.B AS q1 RETURN (q0.A AS A, q0.B AS B) }≤digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -22,10 +22,10 @@
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}ß
+}¶
 7
-	unnamed-2*EXPLAIN select a, b from ta where b in (6)Î
-∫ﬁÑ˘¢ –Îı(D0≥±◊8w@ñISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(promote(@c9 AS ARRAY(LONG)))) | FILTER _._0 EQUALS q0.B AS q1 RETURN (q0.A AS A, q0.B AS B) }≤digraph G {
+	unnamed-2*EXPLAIN select a, b from ta where b in (6)Í
+º◊Î#§ –Œ‰(D0•¯g8w@ñISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(promote(@c9 AS ARRAY(LONG)))) | FILTER _._0 EQUALS q0.B AS q1 RETURN (q0.A AS A, q0.B AS B) }≤digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -46,10 +46,10 @@
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}∞
+}Ø
 @
-	unnamed-23EXPLAIN select a, b from ta where b in (10, 33, 66)Î
-∫ﬁÑ˘¢ –Îı(D0≥±◊8w@ñISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(promote(@c9 AS ARRAY(LONG)))) | FILTER _._0 EQUALS q0.B AS q1 RETURN (q0.A AS A, q0.B AS B) }≤digraph G {
+	unnamed-23EXPLAIN select a, b from ta where b in (10, 33, 66)Í
+º◊Î#§ –Œ‰(D0•¯g8w@ñISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(promote(@c9 AS ARRAY(LONG)))) | FILTER _._0 EQUALS q0.B AS q1 RETURN (q0.A AS A, q0.B AS B) }≤digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -70,10 +70,10 @@
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}à
+}á
 H
-	unnamed-2;EXPLAIN select a, b from ta where b in (1 + 0, 3 + 0, 5, 7)ª
-∫˚æø¢ ’»ì(D0˘Üº8w@æISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(promote(array(@c10 + @c12, @c14 + @c12, @c18, @c20) AS ARRAY(LONG)))) | FILTER _._0 EQUALS q0.B AS q1 RETURN (q0.A AS A, q0.B AS B) }⁄digraph G {
+	unnamed-2;EXPLAIN select a, b from ta where b in (1 + 0, 3 + 0, 5, 7)∫
+ºäı√%§ üÅã	(D0ñ§j8w@æISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(promote(array(@c10 + @c12, @c14 + @c12, @c18, @c20) AS ARRAY(LONG)))) | FILTER _._0 EQUALS q0.B AS q1 RETURN (q0.A AS A, q0.B AS B) }⁄digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -94,10 +94,10 @@ H
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}∞
+}Ø
 @
-	unnamed-23EXPLAIN select a, b from ta where b in (1, 1, 1, 1)Î
-∫ﬁÑ˘¢ –Îı(D0≥±◊8w@ñISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(promote(@c9 AS ARRAY(LONG)))) | FILTER _._0 EQUALS q0.B AS q1 RETURN (q0.A AS A, q0.B AS B) }≤digraph G {
+	unnamed-23EXPLAIN select a, b from ta where b in (1, 1, 1, 1)Í
+º◊Î#§ –Œ‰(D0•¯g8w@ñISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(promote(@c9 AS ARRAY(LONG)))) | FILTER _._0 EQUALS q0.B AS q1 RETURN (q0.A AS A, q0.B AS B) }≤digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -118,10 +118,10 @@ H
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}∞
+}Ø
 @
-	unnamed-23EXPLAIN select a, b from ta where b in (1, 2, 1, 3)Î
-∫ﬁÑ˘¢ –Îı(D0≥±◊8w@ñISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(promote(@c9 AS ARRAY(LONG)))) | FILTER _._0 EQUALS q0.B AS q1 RETURN (q0.A AS A, q0.B AS B) }≤digraph G {
+	unnamed-23EXPLAIN select a, b from ta where b in (1, 2, 1, 3)Í
+º◊Î#§ –Œ‰(D0•¯g8w@ñISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(promote(@c9 AS ARRAY(LONG)))) | FILTER _._0 EQUALS q0.B AS q1 RETURN (q0.A AS A, q0.B AS B) }≤digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -142,10 +142,10 @@ H
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}¨
+}´
 P
-	unnamed-2CEXPLAIN select a, b from ta where b in (1 + 0, 1 + 0, 1 + 0, 1 + 0)◊
-∫¿∫Ã¢  ”ì	(D0á˛∏8w@ÃISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(promote(array(@c10 + @c12, @c10 + @c12, @c10 + @c12, @c10 + @c12) AS ARRAY(LONG)))) | FILTER _._0 EQUALS q0.B AS q1 RETURN (q0.A AS A, q0.B AS B) }Ëdigraph G {
+	unnamed-2CEXPLAIN select a, b from ta where b in (1 + 0, 1 + 0, 1 + 0, 1 + 0)÷
+ºçñ∫$§ Ü°®	(D0ª„m8w@ÃISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(promote(array(@c10 + @c12, @c10 + @c12, @c10 + @c12, @c10 + @c12) AS ARRAY(LONG)))) | FILTER _._0 EQUALS q0.B AS q1 RETURN (q0.A AS A, q0.B AS B) }Ëdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -166,10 +166,10 @@ P
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}Í
+}È
 B
-	unnamed-25EXPLAIN select a, b from ta where b in (1 + 0, 0 + 1)£
-∫•˝Ü#¢ ∆à∂(D0ƒÿ√8w@≤ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(promote(array(@c10 + @c12, @c12 + @c10) AS ARRAY(LONG)))) | FILTER _._0 EQUALS q0.B AS q1 RETURN (q0.A AS A, q0.B AS B) }Œdigraph G {
+	unnamed-25EXPLAIN select a, b from ta where b in (1 + 0, 0 + 1)¢
+ºùü≥!§ ˇìﬂ(D0¶•h8w@≤ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(promote(array(@c10 + @c12, @c12 + @c10) AS ARRAY(LONG)))) | FILTER _._0 EQUALS q0.B AS q1 RETURN (q0.A AS A, q0.B AS B) }Œdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -190,10 +190,10 @@ B
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}ã
+}ä
 F
-	unnamed-29EXPLAIN select a, c from ta where c in (4.56, 3.45, 2.34)¿
-∫’…’¢ ¸ç¢(D0ÿœ±8w@~ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(@c9)) | FILTER _._0 EQUALS q0.C AS q1 RETURN (q0.A AS A, q0.C AS C) }†digraph G {
+	unnamed-29EXPLAIN select a, c from ta where c in (4.56, 3.45, 2.34)ø
+ºÈ¸Ï § û∏ˆ(D0Î˙_8w@~ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(@c9)) | FILTER _._0 EQUALS q0.C AS q1 RETURN (q0.A AS A, q0.C AS C) }†digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -214,10 +214,10 @@ F
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}ˇ
+}˛
 :
-	unnamed-2-EXPLAIN select a, c from ta where c in (9.01)¿
-∫’…’¢ ¸ç¢(D0ÿœ±8w@~ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(@c9)) | FILTER _._0 EQUALS q0.C AS q1 RETURN (q0.A AS A, q0.C AS C) }†digraph G {
+	unnamed-2-EXPLAIN select a, c from ta where c in (9.01)ø
+ºÈ¸Ï § û∏ˆ(D0Î˙_8w@~ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(@c9)) | FILTER _._0 EQUALS q0.C AS q1 RETURN (q0.A AS A, q0.C AS C) }†digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -241,7 +241,7 @@ F
 }°
 >
 	unnamed-21EXPLAIN select a, c from ta where c in (3.01 + 6)ﬁ
-∫ıΩ‡¢ ›∂ä(D0°‘T8w@çISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(array(@c10 + @c12))) | FILTER _._0 EQUALS q0.C AS q1 RETURN (q0.A AS A, q0.C AS C) }Ødigraph G {
+º˚á–§ ®›¥(D0…ÓG8w@çISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(array(@c10 + @c12))) | FILTER _._0 EQUALS q0.C AS q1 RETURN (q0.A AS A, q0.C AS C) }Ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -262,10 +262,10 @@ F
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}â
+}à
 A
-	unnamed-24EXPLAIN select a, d from ta where d in (true, false)√
-∫¡ÀÜ¢ ›Ò»(D0≠í≈8w@~ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(@c9)) | FILTER _._0 EQUALS q0.D AS q1 RETURN (q0.A AS A, q0.D AS D) }£digraph G {
+	unnamed-24EXPLAIN select a, d from ta where d in (true, false)¬
+º≈çΩ(§ ÷µº	(D0˙Új8w@~ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(@c9)) | FILTER _._0 EQUALS q0.D AS q1 RETURN (q0.A AS A, q0.D AS D) }£digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -286,10 +286,10 @@ A
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}Ç
+}Å
 :
-	unnamed-2-EXPLAIN select a, d from ta where d in (true)√
-∫¡ÀÜ¢ ›Ò»(D0≠í≈8w@~ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(@c9)) | FILTER _._0 EQUALS q0.D AS q1 RETURN (q0.A AS A, q0.D AS D) }£digraph G {
+	unnamed-2-EXPLAIN select a, d from ta where d in (true)¬
+º≈çΩ(§ ÷µº	(D0˙Új8w@~ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(@c9)) | FILTER _._0 EQUALS q0.D AS q1 RETURN (q0.A AS A, q0.D AS D) }£digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -310,10 +310,10 @@ A
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}§
+}£
 ;
-	unnamed-2.EXPLAIN select a, d from ta where d in (3 < 4)‰
-∫¡®≠¢ ∏óø(D0∑¥π8w@éISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(array(@c10 lt @c12))) | FILTER _._0 EQUALS q0.D AS q1 RETURN (q0.A AS A, q0.D AS D) }≥digraph G {
+	unnamed-2.EXPLAIN select a, d from ta where d in (3 < 4)„
+º∆∞í%§ Õ∂Í(D0©ëj8w@éISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(array(@c10 lt @c12))) | FILTER _._0 EQUALS q0.D AS q1 RETURN (q0.A AS A, q0.D AS D) }≥digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -334,10 +334,10 @@ A
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}á
+}Ü
 B
-	unnamed-25EXPLAIN select a, e from ta where e in ('bar', 'doe')¿
-∫∏õà#¢ é¸ñ(D0Êñ«8w@~ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(@c9)) | FILTER _._0 EQUALS q0.E AS q1 RETURN (q0.A AS A, q0.E AS E) }†digraph G {
+	unnamed-25EXPLAIN select a, e from ta where e in ('bar', 'doe')ø
+ºäº≈!§ ñπ(D0√‘^8w@~ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(@c9)) | FILTER _._0 EQUALS q0.E AS q1 RETURN (q0.A AS A, q0.E AS E) }†digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -358,10 +358,10 @@ B
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}Ä
+}ˇ
 ;
-	unnamed-2.EXPLAIN select a, e from ta where e in ('foo')¿
-∫∏õà#¢ é¸ñ(D0Êñ«8w@~ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(@c9)) | FILTER _._0 EQUALS q0.E AS q1 RETURN (q0.A AS A, q0.E AS E) }†digraph G {
+	unnamed-2.EXPLAIN select a, e from ta where e in ('foo')ø
+ºäº≈!§ ñπ(D0√‘^8w@~ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(@c9)) | FILTER _._0 EQUALS q0.E AS q1 RETURN (q0.A AS A, q0.E AS E) }†digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -382,10 +382,10 @@ B
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-} 
+}…
 L
-	unnamed-2?EXPLAIN select a, e from ta where e in ('b' + 'a' + 'r', 'doe')˘
-∫´¯°¢ •’ƒ(D0“®«8w@öISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(array(@c10 + @c12 + @c14, @c16))) | FILTER _._0 EQUALS q0.E AS q1 RETURN (q0.A AS A, q0.E AS E) }ºdigraph G {
+	unnamed-2?EXPLAIN select a, e from ta where e in ('b' + 'a' + 'r', 'doe')¯
+º´≈ö'§  ‚æ	(D0≠‹g8w@öISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(array(@c10 + @c12 + @c14, @c16))) | FILTER _._0 EQUALS q0.E AS q1 RETURN (q0.A AS A, q0.E AS E) }ºdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -406,10 +406,10 @@ L
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}È
+}Ë
 M
-	unnamed-2@EXPLAIN select a, b from ta where (a, b) in ((0L, 9L), (1L, 8L))ó
-Ô´¬Î"Ω ¬Øﬁ	(J0–∏«8ë@ÉISCAN(F1 <,>) | FILTER (_.A AS A, _.B AS B) IN array((@c15 AS _0, @c17 AS _1), (@c21 AS _0, @c23 AS _1)) | MAP (_.A AS A, _.B AS B)digraph G {
+	unnamed-2@EXPLAIN select a, b from ta where (a, b) in ((0L, 9L), (1L, 8L))ñ
+Òæ∆ã-ø ÂñÊ(J0òó|8ë@ÉISCAN(F1 <,>) | FILTER (_.A AS A, _.B AS B) IN array((@c15 AS _0, @c17 AS _1), (@c21 AS _0, @c23 AS _1)) | MAP (_.A AS A, _.B AS B)digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -420,10 +420,11 @@ M
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q39> label="q39" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ç
+}å
 K
-	unnamed-2>EXPLAIN select a, b from ta where f in ((90L, 9L), (81L, 18L))Ω
-˛πÙÍ&® É≠‹	(E0ö»Ã8@€TF explode(arrayDistinct(array((@c11 AS _0, @c13 AS _1), (@c17 AS _0, @c19 AS _1)))) | FLATMAP q0 -> { ISCAN(F1 [EQUALS promote(q0._0._0 AS LONG), EQUALS promote(q0._0._1 AS LONG)]) AS q1 RETURN (q1.A AS A, q1.B AS B) }ødigraph G {
+	unnamed-2>EXPLAIN select a, b from ta where f in ((90L, 9L), (81L, 18L))º
+Ä’∑∂$™ §Î”
+(E0ﬁËq8@€TF explode(arrayDistinct(array((@c11 AS _0, @c13 AS _1), (@c17 AS _0, @c19 AS _1)))) | FLATMAP q0 -> { ISCAN(F1 [EQUALS promote(q0._0._0 AS LONG), EQUALS promote(q0._0._1 AS LONG)]) AS q1 RETURN (q1.A AS A, q1.B AS B) }ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -442,11 +443,10 @@ K
     rankDir=LR;
     2 -> 3 [ color="red" style="invis" ];
   }
-}å
+}ã
 b
-	unnamed-2UEXPLAIN select a, b from ta where f in ((90L, 9L), (81L, 18L), (81L, 18L), (90L, 9L))•
-˛∑„ƒ&® Üí∏
-(E0æ≈≈8@èTF explode(arrayDistinct(array((@c11 AS _0, @c13 AS _1), (@c17 AS _0, @c19 AS _1), (@c17 AS _0, @c19 AS _1), (@c11 AS _0, @c13 AS _1)))) | FLATMAP q0 -> { ISCAN(F1 [EQUALS promote(q0._0._0 AS LONG), EQUALS promote(q0._0._1 AS LONG)]) AS q1 RETURN (q1.A AS A, q1.B AS B) }Ûdigraph G {
+	unnamed-2UEXPLAIN select a, b from ta where f in ((90L, 9L), (81L, 18L), (81L, 18L), (90L, 9L))§
+Ä∞Éó)™ ÜÈ‘(E0âƒo8@èTF explode(arrayDistinct(array((@c11 AS _0, @c13 AS _1), (@c17 AS _0, @c19 AS _1), (@c17 AS _0, @c19 AS _1), (@c11 AS _0, @c13 AS _1)))) | FLATMAP q0 -> { ISCAN(F1 [EQUALS promote(q0._0._0 AS LONG), EQUALS promote(q0._0._1 AS LONG)]) AS q1 RETURN (q1.A AS A, q1.B AS B) }Ûdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -468,7 +468,8 @@ b
 }˜
 b
 	unnamed-2UEXPLAIN select e, a from ta where e not in ('foo' , 'bar', 'doe', 'arc', 'something')ê
-›Í©’b ª°∞(0∫ß-8$@AISCAN(F1 <,>) | FILTER NOT _.E IN @c10 | MAP (_.E AS E, _.A AS A)Ødigraph G {
+ﬂÁ∂ò
+d £Ÿ„(0Ã∆!8$@AISCAN(F1 <,>) | FILTER NOT _.E IN @c10 | MAP (_.E AS E, _.A AS A)Ødigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -479,10 +480,10 @@ b
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q39> label="q39" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}˜
+}ˆ
 :
-	unnamed-2-EXPLAIN select a, e from ta where 1 in (2, 3)∏
-«Ö‘„Ü ´€ô(@0–¶®8x@}ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(@c9)) | FILTER _._0 EQUALS @c7 AS q1 RETURN (q0.A AS A, q0.E AS E) }ôdigraph G {
+	unnamed-2-EXPLAIN select a, e from ta where 1 in (2, 3)∑
+…≈ÎÎ à ≠À∑(@0Ôê^8x@}ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(@c9)) | FILTER _._0 EQUALS @c7 AS q1 RETURN (q0.A AS A, q0.E AS E) }ôdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -506,7 +507,7 @@ b
 }‡
 :
 	unnamed-2-EXPLAIN select a from ta where 1 in (1, 2, 3)°
-˚Êìœã Ω∫¬(C0Ç–O8Ç@	dCOVERING(F1 <,> -> [A: KEY:[3], F: [SA: KEY:[0], SB: KEY:[1]]]) | FILTER @c5 IN @c7 | MAP (_.A AS A)õdigraph G {
+˝ô¬â$ç çµ˛(C0ÿ∂o8Ç@	dCOVERING(F1 <,> -> [A: KEY:[3], F: [SA: KEY:[0], SB: KEY:[1]]]) | FILTER @c5 IN @c7 | MAP (_.A AS A)õdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -520,7 +521,7 @@ b
 }õ
 s
 	unnamed-2fEXPLAIN select id from array_table where exists (select 1 from array_table.fruits f where f = 'apple')£
-…ªóäà ∫õƒ("0ÉÇ8,@ BCOVERING(FRUITS [EQUALS @c17] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)¿digraph G {
+Õå…€å º∏å("0Î‡8,@ BCOVERING(FRUITS [EQUALS @c17] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)¿digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -532,8 +533,7 @@ s
 }‚
 G
 	unnamed-2:EXPLAIN select id from array_table where 'apple' in fruitsñ
-ÎÓ®¥
-t ™¡á(0µÑ'8"@ÉSCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { TF explode(arrayDistinct(q0.FRUITS)) | FILTER _._0 EQUALS @c5 AS q1 RETURN (q0.ID AS ID) }Údigraph G {
+ÌØüÓ	v Ëº©(0ïù8"@ÉSCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { TF explode(arrayDistinct(q0.FRUITS)) | FILTER _._0 EQUALS @c5 AS q1 RETURN (q0.ID AS ID) }Údigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -560,8 +560,7 @@ G
 }„
 H
 	unnamed-2;EXPLAIN select id from array_table where 'banana' in fruitsñ
-ÎÓ®¥
-t ™¡á(0µÑ'8"@ÉSCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { TF explode(arrayDistinct(q0.FRUITS)) | FILTER _._0 EQUALS @c5 AS q1 RETURN (q0.ID AS ID) }Údigraph G {
+ÌØüÓ	v Ëº©(0ïù8"@ÉSCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { TF explode(arrayDistinct(q0.FRUITS)) | FILTER _._0 EQUALS @c5 AS q1 RETURN (q0.ID AS ID) }Údigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -588,8 +587,7 @@ H
 }Ê
 K
 	unnamed-2>EXPLAIN select id from array_table where 'pineapple' in fruitsñ
-ÎÓ®¥
-t ™¡á(0µÑ'8"@ÉSCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { TF explode(arrayDistinct(q0.FRUITS)) | FILTER _._0 EQUALS @c5 AS q1 RETURN (q0.ID AS ID) }Údigraph G {
+ÌØüÓ	v Ëº©(0ïù8"@ÉSCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { TF explode(arrayDistinct(q0.FRUITS)) | FILTER _._0 EQUALS @c5 AS q1 RETURN (q0.ID AS ID) }Údigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -613,10 +611,11 @@ K
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}Ô"
+}õ#
 o
-	unnamed-2bEXPLAIN select id from array_table where exists (select 1 from array_table.numbers n where n = 10)˚!
-‡Ÿ“ñf ˜î¨(0”ó8 @ ºSCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { TF explode(q0.NUMBERS) | FILTER _._0 EQUALS promote(@c17 AS LONG) | MAP (@c8 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.ID AS ID) }û digraph G {
+	unnamed-2bEXPLAIN select id from array_table where exists (select 1 from array_table.numbers n where n = 10)ß"
+‰ÔÈ¢
+j üòò(0ø∂8 @ ºSCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { TF explode(q0.NUMBERS) | FILTER _._0 EQUALS promote(@c17 AS LONG) | MAP (@c8 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.ID AS ID) }  digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -626,8 +625,8 @@ o
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q8 NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _0)" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">FIRST $q8 OR NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _0)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (@c8 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _0)" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q4 EQUALS promote(@c17 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG)" ];
-  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE q2.NUMBERS</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q4._0 EQUALS promote(@c17 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, INT AS _1)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC explode(q2.NUMBERS)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, INT AS _1)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ label=<&nbsp;q8> label="q8" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -649,7 +648,7 @@ o
 }˛
 C
 	unnamed-26EXPLAIN select id from array_table where 10 in numbers∂
-ÎÅ®˛t õòÿ(0˛º8"@ïSCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { TF explode(arrayDistinct(q0.NUMBERS)) | FILTER _._0 EQUALS promote(@c5 AS LONG) AS q1 RETURN (q0.ID AS ID) }Ädigraph G {
+ÌπéÆ	v æß¨(0Ö®8"@ïSCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { TF explode(arrayDistinct(q0.NUMBERS)) | FILTER _._0 EQUALS promote(@c5 AS LONG) AS q1 RETURN (q0.ID AS ID) }Ädigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -676,7 +675,7 @@ C
 }˛
 C
 	unnamed-26EXPLAIN select id from array_table where 15 in numbers∂
-ÎÅ®˛t õòÿ(0˛º8"@ïSCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { TF explode(arrayDistinct(q0.NUMBERS)) | FILTER _._0 EQUALS promote(@c5 AS LONG) AS q1 RETURN (q0.ID AS ID) }Ädigraph G {
+ÌπéÆ	v æß¨(0Ö®8"@ïSCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { TF explode(arrayDistinct(q0.NUMBERS)) | FILTER _._0 EQUALS promote(@c5 AS LONG) AS q1 RETURN (q0.ID AS ID) }Ädigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -703,8 +702,8 @@ C
 }ï
 W
 	unnamed-2JEXPLAIN select id from array_table where ('apple', 'red') in fruit_recordsπ
-Î´´£
-t ù©Î(0ﬂ "8"@\SCAN([IS ARRAY_TABLE]) | FILTER (@c6 AS _0, @c8 AS _1) IN _.FRUIT_RECORDS | MAP (_.ID AS ID)Ωdigraph G {
+ÌÎ“Û
+v ü’”(0ò‹8"@\SCAN([IS ARRAY_TABLE]) | FILTER (@c6 AS _0, @c8 AS _1) IN _.FRUIT_RECORDS | MAP (_.ID AS ID)Ωdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -718,8 +717,8 @@ W
 }ò
 Z
 	unnamed-2MEXPLAIN select id from array_table where ('mango', 'orange') in fruit_recordsπ
-Î´´£
-t ù©Î(0ﬂ "8"@\SCAN([IS ARRAY_TABLE]) | FILTER (@c6 AS _0, @c8 AS _1) IN _.FRUIT_RECORDS | MAP (_.ID AS ID)Ωdigraph G {
+ÌÎ“Û
+v ü’”(0ò‹8"@\SCAN([IS ARRAY_TABLE]) | FILTER (@c6 AS _0, @c8 AS _1) IN _.FRUIT_RECORDS | MAP (_.ID AS ID)Ωdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -733,8 +732,8 @@ Z
 }ñ
 X
 	unnamed-2KEXPLAIN select id from array_table where ('apple', 'blue') in fruit_recordsπ
-Î´´£
-t ù©Î(0ﬂ "8"@\SCAN([IS ARRAY_TABLE]) | FILTER (@c6 AS _0, @c8 AS _1) IN _.FRUIT_RECORDS | MAP (_.ID AS ID)Ωdigraph G {
+ÌÎ“Û
+v ü’”(0ò‹8"@\SCAN([IS ARRAY_TABLE]) | FILTER (@c6 AS _0, @c8 AS _1) IN _.FRUIT_RECORDS | MAP (_.ID AS ID)Ωdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -748,8 +747,8 @@ X
 }ó
 Y
 	unnamed-2LEXPLAIN select id from array_table where ('grape', 'green') in fruit_recordsπ
-Î´´£
-t ù©Î(0ﬂ "8"@\SCAN([IS ARRAY_TABLE]) | FILTER (@c6 AS _0, @c8 AS _1) IN _.FRUIT_RECORDS | MAP (_.ID AS ID)Ωdigraph G {
+ÌÎ“Û
+v ü’”(0ò‹8"@\SCAN([IS ARRAY_TABLE]) | FILTER (@c6 AS _0, @c8 AS _1) IN _.FRUIT_RECORDS | MAP (_.ID AS ID)Ωdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -763,7 +762,8 @@ Y
 }›
 K
 	unnamed-2>EXPLAIN select id from array_table where 'apple' not in fruitsç
-–∑±™> ì∂œ(0àˆ8@FSCAN([IS ARRAY_TABLE]) | FILTER NOT @c5 IN _.FRUITS | MAP (_.ID AS ID)ßdigraph G {
+“≠Ó∏@ ¶üè(0—Ì
+8@FSCAN([IS ARRAY_TABLE]) | FILTER NOT @c5 IN _.FRUITS | MAP (_.ID AS ID)ßdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -777,7 +777,7 @@ K
 }°
 [
 	unnamed-2NEXPLAIN select id from array_table where ('apple', 'red') not in fruit_records¡
-–´ßÊ> óÄÓ(0Ì˝8@`SCAN([IS ARRAY_TABLE]) | FILTER NOT (@c6 AS _0, @c8 AS _1) IN _.FRUIT_RECORDS | MAP (_.ID AS ID)¡digraph G {
+“øìµ@ ñõÛ(0ï—8@`SCAN([IS ARRAY_TABLE]) | FILTER NOT (@c6 AS _0, @c8 AS _1) IN _.FRUIT_RECORDS | MAP (_.ID AS ID)¡digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -791,7 +791,7 @@ K
 }Ø5
 Ù
 	unnamed-2ÊEXPLAIN SELECT t_child.id AS child_id, t_child.num AS num, t_parent.id AS parent_id FROM t_parent, t_child WHERE get_key(t_child.t_link) = t_parent.id AND 'tag_a' IN t_parent.lst AND t_parent.id = 'p1' AND t_child.num IN (1, 2, 3)µ3
-‰J†Ç¿„´  Œ»øO(é0⁄çÍ@8÷@ë˛SCAN([IS T_PARENT, EQUALS promote(@c44 AS STRING)]) | FLATMAP q0 -> { TF explode(arrayDistinct(q0.LST)) | FLATMAP q1 -> { [IN arrayDistinct(promote(@c50 AS ARRAY(LONG)))] | INJOIN q2 -> { SCAN([IS T_CHILD]) | FILTER _.T_LINK.NAME EQUALS q0.ID AND _.NUM EQUALS q2._0 } | FILTER @c34 EQUALS q1._0 AS q3 RETURN q3 } AS q4 RETURN (q4.ID AS CHILD_ID, q4.NUM AS NUM, q0.ID AS PARENT_ID) }ê0digraph G {
+ËJÅÀƒ˜Ø  ˇ‹‡Z(é0õ¸¥D8÷@ë˛SCAN([IS T_PARENT, EQUALS promote(@c44 AS STRING)]) | FLATMAP q0 -> { TF explode(arrayDistinct(q0.LST)) | FLATMAP q1 -> { [IN arrayDistinct(promote(@c50 AS ARRAY(LONG)))] | INJOIN q2 -> { SCAN([IS T_CHILD]) | FILTER _.T_LINK.NAME EQUALS q0.ID AND _.NUM EQUALS q2._0 } | FILTER @c34 EQUALS q1._0 AS q3 RETURN q3 } AS q4 RETURN (q4.ID AS CHILD_ID, q4.NUM AS NUM, q0.ID AS PARENT_ID) }ê0digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -825,11 +825,6 @@ K
     5 -> 6 [ color="red" style="invis" ];
   }
   {
-    rank=same;
-    rankDir=LR;
-    8 -> 9 [ color="red" style="invis" ];
-  }
-  {
     5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
@@ -840,10 +835,15 @@ K
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-}£#
+  {
+    rank=same;
+    rankDir=LR;
+    8 -> 9 [ color="red" style="invis" ];
+  }
+}§#
 ]
-	unnamed-2PEXPLAIN SELECT t.id, n FROM array_table AS t, t.numbers AS n WHERE n IN (10, 20)¡"
-ßÊøåß ˆÿ≠(60°’p8t@˜TF explode(arrayDistinct(promote(@c19 AS ARRAY(LONG)))) | FLATMAP q0 -> { SCAN([IS ARRAY_TABLE]) | FLATMAP q1 -> { TF explode(q1.NUMBERS) | FILTER _._0 EQUALS q0._0 AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0.ID AS ID, q3._1._0 AS N) }® digraph G {
+	unnamed-2PEXPLAIN SELECT t.id, n FROM array_table AS t, t.numbers AS n WHERE n IN (10, 20)¬"
+©µò‹&© …¿õ(60î…á8t@˜TF explode(arrayDistinct(promote(@c19 AS ARRAY(LONG)))) | FLATMAP q0 -> { SCAN([IS ARRAY_TABLE]) | FLATMAP q1 -> { TF explode(q1.NUMBERS) | FILTER _._0 EQUALS q0._0 AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0.ID AS ID, q3._1._0 AS N) }® digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -861,14 +861,6 @@ K
   7 -> 5 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   3 -> 1 [ label=<&nbsp;q66> label="q66" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    2 -> 3 [ color="red" style="invis" ];
-  }
-  {
     7 -> 3 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
@@ -879,17 +871,25 @@ K
     rankDir=LR;
     4 -> 5 [ color="red" style="invis" ];
   }
-}º
+  {
+    5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    2 -> 3 [ color="red" style="invis" ];
+  }
+}∑
 U
-	unnamed-2HEXPLAIN SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx‚
-¢∫à⁄0 Ç«û(0Ü‚8@ zSCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { TF explode(q0.NUMBERS) AS q1 RETURN (q0.ID AS ID, q1._0 AS N, q1._1 + 1 AS IDX) }»digraph G {
+	unnamed-2HEXPLAIN SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx›
+§ô∏•2 Ü˙æ(0å≥8@ zSCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { TF explode(q0.NUMBERS) AS q1 RETURN (q0.ID AS ID, q1._0 AS N, q1._1 + 1 AS IDX) }√digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.ID AS ID, q4._0 AS N, q4._1 AS IDX)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS N, INT AS IDX)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.ID AS ID, q4._0 AS N, q4._1 + 1 AS IDX)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS N, INT AS IDX)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS ARRAY_TABLE]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T_CHILD, ARRAY_TABLE, T_PARENT, TA]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">EXPLODE q2.NUMBERS WITH ORDINALITY</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, INT AS _1)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC explode(q2.NUMBERS)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS _0, INT AS _1)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 1 [ label=<&nbsp;q4> label="q4" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -904,7 +904,7 @@ U
 }π"
 i
 	unnamed-2\EXPLAIN SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx WHERE n IN (10, 20)À!
-ßé Àß ﬂÎ◊(60íàÃ8t@ÒTF explode(arrayDistinct(promote(@c23 AS ARRAY(LONG)))) | FLATMAP q0 -> { SCAN([IS ARRAY_TABLE]) | FLATMAP q1 -> { TF explode(q1.NUMBERS) | FILTER _._0 EQUALS q0._0 AS q2 RETURN (q1.ID AS ID, q2._0 AS N, q2._1 + 1 AS IDX) } AS q3 RETURN q3 }∑digraph G {
+©µêÈ*© ààÿ(60æ∞ã8t@ÒTF explode(arrayDistinct(promote(@c23 AS ARRAY(LONG)))) | FLATMAP q0 -> { SCAN([IS ARRAY_TABLE]) | FLATMAP q1 -> { TF explode(q1.NUMBERS) | FILTER _._0 EQUALS q0._0 AS q2 RETURN (q1.ID AS ID, q2._0 AS N, q2._1 + 1 AS IDX) } AS q3 RETURN q3 }∑digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -940,10 +940,10 @@ i
     rankDir=LR;
     4 -> 5 [ color="red" style="invis" ];
   }
-}Ω#
+}æ#
 i
-	unnamed-2\EXPLAIN SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx WHERE idx IN (1, 3)œ"
-∞˝å‹ß ˇΩÊ(60àŒk8t@¯TF explode(arrayDistinct(@c23)) | FLATMAP q0 -> { SCAN([IS ARRAY_TABLE]) | FLATMAP q1 -> { TF explode(q1.NUMBERS) | FILTER _._1 + 1 EQUALS q0._0 AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0.ID AS ID, q3._1._0 AS N, q3._1._1 + 1 AS IDX) }µ digraph G {
+	unnamed-2\EXPLAIN SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx WHERE idx IN (1, 3)–"
+≤˝˜Ì)© ÍØ—(60ÉÒé8t@¯TF explode(arrayDistinct(@c23)) | FLATMAP q0 -> { SCAN([IS ARRAY_TABLE]) | FLATMAP q1 -> { TF explode(q1.NUMBERS) | FILTER _._1 + 1 EQUALS q0._0 AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0.ID AS ID, q3._1._0 AS N, q3._1._1 + 1 AS IDX) }µ digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -982,7 +982,8 @@ i
 }≠
 j
 	unnamed-2]EXPLAIN SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx WHERE t.id IN (2, 4)æ
-û	⁄µ.« ÕßÇ(G0ÌßÅ8é@Ã[IN arrayDistinct(promote(@c25 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS ARRAY_TABLE, EQUALS q0._0]) } | FLATMAP q1 -> { TF explode(q1.NUMBERS) AS q2 RETURN (q1.ID AS ID, q2._0 AS N, q2._1 + 1 AS IDX) }Œdigraph G {
+†	ïµ“'… ïœã
+(G0îóÅ8é@Ã[IN arrayDistinct(promote(@c25 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS ARRAY_TABLE, EQUALS q0._0]) } | FLATMAP q1 -> { TF explode(q1.NUMBERS) AS q2 RETURN (q1.ID AS ID, q2._0 AS N, q2._1 + 1 AS IDX) }Œdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -998,6 +999,11 @@ j
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 1 [ label=<&nbsp;q4> label="q4" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
+    rank=same;
+    rankDir=LR;
+    3 -> 4 [ color="red" style="invis" ];
+  }
+  {
     6 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
@@ -1005,48 +1011,43 @@ j
     rankDir=LR;
     2 -> 6 [ color="red" style="invis" ];
   }
-  {
-    rank=same;
-    rankDir=LR;
-    3 -> 4 [ color="red" style="invis" ];
-  }
-}ô"
+}ö"
 r
-	unnamed-2eEXPLAIN SELECT t.id, f, idx FROM array_table AS t, t.fruits AS f AT idx WHERE f IN ('apple', 'mango')¢!
-ßΩïì$ß àô∑(60·≥y8t@ÿTF explode(arrayDistinct(@c23)) | FLATMAP q0 -> { SCAN([IS ARRAY_TABLE]) | FLATMAP q1 -> { TF explode(q1.FRUITS) | FILTER _._0 EQUALS q0._0 AS q2 RETURN (q1.ID AS ID, q2._0 AS F, q2._1 + 1 AS IDX) } AS q3 RETURN q3 }®digraph G {
+	unnamed-2eEXPLAIN SELECT t.id, f, idx FROM array_table AS t, t.fruits AS f AT idx WHERE f IN ('apple', 'mango')£!
+©Â∞÷#© ∫Ö≥(60ïˇë8t@ÿTF explode(arrayDistinct(@c23)) | FLATMAP q0 -> { SCAN([IS ARRAY_TABLE]) | FLATMAP q1 -> { TF explode(q1.FRUITS) | FILTER _._0 EQUALS q0._0 AS q2 RETURN (q1.ID AS ID, q2._0 AS F, q2._1 + 1 AS IDX) } AS q3 RETURN q3 }®digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP q92</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS F, INT AS IDX)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC explode(arrayDistinct(@c23))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.ID AS ID, q4._0 AS F, q4._1 + 1 AS IDX)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS F, INT AS IDX)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q4._0 EQUALS q62._0</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS ARRAY_TABLE]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC explode(q2.FRUITS)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T_CHILD, ARRAY_TABLE, T_PARENT, TA]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS ARRAY_TABLE]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q4._0 EQUALS q62._0</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T_CHILD, ARRAY_TABLE, T_PARENT, TA]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, ARRAY(STRING) AS FRUITS, ARRAY(LONG) AS NUMBERS, ARRAY(STRING AS NAME, STRING AS COLOR) AS FRUIT_RECORDS)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC explode(q2.FRUITS)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, INT AS _1)" ];
   2 -> 1 [ label=<&nbsp;q62> label="q62" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 3 [ label=<&nbsp;q4> label="q4" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ label=<&nbsp;q4> label="q4" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   3 -> 1 [ label=<&nbsp;q92> label="q92" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    6 -> 3 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    4 -> 3 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    5 -> 4 [ color="red" style="invis" ];
-  }
-  {
-    4 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+    5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
     rank=same;
     rankDir=LR;
     2 -> 3 [ color="red" style="invis" ];
+  }
+  {
+    7 -> 3 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    5 -> 3 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    4 -> 5 [ color="red" style="invis" ];
   }
 }

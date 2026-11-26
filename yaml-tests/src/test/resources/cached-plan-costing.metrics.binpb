@@ -1,7 +1,7 @@
-ì
+ê
 F
-cached-plan-costing-tests)EXPLAIN SELECT "x" FROM T WHERE "x" > 250¡
-ÁÅ³ì;\ Ð¹Þ&(0é¿á8!@iCOVERING(IDX_X_GT_200 [[GREATER_THAN promote(@c7 AS INT)]] -> [id: KEY:[2], x: KEY:[0]]) | MAP (_.x AS x)—
+cached-plan-costing-tests)EXPLAIN SELECT "x" FROM T WHERE "x" > 250Ÿ
+Å˜â` Àªq(0Éç8!@iCOVERING(IDX_X_GT_200 [[GREATER_THAN promote(@c7 AS INT)]] -> [id: KEY:[2], x: KEY:[0]]) | MAP (_.x AS x)—
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -11,10 +11,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_X_GT_200</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS id, INT AS x)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}
+}›
 F
-cached-plan-costing-tests)EXPLAIN SELECT "x" FROM T WHERE "x" > 100Ò
-Þ“ÁÞ.B ƒëð(0Õ’‘8@KSCAN([IS T]) | FILTER _.x GREATER_THAN promote(@c7 AS INT) | MAP (_.x AS x)ædigraph G {
+cached-plan-costing-tests)EXPLAIN SELECT "x" FROM T WHERE "x" > 100Ð
+âè´¦F È¶G(0û«	8@KSCAN([IS T]) | FILTER _.x GREATER_THAN promote(@c7 AS INT) | MAP (_.x AS x)ædigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -25,10 +25,10 @@ F
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q29> label="q29" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ë
+}ê
 F
-cached-plan-costing-tests)EXPLAIN SELECT "x" FROM T WHERE "x" > 300 
-ÁÇÂµ\ Ø°Ñ(0ùùL8!@iCOVERING(IDX_X_GT_200 [[GREATER_THAN promote(@c7 AS INT)]] -> [id: KEY:[2], x: KEY:[0]]) | MAP (_.x AS x)—
+cached-plan-costing-tests)EXPLAIN SELECT "x" FROM T WHERE "x" > 300Ÿ
+Å˜â` Àªq(0Éç8!@iCOVERING(IDX_X_GT_200 [[GREATER_THAN promote(@c7 AS INT)]] -> [id: KEY:[2], x: KEY:[0]]) | MAP (_.x AS x)—
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -38,10 +38,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">IDX_X_GT_200</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS id, INT AS x)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q41> label="q41" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}œ
+}›
 F
-cached-plan-costing-tests)EXPLAIN SELECT "x" FROM T WHERE "x" > 150Ñ
-ÞÛÑ—B €ˆž(0£­78@KSCAN([IS T]) | FILTER _.x GREATER_THAN promote(@c7 AS INT) | MAP (_.x AS x)ædigraph G {
+cached-plan-costing-tests)EXPLAIN SELECT "x" FROM T WHERE "x" > 150Ð
+âè´¦F È¶G(0û«	8@KSCAN([IS T]) | FILTER _.x GREATER_THAN promote(@c7 AS INT) | MAP (_.x AS x)ædigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -52,10 +52,10 @@ F
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q29> label="q29" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ë
+}ê
 F
-cached-plan-costing-tests)EXPLAIN SELECT "x" FROM T WHERE "x" > 260 
-ÁÇÂµ\ Ø°Ñ(0ùùL8!@iCOVERING(IDX_X_GT_200 [[GREATER_THAN promote(@c7 AS INT)]] -> [id: KEY:[2], x: KEY:[0]]) | MAP (_.x AS x)—
+cached-plan-costing-tests)EXPLAIN SELECT "x" FROM T WHERE "x" > 260Ÿ
+Å˜â` Àªq(0Éç8!@iCOVERING(IDX_X_GT_200 [[GREATER_THAN promote(@c7 AS INT)]] -> [id: KEY:[2], x: KEY:[0]]) | MAP (_.x AS x)—
 digraph G {
   fontname=courier;
   rankdir=BT;
