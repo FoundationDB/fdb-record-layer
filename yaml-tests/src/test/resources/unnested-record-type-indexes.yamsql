@@ -19,7 +19,7 @@
 
 ---
 options:
-  supported_version: !current_version
+  supported_version: 4.19.5.0
   connection_options:
     CONSIDER_SYNTHETIC_RECORD_TYPE_INDEXES: true
 ---
