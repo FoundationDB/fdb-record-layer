@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.api.RelationalStatement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
 import com.apple.foundationdb.relational.recordlayer.ContinuationImpl;
+import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.AggregateResultSet;
 import com.apple.foundationdb.relational.yamltests.YamlReference;
 import com.apple.foundationdb.relational.yamltests.YamlConnection;
@@ -46,6 +47,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 
 import static com.apple.foundationdb.relational.yamltests.command.QueryCommand.reportTestFailure;
@@ -72,7 +74,13 @@ public class QueryExecutor {
      * means that the query should be executed as a prepared statement.
      */
     @Nullable
-    private final List<Parameter> parameters;
+    private final List<Parameter> unnamedParameters;
+    /**
+     * Bound named parameters, by name, to be set using the {@link RelationalPreparedStatement}. Empty if the query is
+     * not executed as a prepared statement.
+     */
+    @Nonnull
+    private final Map<String, Parameter> namedParameters;
     @Nonnull
     private final List<String> setup = new ArrayList<>();
 
@@ -81,13 +89,17 @@ public class QueryExecutor {
      *
      * @param query the query to execute
      * @param reference the {@link YamlReference} from the test script
-     * @param parameters the parameters to bind
+     * @param unnamedParameters the unnamed parameters to bind, in the order of their indexes
+     * @param namedParameters the named parameters to bind, by name
      * @param forceContinuations Whether to force continuations in case the query does not explicitly specify maxRows.
      */
-    QueryExecutor(@Nonnull String query, @Nonnull final YamlReference reference, @Nullable List<Parameter> parameters, boolean forceContinuations) {
+    QueryExecutor(@Nonnull String query, @Nonnull final YamlReference reference, @Nullable List<Parameter> unnamedParameters,
+                  @Nonnull Map<String, Parameter> namedParameters, boolean forceContinuations) {
+        Assert.thatUnchecked(unnamedParameters != null || namedParameters.isEmpty(), "named parameters require a prepared statement");
         this.reference = reference;
         this.query = query;
-        this.parameters = parameters;
+        this.unnamedParameters = unnamedParameters;
+        this.namedParameters = namedParameters;
         this.forceContinuations = forceContinuations;
     }
 
@@ -182,7 +194,7 @@ public class QueryExecutor {
                                       @Nullable CheckResultMetadataConfig inlineMetadataConfig) throws RelationalException {
         Continuation continuationAfter = null;
         try {
-            if (parameters == null) {
+            if (unnamedParameters == null) {
                 logger.debug("⏳ Executing query '{}'", this.toString());
                 continuationAfter = executeWithSetup(connection, singleConnection -> {
                     try (var s = singleConnection.createStatement()) {
@@ -282,7 +294,7 @@ public class QueryExecutor {
         if (maxRows != null) {
             s.setMaxRows(maxRows);
         }
-        if (parameters != null) {
+        if (unnamedParameters != null) {
             setParametersInPreparedStatement(s);
         }
         // set continuation
@@ -384,21 +396,27 @@ public class QueryExecutor {
 
     private void setParametersInPreparedStatement(@Nonnull RelationalPreparedStatement statement) throws SQLException {
         int counter = 1;
-        for (var parameter : Objects.requireNonNull(parameters)) {
+        for (var parameter : Objects.requireNonNull(unnamedParameters)) {
             statement.setObject(counter++, parameter.getSqlObject(statement.getConnection()));
+        }
+        for (var namedParameter : namedParameters.entrySet()) {
+            statement.setObject(namedParameter.getKey(), namedParameter.getValue().getSqlObject(statement.getConnection()));
         }
     }
 
     @Nonnull
     @Override
     public String toString() {
-        if (parameters == null) {
+        if (unnamedParameters == null) {
             return query;
         } else {
             int counter = 0;
             var paramList = new ArrayList<String>();
-            for (var parameter : Objects.requireNonNull(parameters)) {
+            for (var parameter : Objects.requireNonNull(unnamedParameters)) {
                 paramList.add(counter++ + " -> " + parameter);
+            }
+            for (var namedParameter : namedParameters.entrySet()) {
+                paramList.add("?" + namedParameter.getKey() + " -> " + namedParameter.getValue());
             }
             return query + " with parameters (" + String.join(", ", paramList) + ")";
         }

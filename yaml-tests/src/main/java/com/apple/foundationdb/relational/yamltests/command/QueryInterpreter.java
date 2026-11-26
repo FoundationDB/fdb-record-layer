@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.yamltests.command;
 
-import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.relational.util.Assert;
 import com.apple.foundationdb.relational.yamltests.YamlReference;
 import com.apple.foundationdb.relational.yamltests.YamlExecutionContext;
@@ -46,10 +45,13 @@ import org.yaml.snakeyaml.nodes.Tag;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.relational.yamltests.Matchers.constructRandomString;
@@ -80,6 +82,15 @@ import static com.apple.foundationdb.relational.yamltests.Matchers.constructVect
  *      SELECT * FROM foo WHERE foo.a > !! !r [2, 9] !!
  * }</pre>
  * Here, the parameter can randomly take different values between 2 and 9 in each binding.
+ *
+ * <p>By default, a snippet is an unnamed parameter ({@code ?}) when the query is executed as a prepared statement. A
+ * snippet that starts with {@code ?name} is a named parameter ({@code ?name}) instead. Exactly one snippet of a named
+ * parameter gives its value, and the other snippets of the same parameter only give its name, for example:
+ * <pre>{@code
+ *      SELECT * FROM foo WHERE foo.a > !! ?x !r [2, 9] !! AND foo.b < !! ?x !! + 5
+ * }</pre>
+ * A named parameter is bound once per execution, so all its snippets take the same value, also when executed as a
+ * simple statement.
  */
 public final class QueryInterpreter {
     @Nonnull
@@ -89,13 +100,41 @@ public final class QueryInterpreter {
     @Nonnull
     private final YamlExecutionContext executionContext;
     /**
-     * {@link List} of the snippet text and interpreted parameter injection. Note that the parameter can be a
-     * hierarchy of other parameters and some of which might be {@link UnboundParameter}s. The {@link UnboundParameter}
-     * should fixate on a value before they can be injected to the query string to form an executable query.
+     * {@link List} of the parameter injections of the query, in the order in which they appear.
      */
-    private final List<Pair<String, Parameter>> injections;
+    @Nonnull
+    private final List<Injection> injections;
+    /**
+     * The interpreted values of the named parameters of the query, by name.
+     */
+    @Nonnull
+    private final Map<String, Parameter> namedParameters;
+
+    /**
+     * Matches the content of a snippet that starts with the name of a named parameter, capturing the name and the
+     * rest of the snippet, if any.
+     */
+    private static final Pattern NAMED_INJECTION = Pattern.compile("\\s*\\?([A-Za-z][A-Za-z0-9_]*)(?:\\s+(.*))?", Pattern.DOTALL);
 
     private static final Yaml INTERPRETER = new Yaml(new QueryParameterYamlConstructor(new LoaderOptions()));
+
+    /**
+     * A parameter injection snippet of the query.
+     *
+     * @param snippet the text of the snippet, including the surrounding {@code !!}
+     * @param name the name of the parameter if it is a named parameter, else {@code null}
+     * @param parameter the interpreted parameter, which can be a hierarchy of other parameters and some of which might
+     * be {@link UnboundParameter}s that should fixate on a value before they can be injected to the query string to
+     * form an executable query; {@code null} if the snippet only gives the name of a named parameter
+     */
+    private record Injection(@Nonnull String snippet, @Nullable String name, @Nullable Parameter parameter) {
+        /**
+         * {@return {@code true} if the snippet is a named parameter, else {@code false}}
+         */
+        boolean isNamed() {
+            return name != null;
+        }
+    }
 
     private static final class QueryParameterYamlConstructor extends SafeConstructor {
         private static final Tag RANDOM_TAG = new Tag("!r");
@@ -278,6 +317,7 @@ public final class QueryInterpreter {
         this.query = query;
         this.reference = reference;
         this.injections = getInjections(query);
+        this.namedParameters = getNamedParameters(query, injections);
         this.executionContext = executionContext;
     }
 
@@ -289,9 +329,10 @@ public final class QueryInterpreter {
         return query;
     }
 
-    private List<Pair<String, Parameter>> getInjections(@Nonnull String query) {
+    @Nonnull
+    private static List<Injection> getInjections(@Nonnull String query) {
 
-        final var lst = new ArrayList<Pair<String, Parameter>>();
+        final var lst = new ArrayList<Injection>();
         int cursor = 0;
         while (true) {
             int start = query.indexOf("!!", cursor);
@@ -301,9 +342,35 @@ public final class QueryInterpreter {
             int end = query.indexOf("!!", start + 2);
             Assert.thatUnchecked(end != -1, "Illegal format: Parameter injection not formed correctly in query " + query);
             cursor = end + 2;
-            lst.add(Pair.of(query.substring(start, end + 2), INTERPRETER.load(query.substring(start + 2, end))));
+            final var snippet = query.substring(start, end + 2);
+            final var content = query.substring(start + 2, end);
+            final var namedMatcher = NAMED_INJECTION.matcher(content);
+            if (namedMatcher.matches()) {
+                final var value = namedMatcher.group(2);
+                lst.add(new Injection(snippet, namedMatcher.group(1), value == null || value.isBlank() ? null : INTERPRETER.load(value)));
+            } else {
+                lst.add(new Injection(snippet, null, INTERPRETER.load(content)));
+            }
         }
         return lst;
+    }
+
+    @Nonnull
+    private static Map<String, Parameter> getNamedParameters(@Nonnull String query, @Nonnull List<Injection> injections) {
+        final var namedParameters = new LinkedHashMap<String, Parameter>();
+        for (final var injection : injections) {
+            if (injection.isNamed() && injection.parameter() != null) {
+                Assert.thatUnchecked(namedParameters.put(injection.name(), injection.parameter()) == null,
+                        "Illegal format: Named parameter ?" + injection.name() + " is given a value more than once in query " + query);
+            }
+        }
+        for (final var injection : injections) {
+            if (injection.isNamed()) {
+                Assert.thatUnchecked(namedParameters.containsKey(injection.name()),
+                        "Illegal format: Named parameter ?" + injection.name() + " is not given a value in query " + query);
+            }
+        }
+        return namedParameters;
     }
 
     public static QueryInterpreter withQueryString(@Nonnull final YamlReference reference, @Nonnull String query, @Nonnull final YamlExecutionContext executionContext) {
@@ -328,13 +395,22 @@ public final class QueryInterpreter {
             if (random == null) {
                 // we do not allow prepared statements if the Random generator is not there
                 Assert.thatUnchecked(injections.isEmpty(), "Parameter injection is not allowed in query without a Random(generator)");
-                return new QueryExecutor(query, reference, null, forceContinuations);
+                return new QueryExecutor(query, reference, null, Map.of(), forceContinuations);
             } else {
-                var boundInjections = injections.stream().map(i -> (Pair.of(i.getLeft(), i.getRight().bind(random)))).collect(Collectors.toList());
+                final var boundNamedParameters = new LinkedHashMap<String, Parameter>();
+                namedParameters.forEach((name, parameter) -> boundNamedParameters.put(name, parameter.bind(random)));
+                final var boundInjections = injections.stream()
+                        .map(i -> new Injection(i.snippet(), i.name(),
+                                i.isNamed() ? boundNamedParameters.get(i.name()) : Assert.notNullUnchecked(i.parameter()).bind(random)))
+                        .collect(Collectors.toList());
                 if (runAsPreparedStatement) {
-                    return new QueryExecutor(adaptToPreparedStatement(query, boundInjections), reference, boundInjections.stream().map(Pair::getRight).collect(Collectors.toList()), forceContinuations);
+                    final var unnamedParameters = boundInjections.stream()
+                            .filter(i -> !i.isNamed())
+                            .map(Injection::parameter)
+                            .collect(Collectors.toList());
+                    return new QueryExecutor(adaptToPreparedStatement(query, boundInjections), reference, unnamedParameters, boundNamedParameters, forceContinuations);
                 } else {
-                    return new QueryExecutor(adaptToSimpleStatement(query, boundInjections), reference, null, forceContinuations);
+                    return new QueryExecutor(adaptToSimpleStatement(query, boundInjections), reference, null, Map.of(), forceContinuations);
                 }
             }
         } catch (Exception e) {
@@ -343,19 +419,19 @@ public final class QueryInterpreter {
     }
 
     @Nonnull
-    private static String adaptToPreparedStatement(@Nonnull String query, @Nonnull List<Pair<String, Parameter>> injections) {
+    private static String adaptToPreparedStatement(@Nonnull String query, @Nonnull List<Injection> injections) {
         String adaptedString = query;
         for (var injection : injections) {
-            adaptedString = adaptedString.replace(injection.getLeft(), "?");
+            adaptedString = adaptedString.replace(injection.snippet(), injection.isNamed() ? "?" + injection.name() : "?");
         }
         return adaptedString;
     }
 
     @Nonnull
-    private static String adaptToSimpleStatement(@Nonnull String query, @Nonnull List<Pair<String, Parameter>> injections) {
+    private static String adaptToSimpleStatement(@Nonnull String query, @Nonnull List<Injection> injections) {
         String adaptedString = query;
         for (var injection : injections) {
-            adaptedString = adaptedString.replace(injection.getLeft(), injection.getRight().getSqlText());
+            adaptedString = adaptedString.replace(injection.snippet(), Assert.notNullUnchecked(injection.parameter()).getSqlText());
         }
         return adaptedString;
     }
