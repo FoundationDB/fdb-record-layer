@@ -209,36 +209,36 @@ test_block:
       # The index that fans out the array answers an EXISTS over it, which does not observe how many times an element
       # occurs.
       - query: SELECT "id" FROM "T5" AS "row" WHERE EXISTS (SELECT 1 FROM "row"."numbers" AS "number" WHERE "number" = 5)
-      - supported_version: !current_version
+      - supported_version: 4.19.4.0
       - explain: "COVERING(T5_index [EQUALS promote(@c20 AS LONG)] -> [id: KEY:[2]]) | MAP (_.id AS id)"
       - unorderedResult: [{1}, {2}]
     -
       # Unnesting with AT preserves the order of the array and numbers its positions. The index holds every distinct
       # element once, in no particular order, so it cannot answer the EXISTS.
       - query: SELECT "id" FROM "T5" AS "row" WHERE EXISTS (SELECT 1 FROM "row"."numbers" AS "number" AT "at" WHERE "number" = 5)
-      - supported_version: !current_version
+      - supported_version: 4.19.4.0
       - explain: "SCAN([IS T5]) | FLATMAP q0 -> { TF explode(q0.numbers) | FILTER _._0 EQUALS promote(@c22 AS LONG) | MAP (@c10 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.id AS id) }"
       - unorderedResult: [{1}, {2}]
     -
       # Neither can it with a predicate on the position.
       - query: SELECT "id" FROM "T5" AS "row" WHERE EXISTS (SELECT 1 FROM "row"."numbers" AS "number" AT "at" WHERE "number" = 5 AND "at" = 1)
-      - supported_version: !current_version
+      - supported_version: 4.19.4.0
       - explain: "SCAN([IS T5]) | FLATMAP q0 -> { TF explode(q0.numbers) | FILTER _._0 EQUALS promote(@c22 AS LONG) AND _._1 + 1 EQUALS promote(@c26 AS INT) | MAP (@c26 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.id AS id) }"
       - unorderedResult: [{1}]
     -
       # An unnest that is not underneath an EXISTS observes every element, so the index cannot answer it.
       - query: SELECT "id", "number" FROM "T5" AS "row", "row"."numbers" AS "number" WHERE "number" = 5
-      - supported_version: !current_version
+      - supported_version: 4.19.4.0
       - explain: "SCAN([IS T5]) | FLATMAP q0 -> { TF explode(q0.numbers) | FILTER _._0 EQUALS promote(@c17 AS LONG) AS q1 RETURN (q0.id AS id, q1._0 AS number) }"
       - unorderedResult: [{id: 1, number: 5}, {id: 1, number: 5}, {id: 2, number: 5}]
     -
       - query: SELECT "id", "at" FROM "T5" AS "row", "row"."numbers" AS "number" AT "at" WHERE "number" = 5
-      - supported_version: !current_version
+      - supported_version: 4.19.4.0
       - explain: "SCAN([IS T5]) | FLATMAP q0 -> { TF explode(q0.numbers) | FILTER _._0 EQUALS promote(@c19 AS LONG) AS q1 RETURN (q0.id AS id, q1._1 + 1 AS at) }"
       - unorderedResult: [{id: 1, at: 1}, {id: 1, at: 2}, {id: 2, at: 2}]
     -
       - query: SELECT COUNT(*) FROM "T5" AS "row", "row"."numbers" AS "number" WHERE "number" = 5
-      - supported_version: !current_version
+      - supported_version: 4.19.4.0
       - explain: "SCAN([IS T5]) | FLATMAP q0 -> { TF explode(q0.numbers) | FILTER _._0 EQUALS promote(@c18 AS LONG) AS q1 RETURN (q0 AS _0, q1 AS _1) } | AGG (count_star(*) AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)"
       - result: [{3}]
 # TODO (`EXISTS` query over a fan-out index may incorrectly return the parent record multiple times: https://github.com/FoundationDB/fdb-record-layer/issues/4304)

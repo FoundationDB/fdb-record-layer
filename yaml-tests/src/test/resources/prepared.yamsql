@@ -229,7 +229,7 @@ test_block:
   name: parameter-order-queries
   options:
     statement_type: prepared
-    supported_version: !current_version
+    supported_version: 4.19.4.0
   tests:
     -
       - query: select a, b + !! 10 !! from parameter_order where a = !! !l 5 !!
@@ -261,7 +261,7 @@ test_block:
   preset: single_repetition_ordered
   options:
     statement_type: prepared
-    supported_version: !current_version
+    supported_version: 4.19.4.0
   tests:
     -
       - query: update parameter_order set b = !! !l 10 !! where a = !! !l 5 !!

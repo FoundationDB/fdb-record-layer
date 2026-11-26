@@ -141,7 +141,7 @@ test_block:
   name: like-operator-expression-tests
   preset: single_repetition_ordered
   options:
-    supported_version: !current_version
+    supported_version: 4.19.4.0
   tests:
     # Patterns from columns (uses the files inserted by the previous block)
     -

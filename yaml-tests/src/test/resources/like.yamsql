@@ -162,17 +162,17 @@ test_block:
       - error: INTERNAL_ERROR
     -
       - query: select * from A WHERE A1 LIKE 'A' ESCAPE 4
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.19.4.0
       # LIKE requires a string for its escape character
       - error: INVALID_ARGUMENT_FOR_FUNCTION
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.19.4.0
       # "ESCAPE" used to expect a string literal
       - error: SYNTAX_ERROR
     -
       - query: select * from A WHERE A1 LIKE 'A' ESCAPE NULL
-      - initialVersionAtLeast: !current_version
+      - initialVersionAtLeast: 4.19.4.0
       - result: []
-      - initialVersionLessThan: !current_version
+      - initialVersionLessThan: 4.19.4.0
       # "ESCAPE" used to expect a string literal
       - error: SYNTAX_ERROR
     -
@@ -682,7 +682,7 @@ test_block:
 test_block:
   name: like-with-expressions
   options:
-    supported_version: !current_version
+    supported_version: 4.19.4.0
     # Bind the values in !! ... !! as parameters; the other blocks cover patterns and escape characters as literals.
     statement_type: prepared
   tests:
