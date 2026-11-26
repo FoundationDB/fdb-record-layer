@@ -1,0 +1,50 @@
+# value-index-primary-key.yamsql
+#
+# How a VALUE index candidate treats primary key components when the primary key PARTIALLY overlaps the index
+# key: table t1 primary key (a, c), index i1 key (c, b), so trimPrimaryKey drops "c" and appends "a". Entry
+# layout (c, b, recordTypeKey, a); an appended component becomes a placeholder but not a result column.
+---
+schema_template:
+    create table t1(a bigint, b bigint, c bigint, d bigint, primary key(a, c))
+    create index i1 as select c, b from t1 order by c, b
+---
+setup:
+  steps:
+    - query: INSERT INTO T1
+        VALUES (1, 20, 10, 100),
+               (2, 21, 10, 101),
+               (3, 22, 11, 102)
+---
+test_block:
+  name: value-index-primary-key
+  tests:
+    -
+      # index key columns only: covering, since both are result columns of the key expansion
+      - query: select c, b from t1 where c = 10
+      - explain: "COVERING(I1 [EQUALS promote(@c9 AS LONG)] -> [A: KEY:[3], B: KEY:[1], C: KEY:[0]]) | MAP (_.C AS C, _.B AS B)"
+      - result: [{C: 10, B: 20}, {C: 10, B: 21}]
+    -
+      # the APPENDED component: the entry carries "a" at ordinal 3 even though the expansion removed its column
+      - query: select a, c from t1 where c = 10
+      - explain: "COVERING(I1 [EQUALS promote(@c9 AS LONG)] -> [A: KEY:[3], B: KEY:[1], C: KEY:[0]]) | MAP (_.A AS A, _.C AS C)"
+      - result: [{A: 1, C: 10}, {A: 2, C: 10}]
+    -
+      # binding the whole entry key, appended component included
+      - query: select c, b from t1 where c = 10 and b = 21 and a = 2
+      - explain: "SCAN([IS T1, EQUALS promote(@c17 AS LONG), EQUALS promote(@c9 AS LONG)]) | FILTER _.B EQUALS promote(@c13 AS LONG) | MAP (_.C AS C, _.B AS B)"
+      - result: [{C: 10, B: 21}]
+    -
+      # a column in neither key: must fetch. The contrast with the second probe is the point.
+      - query: select d from t1 where c = 10
+      - explain: "ISCAN(I1 [EQUALS promote(@c7 AS LONG)]) | MAP (_.D AS D)"
+      - result: [{D: 100}, {D: 101}]
+    -
+      # the TRIMMED component on its own: bound as index-key column 0, not as a primary key component
+      - query: select c from t1 where c = 11
+      - explain: "COVERING(I1 [EQUALS promote(@c7 AS LONG)] -> [A: KEY:[3], B: KEY:[1], C: KEY:[0]]) | MAP (_.C AS C)"
+      - result: [{C: 11}]
+...
+#
+# Ordering over the whole entry key with nothing bound does NOT plan (UnableToPlanException), so the appended
+# component is sargable but apparently not advertised as an ordering column:
+#   select a, b, c from t1 order by c, b, a

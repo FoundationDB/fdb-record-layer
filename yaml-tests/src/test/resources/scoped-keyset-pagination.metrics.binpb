@@ -1,7 +1,7 @@
-¤(
+¢(
 œ
-scoped-keyset-pagination-testszEXPLAIN SELECT id, ts FROM scoped_item_view(scope_id => ?) WHERE (ts = ? AND id > ?) OR (ts > ?) ORDER BY ts DESC, id DESC‚'
-Óž‚ú»™ §—†k(†0àóÚ8ø@ÊISCAN(SCOPED_ITEM_SCOPE_TS_IDX [NOT_DISTINCT_FROM promote(@c9 AS LONG), EQUALS promote(@c15 AS LONG), [GREATER_THAN promote(@c19 AS STRING)]] REVERSE) | FILTER _.SCOPE.DELETED IS_NULL OR _.SCOPE.DELETED EQUALS false âˆª ISCAN(SCOPED_ITEM_SCOPE_TS_IDX [NOT_DISTINCT_FROM promote(@c9 AS LONG), [GREATER_THAN promote(@c15 AS LONG)]] REVERSE) | FILTER _.SCOPE.DELETED IS_NULL OR _.SCOPE.DELETED EQUALS false COMPARE BY (_.TS, _.ID) | MAP (_.ID AS ID, _.TS AS TS)’#digraph G {
+scoped-keyset-pagination-testszEXPLAIN SELECT id, ts FROM scoped_item_view(scope_id => ?) WHERE (ts = ? AND id > ?) OR (ts > ?) ORDER BY ts DESC, id DESC€'
+ñá£‹· ö¦£(†0ü®W8ø@ÊISCAN(SCOPED_ITEM_SCOPE_TS_IDX [NOT_DISTINCT_FROM promote(@c9 AS LONG), EQUALS promote(@c15 AS LONG), [GREATER_THAN promote(@c19 AS STRING)]] REVERSE) | FILTER _.SCOPE.DELETED IS_NULL OR _.SCOPE.DELETED EQUALS false âˆª ISCAN(SCOPED_ITEM_SCOPE_TS_IDX [NOT_DISTINCT_FROM promote(@c9 AS LONG), [GREATER_THAN promote(@c15 AS LONG)]] REVERSE) | FILTER _.SCOPE.DELETED IS_NULL OR _.SCOPE.DELETED EQUALS false COMPARE BY (_.TS, _.ID) | MAP (_.ID AS ID, _.TS AS TS)’#digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

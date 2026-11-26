@@ -28,6 +28,7 @@ import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RankedSet;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.FunctionNames;
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.PipelineOperation;
@@ -134,8 +135,17 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
         if (!rankScanBounds.includeRankAsValue()) {
             return recordCursor;
         }
+        final boolean ansiSql = scanProperties.getExecuteProperties().getExecutionMode()
+                                == ExecuteProperties.ExecutionMode.ANSI_SQL;
         return recordCursor.mapPipelined(indexEntry -> rankFor(indexEntry.getKey())
-                        .thenApply(rank -> indexEntry.withValue(Tuple.from(rank))),
+                        .thenApply(rank -> {
+                            // the legacy rank is reported as it comes, so that it is never unboxed only to be boxed again
+                            if (!ansiSql) {
+                                return indexEntry.withValue(Tuple.from(rank));
+                            }
+                            return indexEntry.withValue(
+                                    Tuple.from(RankedSetIndexHelper.positionToSqlRank(rank)));
+                        }),
                 state.store.getPipelineSize(PipelineOperation.RECORD_FUNCTION));
     }
 
@@ -151,8 +161,9 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
             throw new RecordCoreException("Can only scan rank index by rank or by value.");
         }
         final Subspace extraSubspace = getSecondarySubspace();
+        final ExecuteProperties.ExecutionMode executionMode = scanProperties.getExecuteProperties().getExecutionMode();
         final CompletableFuture<TupleRange> scoreRangeFuture = RankedSetIndexHelper.rankRangeToScoreRange(state,
-                getGroupingCount(), extraSubspace, config, rankRange);
+                getGroupingCount(), extraSubspace, config, rankRange, executionMode);
         return RecordCursor.mapFuture(getExecutor(), scoreRangeFuture, continuation,
                 (scoreRange, scoreContinuation) -> {
                     if (scoreRange == null) {

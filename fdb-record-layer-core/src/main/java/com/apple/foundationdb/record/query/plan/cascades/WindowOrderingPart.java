@@ -20,10 +20,14 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.PlanSerializationContext;
+import com.apple.foundationdb.record.planprotos.PWindowOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Suppliers;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -49,6 +53,26 @@ public class WindowOrderingPart {
     }
 
     @Nonnull
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public WindowOrderingPart withValue(@Nonnull final Value value) {
+        if (value == getValue()) {
+            return this;
+        }
+        return new WindowOrderingPart(value, sortOrder);
+    }
+
+    @Nonnull
+    public WindowOrderingPart translateCorrelations(@Nonnull final TranslationMap translationMap, final boolean shouldSimplify) {
+        final var translatedValue = getValue().translateCorrelations(translationMap, shouldSimplify);
+        return withValue(translatedValue);
+    }
+
+    @Nonnull
+    public WindowOrderingPart rebase(@Nonnull final AliasMap aliasMap) {
+        return translateCorrelations(TranslationMap.rebaseWithAliasMap(aliasMap), false);
+    }
+
+    @Nonnull
     public Value getValue() {
         return value;
     }
@@ -64,11 +88,31 @@ public class WindowOrderingPart {
     }
 
     @Nonnull
+    public OrderingPart.RequestedOrderingPart toRequestedOrderingPart() {
+        return new OrderingPart.RequestedOrderingPart(getValue(), getSortOrder());
+    }
+
+    @Nonnull
     public OrderingPart.RequestedSortOrder getDirectionalSortOrderOrDefault(@Nonnull final OrderingPart.RequestedSortOrder defaultSortOrder) {
         if (sortOrder.isDirectional()) {
             return sortOrder;
         }
         return defaultSortOrder;
+    }
+
+    /**
+     * Serializes this ordering part.
+     *
+     * @param serializationContext the serialization context
+     *
+     * @return the serialized form of this ordering part
+     */
+    @Nonnull
+    public PWindowOrderingPart toProto(@Nonnull final PlanSerializationContext serializationContext) {
+        return PWindowOrderingPart.newBuilder()
+                .setValue(value.toValueProto(serializationContext))
+                .setSortOrder(sortOrderToProto(sortOrder))
+                .build();
     }
 
     @Override
@@ -92,8 +136,70 @@ public class WindowOrderingPart {
         return Objects.hash(getValue(), getSortOrder().name());
     }
 
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public boolean semanticEquals(@Nullable final Object other,
+                                   @Nonnull final AliasMap aliasMap) {
+        if (other == null) {
+            return false;
+        }
+
+        if (this == other) {
+            return true;
+        }
+
+        if (!(other instanceof WindowOrderingPart otherWindowOrderingPart)) {
+            return false;
+        }
+
+        if (getSortOrder() != otherWindowOrderingPart.getSortOrder()) {
+            return false;
+        }
+
+        return getValue().semanticEquals(otherWindowOrderingPart.getValue(), ValueEquivalence.fromAliasMap(aliasMap))
+                .isTrue();
+    }
+
     @Override
     public String toString() {
         return getValue() + getSortOrder().getArrowIndicator();
+    }
+
+    /**
+     * Deserializes an ordering part.
+     *
+     * @param serializationContext the serialization context
+     * @param proto the serialized form of the ordering part
+     *
+     * @return the deserialized ordering part
+     */
+    @Nonnull
+    public static WindowOrderingPart fromProto(@Nonnull final PlanSerializationContext serializationContext,
+                                               @Nonnull final PWindowOrderingPart proto) {
+        return new WindowOrderingPart(
+                Value.fromValueProto(serializationContext, proto.getValue()),
+                sortOrderFromProto(proto.getSortOrder()));
+    }
+
+
+    @Nonnull
+    private static PWindowOrderingPart.PSortOrder sortOrderToProto(@Nonnull final OrderingPart.RequestedSortOrder sortOrder) {
+        return switch (sortOrder) {
+            case ASCENDING -> PWindowOrderingPart.PSortOrder.ASCENDING;
+            case DESCENDING -> PWindowOrderingPart.PSortOrder.DESCENDING;
+            case ASCENDING_NULLS_LAST -> PWindowOrderingPart.PSortOrder.ASCENDING_NULLS_LAST;
+            case DESCENDING_NULLS_FIRST -> PWindowOrderingPart.PSortOrder.DESCENDING_NULLS_FIRST;
+            case ANY -> PWindowOrderingPart.PSortOrder.ANY;
+        };
+    }
+
+    @Nonnull
+    private static OrderingPart.RequestedSortOrder sortOrderFromProto(@Nonnull final PWindowOrderingPart.PSortOrder proto) {
+        return switch (proto) {
+            case ASCENDING -> OrderingPart.RequestedSortOrder.ASCENDING;
+            case DESCENDING -> OrderingPart.RequestedSortOrder.DESCENDING;
+            case ASCENDING_NULLS_LAST -> OrderingPart.RequestedSortOrder.ASCENDING_NULLS_LAST;
+            case DESCENDING_NULLS_FIRST -> OrderingPart.RequestedSortOrder.DESCENDING_NULLS_FIRST;
+            case ANY -> OrderingPart.RequestedSortOrder.ANY;
+        };
     }
 }

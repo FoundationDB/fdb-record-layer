@@ -1,8 +1,7 @@
 ç
 
 in-query-union-sargableuEXPLAIN select * from my_simple_record where num_value_2 in ? and str_value_indexed in ? order by num_value_3_indexedÑ
-¶õÀå± €ò¯
-(±0Ì¨£8š@ï[IN arrayDistinct(@c7) â‹ˆ IN arrayDistinct(@c11)] INUNION q0, q1 -> { ISCAN(NUM_VALUE2_NUM_VALUE3 [EQUALS q0._0]) | FILTER _.STR_VALUE_INDEXED EQUALS q1._0 } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED, _.NUM_VALUE_2)½digraph G {
+¸ÎœÌ³ ÊÊå(±0Ÿë8š@ï[IN arrayDistinct(@c7) â‹ˆ IN arrayDistinct(@c11)] INUNION q0, q1 -> { ISCAN(NUM_VALUE2_NUM_VALUE3 [EQUALS q0._0]) | FILTER _.STR_VALUE_INDEXED EQUALS q1._0 } COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO, _.STR_VALUE_INDEXED, _.NUM_VALUE_2)½digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

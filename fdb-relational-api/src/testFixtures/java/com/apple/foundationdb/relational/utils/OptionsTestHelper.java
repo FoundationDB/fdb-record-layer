@@ -69,6 +69,7 @@ public class OptionsTestHelper {
         builder = builder.withOption(Options.Name.CONSIDER_SYNTHETIC_RECORD_TYPE_INDEXES, true);
         builder = builder.withOption(Options.Name.ISOLATION_LEVEL_SNAPSHOT, true);
         builder = builder.withOption(Options.Name.VECTOR_INDEX_ENGINE_PREFERENCE, Options.VectorIndexEnginePreference.PREFER_GUARDIANN);
+        builder = builder.withOption(Options.Name.EXECUTION_MODE, Options.ExecutionMode.LEGACY);
         builder = builder.withOption(Options.Name.FIXED_EPOCH_TIMESTAMP_MILLIS_FOR_CURRENT_DATETIME_FUNCTIONS, 1791893873000L);
         Options options = builder.build();
         for (Options.Name name : Options.Name.values()) {

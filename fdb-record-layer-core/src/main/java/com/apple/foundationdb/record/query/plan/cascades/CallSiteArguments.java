@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.WindowFrameSpecification;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -671,23 +672,35 @@ public sealed interface CallSiteArguments {
 
     /**
      * Bundles the window-specific components of a call site that are not already modeled by the ordinary call-site
-     * arguments: the {@code PARTITION BY} columns and the {@code ORDER BY} columns (as {@link WindowOrderingPart}s,
-     * which pair each ordering value with its sort direction). Carrying these here lets a windowed function receive
-     * its partitioning and ordering columns directly, rather than encoded positionally as an array of arrays. Use
-     * {@link #NONE} for non-windowed call sites.
-     *
-     * <p>A {@code WindowFrameSpecification} component is intentionally omitted for now and can be added later without
-     * disturbing existing call sites.
+     * arguments: the {@code PARTITION BY} columns, the {@code ORDER BY} columns (as {@link WindowOrderingPart}s,
+     * which pair each ordering value with its sort direction), and the frame specification. Carrying these here lets a
+     * windowed function receive its partitioning, ordering, and framing directly, rather than encoded positionally as an
+     * array of arrays. Use {@link #NONE} for non-windowed call sites.
      *
      * @param partitioningValues the {@code PARTITION BY} columns
      * @param orderingParts the {@code ORDER BY} columns paired with their sort directions
+     * @param frameSpecification the frame the window function sees within its partition
      */
     record WindowSpecification(@Nonnull List<Value> partitioningValues,
-                               @Nonnull List<WindowOrderingPart> orderingParts) {
-        public static final WindowSpecification NONE = new WindowSpecification(List.of(), List.of());
+                               @Nonnull List<WindowOrderingPart> orderingParts,
+                               @Nonnull WindowFrameSpecification frameSpecification) {
+        public static final WindowSpecification NONE =
+                new WindowSpecification(List.of(), List.of(), WindowFrameSpecification.defaultSpecification());
+
+        /**
+         * Creates a window specification for a call site that does not spell out a frame clause, which then spans the
+         * entire partition.
+         *
+         * @param partitioningValues the {@code PARTITION BY} columns
+         * @param orderingParts the {@code ORDER BY} columns paired with their sort directions
+         */
+        public WindowSpecification(@Nonnull final List<Value> partitioningValues,
+                                   @Nonnull final List<WindowOrderingPart> orderingParts) {
+            this(partitioningValues, orderingParts, WindowFrameSpecification.defaultSpecification());
+        }
 
         public boolean isNone() {
-            return partitioningValues.isEmpty() && orderingParts.isEmpty();
+            return partitioningValues.isEmpty() && orderingParts.isEmpty() && frameSpecification.isDefault();
         }
     }
 

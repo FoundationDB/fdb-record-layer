@@ -1,0 +1,49 @@
+rank-ungrouped:
+-   query: EXPLAIN select rank() over (order by id) as r from t1
+    ref: rank-repeated-field.yamsql:31
+    explain: ISCAN(I_BY_ID <,>+rank BY_RANK) | MAP (_._1 AS R)
+    task_count: 392
+    task_total_time_ms: 15
+    transform_count: 116
+    transform_time_ms: 10
+    transform_yield_count: 37
+    insert_time_ms: 0
+    insert_new_count: 40
+    insert_reused_count: 6
+-   query: EXPLAIN select id, rank() over (order by id) as r from t1 qualify rank()
+        over (order by id) = 2
+    ref: rank-repeated-field.yamsql:36
+    explain: ISCAN(I_BY_ID [EQUALS promote(@c27 AS LONG)]+rank BY_RANK) | MAP (_.ID
+        AS ID, _._1 AS R)
+    task_count: 358
+    task_total_time_ms: 13
+    transform_count: 106
+    transform_time_ms: 8
+    transform_yield_count: 36
+    insert_time_ms: 0
+    insert_new_count: 37
+    insert_reused_count: 6
+-   query: EXPLAIN select id, rank() over (order by bucket) as r from t2
+    ref: rank-repeated-field.yamsql:41
+    explain: ISCAN(I_BY_BUCKET <,>+rank BY_RANK) | MAP (_.ID AS ID, _._2 AS R)
+    task_count: 381
+    task_total_time_ms: 12
+    transform_count: 114
+    transform_time_ms: 7
+    transform_yield_count: 36
+    insert_time_ms: 0
+    insert_new_count: 37
+    insert_reused_count: 4
+-   query: EXPLAIN select id, rank() over (order by bucket) as r from t2 qualify rank()
+        over (order by bucket) >= 2
+    ref: rank-repeated-field.yamsql:47
+    explain: ISCAN(I_BY_BUCKET [[GREATER_THAN_OR_EQUALS promote(@c28 AS LONG)]]+rank
+        BY_RANK) | MAP (_.ID AS ID, _._2 AS R)
+    task_count: 392
+    task_total_time_ms: 14
+    transform_count: 116
+    transform_time_ms: 8
+    transform_yield_count: 36
+    insert_time_ms: 0
+    insert_new_count: 38
+    insert_reused_count: 4

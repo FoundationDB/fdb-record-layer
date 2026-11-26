@@ -60,7 +60,7 @@ import java.util.function.Supplier;
 /**
  * Case class to represent a match candidate that is backed by a windowed index such as a rank index.
  */
-public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandidate, WithBaseQuantifierMatchCandidate {
+public class LegacyWindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandidate, WithBaseQuantifierMatchCandidate {
     /**
      * Index metadata structure.
      */
@@ -132,7 +132,7 @@ public class WindowedIndexScanMatchCandidate implements ScanWithFetchMatchCandid
     @Nonnull
     private final Supplier<Optional<IndexEntryToLogicalRecord>> indexEntryToLogicalRecordOptionalSupplier;
 
-    public WindowedIndexScanMatchCandidate(@Nonnull Index index,
+    public LegacyWindowedIndexScanMatchCandidate(@Nonnull Index index,
                                            @Nonnull Collection<RecordType> queriedRecordTypes,
                                            @Nonnull final Traversal traversal,
                                            @Nonnull final Type.Record baseType,

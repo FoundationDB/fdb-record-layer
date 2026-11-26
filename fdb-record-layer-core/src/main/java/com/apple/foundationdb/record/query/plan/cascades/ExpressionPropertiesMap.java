@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.properties.CompileTimeOnlyValueCountProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.ExpressionCountProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.PredicateComplexityProperty;
 import com.apple.foundationdb.record.query.plan.cascades.properties.SelectMergeableProperty;
@@ -300,6 +301,7 @@ public class ExpressionPropertiesMap<E extends RelationalExpression> {
                         ExpressionCountProperty.selectCount(),
                         ExpressionCountProperty.outerJoinCount(),
                         ExpressionCountProperty.tableFunctionCount(),
+                        CompileTimeOnlyValueCountProperty.compileTimeOnlyValueCount(),
                         PredicateComplexityProperty.predicateComplexity()
                 ),
                 ImmutableList.of());

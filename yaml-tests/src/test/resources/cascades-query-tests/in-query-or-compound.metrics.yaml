@@ -10,10 +10,10 @@ in-query-or-compound:
         promote(@c11 AS INT), [GREATER_THAN_OR_EQUALS promote(@c25 AS INT)]] -> [NUM_VALUE_2:
         KEY:[1], NUM_VALUE_3_INDEXED: KEY:[2], REC_NO: KEY:[3], STR_VALUE_INDEXED:
         KEY:[0]]) COMPARE BY (_.NUM_VALUE_3_INDEXED, _.REC_NO) | FETCH'
-    task_count: 5372
-    task_total_time_ms: 115
-    transform_count: 994
-    transform_time_ms: 51
+    task_count: 5376
+    task_total_time_ms: 104
+    transform_count: 998
+    transform_time_ms: 44
     transform_yield_count: 321
     insert_time_ms: 8
     insert_new_count: 764

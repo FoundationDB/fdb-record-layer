@@ -6,12 +6,12 @@ in-query-compound-index:
         q0._0] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[2], STR_VALUE_INDEXED:
         KEY:[1]]) } COMPARE BY (_.STR_VALUE_INDEXED, _.REC_NO, _.NUM_VALUE_3_INDEXED)
         | FETCH'
-    task_count: 678
+    task_count: 680
     task_total_time_ms: 15
-    transform_count: 202
+    transform_count: 204
     transform_time_ms: 7
     transform_yield_count: 74
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 73
     insert_reused_count: 3
 -   query: EXPLAIN select * from my_simple_record where num_value_3_indexed in (1,
@@ -23,12 +23,12 @@ in-query-compound-index:
         STRING)]] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[2], STR_VALUE_INDEXED:
         KEY:[1]]) } COMPARE BY (_.STR_VALUE_INDEXED, _.REC_NO, _.NUM_VALUE_3_INDEXED)
         | FETCH'
-    task_count: 938
-    task_total_time_ms: 25
-    transform_count: 258
-    transform_time_ms: 13
+    task_count: 942
+    task_total_time_ms: 17
+    transform_count: 262
+    transform_time_ms: 8
     transform_yield_count: 95
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 107
     insert_reused_count: 3
 in-query-compound-index-prepared:
@@ -40,10 +40,10 @@ in-query-compound-index-prepared:
         STRING)]] -> [NUM_VALUE_3_INDEXED: KEY:[0], REC_NO: KEY:[2], STR_VALUE_INDEXED:
         KEY:[1]]) } COMPARE BY (_.STR_VALUE_INDEXED, _.REC_NO, _.NUM_VALUE_3_INDEXED)
         | FETCH'
-    task_count: 938
-    task_total_time_ms: 25
-    transform_count: 258
-    transform_time_ms: 12
+    task_count: 942
+    task_total_time_ms: 17
+    transform_count: 262
+    transform_time_ms: 8
     transform_yield_count: 95
     insert_time_ms: 1
     insert_new_count: 107

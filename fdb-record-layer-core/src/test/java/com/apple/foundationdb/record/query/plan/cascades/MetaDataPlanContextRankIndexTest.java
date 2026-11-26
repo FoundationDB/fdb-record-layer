@@ -39,34 +39,55 @@ import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import javax.annotation.Nonnull;
+
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Tests for {@link MetaDataPlanContext} methods with rank indexes.
- * <ul>
- * <li>{@link MetaDataPlanContext#forRootReference} - verifies rank indexes only create
- *     match candidates for value scans (BY_VALUE) and NOT for rank scans (BY_RANK)</li>
- * <li>{@link MetaDataPlanContext#forRecordQuery} - verifies rank indexes create both
- *     value scan candidates (BY_VALUE) and windowed scan candidates (BY_RANK)</li>
- * </ul>
+ * Tests for {@link MetaDataPlanContext} methods with rank indexes. A rank index offers two candidates, one per scan
+ * type: a {@link ValueIndexScanMatchCandidate} for a {@code BY_VALUE} scan and a {@link WindowIndexScanMatchCandidate}
+ * for a {@code BY_RANK} one. Both {@link MetaDataPlanContext#forRootReference} and
+ * {@link MetaDataPlanContext#forRecordQuery} offer both, since neither candidate needs anything a {@link RecordQuery}
+ * carries and a graph-planned query reaches them through the same registry.
+ *
+ * <p>{@link LegacyWindowedIndexScanMatchCandidate} is no longer among them. {@code WindowIndexMaintainerFactory}
+ * answers for {@link com.apple.foundationdb.record.metadata.IndexTypes#RANK} and builds the window candidate;
+ * {@code RankIndexMaintainerFactory}, which built the legacy one, is shadowed by it.
  */
 @Tag(Tags.RequiresFDB)
 class MetaDataPlanContextRankIndexTest extends FDBRecordStoreQueryTestBase {
+
+    /**
+     * The rank indexes this metadata has: two declared below and one the proto annotates on
+     * {@code BasicRankedRecord.score}.
+     */
+    private static final Set<String> RANK_INDEX_NAMES =
+            ImmutableSet.of("rank_by_gender", "simple_rank_score", "BasicRankedRecord$score");
+
+    @Nonnull
+    private static Set<String> candidateNamesOf(@Nonnull final Set<MatchCandidate> matchCandidates,
+                                                @Nonnull final Class<? extends MatchCandidate> candidateClass) {
+        return matchCandidates.stream()
+                .filter(candidateClass::isInstance)
+                .map(MatchCandidate::getName)
+                .collect(Collectors.toSet());
+    }
 
     private RecordMetaData setupMetaDataWithRankIndex() {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder()
                 .setRecords(TestRecordsRankProto.getDescriptor());
 
-        // Set primary key for HeaderRankedRecord (required by the proto definition)
+        // Set primary keys for the record types whose proto definition does not declare one
         metaDataBuilder.getRecordType("HeaderRankedRecord")
                 .setPrimaryKey(field("header").nest(field("group"), field("id")));
+        metaDataBuilder.getRecordType("TwoNestedRankedRecord")
+                .setPrimaryKey(field("x").nest(field("a"), field("b")));
 
         // Add a rank index on BasicRankedRecord
         metaDataBuilder.addIndex("BasicRankedRecord",
@@ -84,7 +105,7 @@ class MetaDataPlanContextRankIndexTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Test
-    void testForRootReferenceRankIndexOnlyCreatesValueScanCandidate() {
+    void forRootReferenceARankIndexCreatesAValueAndAWindowCandidate() {
         try (FDBRecordContext context = openContext()) {
             final RecordMetaData metaData = setupMetaDataWithRankIndex();
 
@@ -110,39 +131,21 @@ class MetaDataPlanContextRankIndexTest extends FDBRecordStoreQueryTestBase {
                     Optional.empty(),
                     IndexQueryabilityFilter.DEFAULT);
 
-            // Get the match candidates
+            // three rank indexes, each offering a candidate per scan type, and one for the primary key
             final Set<MatchCandidate> matchCandidates = planContext.getMatchCandidates();
-            // 3 rank index, each generates a ValueIndexScanMatchCandidate, and primary key generates a match candidate
-            assertEquals(4, matchCandidates.size());
+            assertEquals(7, matchCandidates.size());
 
-            // Filter to only ValueIndexScanMatchCandidate with our rank index names
-            final Set<MatchCandidate> rankIndexCandidates = matchCandidates.stream()
-                    .filter(candidate -> candidate.getName().equals("rank_by_gender") ||
-                            candidate.getName().equals("simple_rank_score") ||
-                            candidate.getName().equals("BasicRankedRecord$score"))
-                    .collect(Collectors.toSet());
-
-            // Verify that we have rank index candidates
-            assertFalse(rankIndexCandidates.isEmpty(), "Should have rank index candidates");
-            assertEquals(3, rankIndexCandidates.size(), "Should have exactly 2 rank index candidates");
-
-            // Verify all are ValueIndexScanMatchCandidate (for BY_VALUE scans)
-            for (MatchCandidate candidate : rankIndexCandidates) {
-                assertInstanceOf(ValueIndexScanMatchCandidate.class, candidate, "Rank index candidate should be a ValueIndexScanMatchCandidate, got: " + candidate.getClass().getName());
-            }
-
-            // Verify no WindowedIndexScanMatchCandidate (BY_RANK scans) are created for rank indexes
-            long windowedCandidateCount = matchCandidates.stream()
-                    .filter(candidate -> candidate instanceof WindowedIndexScanMatchCandidate)
-                    .count();
-
-            assertEquals(0, windowedCandidateCount,
-                    "Should not have any WindowedIndexScanMatchCandidate");
+            assertEquals(RANK_INDEX_NAMES, candidateNamesOf(matchCandidates, ValueIndexScanMatchCandidate.class),
+                    "every rank index should offer a BY_VALUE candidate");
+            assertEquals(RANK_INDEX_NAMES, candidateNamesOf(matchCandidates, WindowIndexScanMatchCandidate.class),
+                    "every rank index should offer a BY_RANK candidate");
+            assertTrue(candidateNamesOf(matchCandidates, LegacyWindowedIndexScanMatchCandidate.class).isEmpty(),
+                    "the legacy windowed candidate is no longer built for a rank index");
         }
     }
 
     @Test
-    void testForRecordQueryRankIndexCreatesWindowedScanCandidate() {
+    void forRecordQueryARankIndexCreatesTheSameTwoCandidates() {
         try (FDBRecordContext context = openContext()) {
             final RecordMetaData metaData = setupMetaDataWithRankIndex();
 
@@ -163,29 +166,16 @@ class MetaDataPlanContextRankIndexTest extends FDBRecordStoreQueryTestBase {
                     IndexMaintainerFactoryRegistryImpl.instance(),
                     query);
 
-            // Get the match candidates
+            // the same inventory a root reference gets: a RecordQuery carries nothing either candidate needs
             final Set<MatchCandidate> matchCandidates = planContext.getMatchCandidates();
             assertEquals(7, matchCandidates.size());
 
-            // Filter to ValueIndexScanMatchCandidate with our rank index names
-            final Set<String> valueIndexCandidateNames = matchCandidates.stream()
-                    .filter(candidate -> candidate instanceof ValueIndexScanMatchCandidate)
-                    .map(MatchCandidate::getName)
-                    .collect(Collectors.toSet());
-
-            // Verify that we have ValueIndexScanMatchCandidate for rank indexes
-            assertEquals(ImmutableSet.of("rank_by_gender", "simple_rank_score", "BasicRankedRecord$score"), valueIndexCandidateNames,
-                    "Should have ValueIndexScanMatchCandidate for both rank indexes");
-
-            // Filter to WindowedIndexScanMatchCandidate with our rank index names
-            final Set<String> windowedIndexCandidateNames = matchCandidates.stream()
-                    .filter(candidate -> candidate instanceof WindowedIndexScanMatchCandidate)
-                    .map(MatchCandidate::getName)
-                    .collect(Collectors.toSet());
-
-            // Verify that we have WindowedIndexScanMatchCandidate for rank indexes (BY_RANK scans)
-            assertEquals(ImmutableSet.of("rank_by_gender", "simple_rank_score", "BasicRankedRecord$score"), windowedIndexCandidateNames,
-                    "Should have WindowedIndexScanMatchCandidate for both rank indexes");
+            assertEquals(RANK_INDEX_NAMES, candidateNamesOf(matchCandidates, ValueIndexScanMatchCandidate.class),
+                    "every rank index should offer a BY_VALUE candidate");
+            assertEquals(RANK_INDEX_NAMES, candidateNamesOf(matchCandidates, WindowIndexScanMatchCandidate.class),
+                    "every rank index should offer a BY_RANK candidate");
+            assertTrue(candidateNamesOf(matchCandidates, LegacyWindowedIndexScanMatchCandidate.class).isEmpty(),
+                    "the legacy windowed candidate is no longer built for a rank index");
         }
     }
 }

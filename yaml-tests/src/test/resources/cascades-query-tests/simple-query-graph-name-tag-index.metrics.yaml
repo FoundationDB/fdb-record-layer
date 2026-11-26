@@ -7,11 +7,11 @@ simple-query-graph-name-tag-index:
         -> { TF explode(q1.TAGS) | FLATMAP q2 -> { TF explode(arrayDistinct(@c30))
         | FILTER _._0 EQUALS q2._0.VALUE AS q3 RETURN (@c18 AS _0) } | DEFAULT NULL
         | FILTER _ NOT_NULL | MAP (1 AS _0) AS q4 RETURN (q1.REST_NO AS REST_NO) }'
-    task_count: 2228
-    task_total_time_ms: 49
-    transform_count: 691
-    transform_time_ms: 22
+    task_count: 2232
+    task_total_time_ms: 67
+    transform_count: 695
+    transform_time_ms: 31
     transform_yield_count: 137
-    insert_time_ms: 5
+    insert_time_ms: 4
     insert_new_count: 308
     insert_reused_count: 19

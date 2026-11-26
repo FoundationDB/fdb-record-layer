@@ -1,7 +1,8 @@
 ã
 U
 #boolean-predicate-conjunction-tests.EXPLAIN select a from lb where a > 1 and true;‰
-ÚÎ‹÷> Í€˜(0ª²08@CSCAN([IS LB, [GREATER_THAN promote(@c7 AS LONG)]]) | MAP (_.A AS A)¦
+Þ½Ï®B ÚÔŠ(0éØ
+8@CSCAN([IS LB, [GREATER_THAN promote(@c7 AS LONG)]]) | MAP (_.A AS A)¦
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -14,7 +15,7 @@ digraph G {
 }ã
 U
 #boolean-predicate-conjunction-tests.EXPLAIN select a from lb where true and a > 1;‰
-ÚÅøŒ> üä(0æ´28@CSCAN([IS LB, [GREATER_THAN promote(@c9 AS LONG)]]) | MAP (_.A AS A)¦
+Þ·þ‹B ±“²(0§×8@CSCAN([IS LB, [GREATER_THAN promote(@c9 AS LONG)]]) | MAP (_.A AS A)¦
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -27,7 +28,7 @@ digraph G {
 }Š
 N
 #boolean-predicate-conjunction-tests'EXPLAIN select a from lb where b and b;·
-ÌÞô’; ¾ì(0•Â-8@7SCAN([IS LB]) | FILTER _.B EQUALS true | MAP (_.A AS A)àdigraph G {
+Î†ˆå= Á¸ (0ÐÃ8@7SCAN([IS LB]) | FILTER _.B EQUALS true | MAP (_.A AS A)àdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -38,10 +39,10 @@ N
   3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q22> label="q22" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ü
+}Û
 Q
-#boolean-predicate-conjunction-tests*EXPLAIN select a from lb where a < 3 or b;†
-’áèš ÔÚ ("0¿Ÿß88@]SCAN([IS LB]) | FILTER _.A LESS_THAN promote(@c7 AS LONG) OR _.B EQUALS true | MAP (_.A AS A)‡digraph G {
+#boolean-predicate-conjunction-tests*EXPLAIN select a from lb where a < 3 or b;…
+ŸÌ±¢œ œ¬Ï("0õ».88@]SCAN([IS LB]) | FILTER _.A LESS_THAN promote(@c7 AS LONG) OR _.B EQUALS true | MAP (_.A AS A)‡digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -55,7 +56,7 @@ Q
 }
 L
 #boolean-predicate-conjunction-tests%EXPLAIN select a from lb where not b;¿
-Úýý„@ ñ¬“(0³‘:8@;SCAN([IS LB]) | FILTER _.B NOT_EQUALS true | MAP (_.A AS A)ädigraph G {
+ÞñßéD ç®•(0ÂÍ8@;SCAN([IS LB]) | FILTER _.B NOT_EQUALS true | MAP (_.A AS A)ädigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -70,8 +71,7 @@ L
 K
 #boolean-predicate-conjunction-tests$EXPLAIN select a from lb where true;¿
 
-Ì…–ª
-@ øåê(0¹µn8@SCAN([IS LB]) | MAP (_.A AS A)
+Ð›¬ãD è†”(0È®8@SCAN([IS LB]) | MAP (_.A AS A)
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -84,8 +84,7 @@ digraph G {
 }„
 H
 #boolean-predicate-conjunction-tests!EXPLAIN select a from lb where b;·
-Ìã€á
-; ÂŸþ(0žù?8@7SCAN([IS LB]) | FILTER _.B EQUALS true | MAP (_.A AS A)àdigraph G {
+ÎùŽã= šº­(0‡ž8@7SCAN([IS LB]) | FILTER _.B EQUALS true | MAP (_.A AS A)àdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -99,7 +98,7 @@ H
 }Ö
 V
 #boolean-predicate-conjunction-tests/EXPLAIN select a from lb where a > 1 and 1 = 1;û
-àÈ…Ñ= ˜µ­(0ŽÓ(8@[SCAN([IS LB, [GREATER_THAN promote(@c7 AS LONG)]]) | FILTER @c7 EQUALS @c7 | MAP (_.A AS A)€digraph G {
+âÁ„Ð? þþ”(0‘ä8@[SCAN([IS LB, [GREATER_THAN promote(@c7 AS LONG)]]) | FILTER @c7 EQUALS @c7 | MAP (_.A AS A)€digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

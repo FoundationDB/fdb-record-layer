@@ -1,0 +1,87 @@
+#
+# The SQL counterpart of RankIndexTest.repeatedRank*, which ranks over a REPEATED field with an ungrouped
+# rank index: field("score", FanOut).ungrouped() -- one entry per element, one ranked set for the table.
+#
+# Ranking with no PARTITION BY does reach SQL, including over ties. The repeated field does not, and neither
+# does putting two ungrouped rank indexes on one table. See the parked notes at the bottom.
+#
+# Two tables rather than one so that each query has exactly one candidate; see parked note (3).
+---
+options:
+  supported_version: !current_version
+---
+schema_template:
+    create table t1(id bigint, primary key(id))
+    create index i_by_id as select rank() over (order by id) from t1
+    create table t2(id bigint, bucket bigint, primary key(id))
+    create index i_by_bucket as select rank() over (order by bucket) from t2
+---
+setup:
+  steps:
+    - query: INSERT INTO T1 VALUES (10), (20), (30)
+    - query: INSERT INTO T2 VALUES (10, 1), (20, 1), (30, 2)
+---
+test_block:
+  name: rank-ungrouped
+  preset: single_repetition_ordered
+  tests:
+    -
+      # no PARTITION BY: one ranked set for the whole table
+      - query: select rank() over (order by id) as r from t1
+      - explain: "ISCAN(I_BY_ID <,>+rank BY_RANK) | MAP (_._1 AS R)"
+      - result: [{R: 1}, {R: 2}, {R: 3}]
+    -
+      - query: select id, rank() over (order by id) as r from t1
+               qualify rank() over (order by id) = 2
+      - explain: "ISCAN(I_BY_ID [EQUALS promote(@c27 AS LONG)]+rank BY_RANK) | MAP (_.ID AS ID, _._1 AS R)"
+      - result: [{ID: 20, R: 2}]
+    -
+      # ranking by a non-unique column, so the ungrouped set holds a tie
+      - query: select id, rank() over (order by bucket) as r from t2
+      - explain: "ISCAN(I_BY_BUCKET <,>+rank BY_RANK) | MAP (_.ID AS ID, _._2 AS R)"
+      - result: [{ID: 10, R: 1}, {ID: 20, R: 1}, {ID: 30, R: 3}]
+    -
+      # the tie ranks 1, so a range from 2 up drops it whole
+      - query: select id, rank() over (order by bucket) as r from t2
+               qualify rank() over (order by bucket) >= 2
+      - explain: "ISCAN(I_BY_BUCKET [[GREATER_THAN_OR_EQUALS promote(@c28 AS LONG)]]+rank BY_RANK) | MAP (_.ID AS ID, _._2 AS R)"
+      - result: [{ID: 30, R: 3}]
+...
+#
+# Not supported yet.
+#
+# (1) ANY rank index on a table that has an ARRAY column fails at CREATE, before a repeated field is even
+#     involved. WindowIndexExpansionVisitor enumerates every base column with
+#     Values.primitiveAccessorsForType so the candidate can flow them; that recurses to leaves and refuses
+#     an array:
+#
+#       SemanticException: The specified ordering expecting an argument of a primitive or record type,
+#       is invoked with an argument of an array type or other complex type.
+#
+#     Reproduce by adding "scores bigint array" to t1. A gap in the candidate, not in the DDL.
+#
+# (2) Ranking over the unnested array, which is what the record-layer test does. The DDL translates it
+#     correctly -- the key comes out as Field { 'SCORES' None}/Field { 'values' FanOut} group 1, exactly the
+#     shape field("score", FanOut).ungrouped() produces -- but the candidate cannot pull a fan-out key up
+#     through the pre-window select:
+#
+#       RecordCoreException: could not pull up window expression
+#       Field { 'SCORES' None}/Field { 'values' FanOut} group 1
+#
+#     create index i_scores as select rank() over (order by item) from t1 as row, row.scores as item
+#
+#     The unnest join itself is supported (arrays-unnesting.yamsql); the window function over it is not,
+#     which is the parked window-over-a-join gap again.
+#
+# (3) TWO ungrouped rank indexes on one table -- WRONG ANSWER, not refused. Put i_by_id and i_by_bucket on
+#     the same table and "rank() over (order by id) = 2" matches BOTH and intersects them:
+#
+#       ISCAN(I_BY_ID [EQUALS @c27]+rank BY_RANK) ∩ ISCAN(I_BY_BUCKET [EQUALS @c27]+rank BY_RANK)
+#         COMPARE BY () | MAP (_.ID AS ID, _._2 AS R)
+#
+#     Over i_by_id rank 2 is id 20; over i_by_bucket the ranks are 1, 1, 3 so rank 2 is nobody, and the
+#     intersection is empty. WindowExpression.subsumedBy compares the window value and the partitioning and
+#     then goes to MaxMatchMap -- it never compares the ORDERING. rank() carries no argument so the value
+#     check is trivially true, and two ungrouped indexes have equal (empty) partitioning, so nothing
+#     distinguishes "order by id" from "order by bucket". Partitioned indexes hide this because their
+#     partitioning differs.

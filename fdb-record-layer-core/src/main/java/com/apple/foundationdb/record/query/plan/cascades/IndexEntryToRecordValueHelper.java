@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord.TupleSource;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.util.TrieNode;
@@ -29,11 +31,14 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.ImmutableIntArray;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -45,8 +50,26 @@ import java.util.Objects;
 public final class IndexEntryToRecordValueHelper
         extends TrieNode.AbstractTrieNodeBuilder<String, Value, IndexEntryToRecordValueHelper> {
 
+    /**
+     * The correlation a value built here reads the base record from, reserved the way {@link Quantifier#current()} --
+     * which the same value reads the index entry from -- is. Whoever evaluates such a value binds both.
+     */
+    @Nonnull
+    private static final CorrelationIdentifier BASE_RECORD = CorrelationIdentifier.of("___baseRecord");
+
     public IndexEntryToRecordValueHelper() {
         super(null, null);
+    }
+
+    /**
+     * The correlation a default record reads the base record from, to be bound before evaluating a value built with
+     * {@link #toRecordValue(Type.Record, Value)}.
+     *
+     * @return that correlation
+     */
+    @Nonnull
+    public static CorrelationIdentifier baseRecordAlias() {
+        return BASE_RECORD;
     }
 
     @Nonnull
@@ -87,23 +110,79 @@ public final class IndexEntryToRecordValueHelper
      */
     @Nonnull
     public RecordConstructorValue toRecordValue(@Nonnull final Type.Record targetType) {
+        return toRecordValue(targetType, null);
+    }
+
+    /**
+     * A column per field of {@code targetType} as {@link #toRecordValue(Type.Record)} does, except that a field the
+     * entry does not carry is read from {@code defaultRecord} instead of being left absent. This is what lets an entry
+     * answer a query for columns it does not hold: the entry supplies what no record has -- a rank, say -- and the
+     * default record supplies the rest, in one result shape.
+     *
+     * @param targetType the record an entry is read into, which this node stands for
+     * @param defaultRecord a record of {@code targetType}'s own shape supplying the fields the entry does not carry, or
+     *        {@code null} to leave those absent, which makes this behave exactly as {@link #toRecordValue(Type.Record)}
+     *
+     * @return the value computing that record from an entry and the default record
+     */
+    @Nonnull
+    public RecordConstructorValue toRecordValue(@Nonnull final Type.Record targetType,
+                                                @Nullable final Value defaultRecord) {
         final var children = getChildrenMap();
         final var columns = ImmutableList.<Column<? extends Value>>builder();
         for (final var field : targetType.getFields()) {
             final var child = children == null ? null : children.get(field.getFieldName());
             final Value column;
             if (child == null) {
-                column = absent(field.getFieldType());
+                column = uncovered(field, defaultRecord);
             } else if (child.getValue() != null) {
                 column = child.getValue();
             } else if (field.getFieldType() instanceof Type.Record) {
-                column = child.toRecordValue((Type.Record)field.getFieldType());
+                column = child.toRecordValue((Type.Record)field.getFieldType(),
+                        defaultRecord == null ? null : defaultRecordField(defaultRecord, field.getFieldName()));
             } else {
-                column = absent(field.getFieldType());
+                column = uncovered(field, defaultRecord);
             }
             columns.add(Column.of(field, column));
         }
         return RecordConstructorValue.ofColumns(columns.build());
+    }
+
+    /**
+     * What a field the entry does not carry reads: that field of the default record, and {@link #absent} when there is
+     * no default record at all.
+     */
+    @Nonnull
+    private static Value uncovered(@Nonnull final Type.Record.Field field, @Nullable final Value defaultRecord) {
+        if (defaultRecord == null) {
+            return absent(field.getFieldType());
+        }
+        return defaultRecordField(defaultRecord, field.getFieldName());
+    }
+
+    /**
+     * The named field of {@code defaultRecord}. A default record is the target's own shape, so every field is there to
+     * be found and a miss is a caller's bug, not a column that legitimately has no source.
+     *
+     * <p>Deconstructed rather than selected, so that the projection is whatever the default record reads for the field --
+     * the base record's column, usually -- and the columns it reads for the other fields leave no trace. Those may be
+     * unreachable here: a record constructed over an exploded quantifier reads one of its columns from that quantifier,
+     * which nothing binds when an entry is decoded, and evaluating a record constructor evaluates every column of it.
+     */
+    @Nonnull
+    private static Value defaultRecordField(@Nonnull final Value defaultRecord, @Nonnull final String fieldName) {
+        final var defaultType = defaultRecord.getResultType();
+        if (defaultType instanceof Type.Record) {
+            final var fields = ((Type.Record)defaultType).getFields();
+            final var columns = Values.deconstructRecord(defaultRecord);
+            for (int ordinal = 0; ordinal < fields.size(); ordinal++) {
+                if (fields.get(ordinal).getFieldNameOptional().filter(fieldName::equals).isPresent()) {
+                    return columns.get(ordinal);
+                }
+            }
+        }
+        throw new RecordCoreException("default record does not have the field an entry leaves uncovered")
+                .addLogInfo(LogMessageKeys.FIELD_NAME, fieldName);
     }
 
     /**
@@ -120,7 +199,8 @@ public final class IndexEntryToRecordValueHelper
     }
 
     /**
-     * The value reading position {@code ordinal} of an entry's {@code source} tuple, shaped for the named field.
+     * The value reading position {@code ordinal} of an entry's {@code source} tuple, shaped for the named field of the
+     * record an entry is read into.
      *
      * @param baseObjectValue a value standing for the record the entry is read into
      * @param fieldName the field the position feeds
@@ -133,10 +213,29 @@ public final class IndexEntryToRecordValueHelper
                                     @Nonnull final String fieldName,
                                     @Nonnull final TupleSource source,
                                     final int ordinal) {
-        return FieldValue.ofFieldName(baseObjectValue, fieldName)
+        return entryColumn(baseObjectValue, ImmutableList.of(fieldName), source, ordinal);
+    }
+
+    /**
+     * The value reading position {@code ordinal} of an entry's {@code source} tuple, shaped for the field the given
+     * path leads to. A path of more than one name reaches a field inside a nested record, which is how an index key
+     * covering part of a submessage is read.
+     *
+     * @param baseObjectValue a value standing for the record the entry is read into
+     * @param fieldNames the path to the field the position feeds
+     * @param source whether the position is in the entry's key or its value
+     * @param ordinal the position
+     * @return the value reading it
+     */
+    @Nonnull
+    public static Value entryColumn(@Nonnull final Value baseObjectValue,
+                                    @Nonnull final List<String> fieldNames,
+                                    @Nonnull final TupleSource source,
+                                    final int ordinal) {
+        return FieldValue.ofFieldNames(baseObjectValue, fieldNames)
                 .extractFromIndexEntryMaybe(baseObjectValue, EvaluationContext.empty(), AliasMap.emptyMap(),
                         ImmutableSet.of(), source, ImmutableIntArray.of(ordinal))
-                .orElseThrow(() -> new IllegalStateException("cannot read " + fieldName + " from an index entry"))
+                .orElseThrow(() -> new IllegalStateException("cannot read " + fieldNames + " from an index entry"))
                 .getRight();
     }
 }

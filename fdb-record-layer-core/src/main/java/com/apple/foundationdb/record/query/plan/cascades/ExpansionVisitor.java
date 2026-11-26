@@ -93,11 +93,11 @@ public interface ExpansionVisitor<S extends KeyExpressionVisitor.State> extends 
      * @return a new {@link Reference} wrapping a type-filtered full unordered scan
      */
     @Nonnull
-    static Reference createBaseRef(@Nonnull final Set<String> availableRecordTypeNames,
-                                   @Nonnull final Set<String> queriedRecordTypeNames,
-                                   @Nonnull final Type.Record baseType,
-                                   @Nullable final CorrelationIdentifier recordTypeKeyAlias,
-                                   @Nonnull AccessHint accessHint) {
+    static Reference createFuseReference(@Nonnull final Set<String> availableRecordTypeNames,
+                                         @Nonnull final Set<String> queriedRecordTypeNames,
+                                         @Nonnull final Type.Record baseType,
+                                         @Nullable final CorrelationIdentifier recordTypeKeyAlias,
+                                         @Nonnull AccessHint accessHint) {
         final var quantifier =
                 Quantifier.forEach(
                         Reference.initialOf(

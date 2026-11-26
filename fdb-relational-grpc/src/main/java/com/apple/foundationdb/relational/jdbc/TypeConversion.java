@@ -766,6 +766,18 @@ public class TypeConversion {
                             throw new SQLException("Unknown vector index engine preference");
                     }
                     break;
+                case EXECUTION_MODE:
+                    switch ((Options.ExecutionMode)entry.getValue()) {
+                        case LEGACY:
+                            builder.setExecutionMode(com.apple.foundationdb.relational.jdbc.grpc.v1.Options.ExecutionMode.LEGACY);
+                            break;
+                        case ANSI_SQL:
+                            builder.setExecutionMode(com.apple.foundationdb.relational.jdbc.grpc.v1.Options.ExecutionMode.ANSI_SQL);
+                            break;
+                        default:
+                            throw new SQLException("Unknown execution mode");
+                    }
+                    break;
                 case FIXED_EPOCH_TIMESTAMP_MILLIS_FOR_CURRENT_DATETIME_FUNCTIONS:
                     builder.setFixedEpochTimestampMillisForCurrentDatetimeFunctions(((Long)entry.getValue()).toString());
                     break;
@@ -851,6 +863,20 @@ public class TypeConversion {
                     throw new SQLException("Unknown vector index engine preference");
             }
             builder.withOption(Options.Name.VECTOR_INDEX_ENGINE_PREFERENCE, vectorIndexEnginePreference);
+        }
+        if (protoOptions.hasExecutionMode()) {
+            Options.ExecutionMode executionMode;
+            switch (protoOptions.getExecutionMode()) {
+                case LEGACY:
+                    executionMode = Options.ExecutionMode.LEGACY;
+                    break;
+                case ANSI_SQL:
+                    executionMode = Options.ExecutionMode.ANSI_SQL;
+                    break;
+                default:
+                    throw new SQLException("Unknown execution mode");
+            }
+            builder.withOption(Options.Name.EXECUTION_MODE, executionMode);
         }
         if (protoOptions.getDisabledPlannerRulesCount() > 0) {
             builder.withOption(Options.Name.DISABLED_PLANNER_RULES, protoOptions.getDisabledPlannerRulesList());

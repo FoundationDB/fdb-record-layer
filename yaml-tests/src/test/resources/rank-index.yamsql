@@ -1,0 +1,276 @@
+# rank-index.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2021-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# SQL RANK() over a rank index: results, scan selection, and the plan each syntactic position produces.
+#
+# Ranks are ONE-BASED, and a tie shares a rank and then skips: 70, 70, 90 rank 1, 1, 3. Both follow from the
+# index options a SQL rank index carries, RANK_COUNT_DUPLICATES and RANK_SQL_SEMANTICS.
+#
+# BY_RANK needs every partitioning column bound by EQUALITY; anything less reads as BY_VALUE, shown as
+# "+rank" with no scan type. Either way the rank is per partition.
+#
+# Shapes that do not work yet are listed at the bottom.
+---
+options:
+  supported_version: !current_version
+---
+schema_template:
+    create table player(name string, team string, score bigint, primary key(name))
+    create index mv1 as select rank() over (partition by team order by score) from player
+    create table node(id bigint, parent_id bigint, label string, primary key(id))
+    create index mv2 as select rank() over (partition by parent_id order by id) from node
+    create table t2(a bigint, b bigint, c bigint, d bigint, primary key(a, c))
+    create index i2 as select rank() over (partition by b order by c) from t2
+    create table t3(id bigint, a bigint, b bigint, c bigint, z bigint, primary key(id))
+    create index i3 as select rank() over (partition by a, b, c order by z) from t3
+    WITH OPTIONS(ENABLE_LONG_ROWS=true, INTERMINGLE_TABLES=true)
+---
+setup:
+  steps:
+    - query: INSERT INTO PLAYER
+        VALUES ('achilles', 'greeks', 100),
+               ('patroclus', 'greeks', 80),
+               ('odysseus', 'greeks', 60),
+               ('hector', 'trojans', 90),
+               ('paris', 'trojans', 70),
+               ('menelaus', 'trojans', 70)
+    - query: INSERT INTO NODE
+        VALUES (1, 0, 'root-a'),
+               (2, 0, 'root-b'),
+               (10, 1, 'a-first'),
+               (20, 1, 'a-second'),
+               (30, 1, 'a-third'),
+               (40, 2, 'b-first'),
+               (50, 2, 'b-second')
+    - query: INSERT INTO T2
+        VALUES (1, 100, 10, 1000),
+               (2, 100, 20, 1001),
+               (3, 100, 30, 1002),
+               (4, 200, 15, 1003)
+    # ids start at 101: INTERMINGLE_TABLES shares one keyspace, so they must not collide with node's
+    - query: INSERT INTO T3
+        VALUES (101, 10, 100, 1000, 5),
+               (102, 10, 100, 1000, 7),
+               (103, 10, 100, 1000, 9),
+               (104, 10, 200, 1000, 6),
+               (105, 20, 100, 1000, 8)
+---
+test_block:
+  name: rank-index-results
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select rank() over (partition by team order by score) as rank from player where team = 'greeks'
+      - explain: "ISCAN(MV1 [EQUALS promote(@c20 AS STRING)]+rank BY_RANK) | MAP (_._3 AS RANK)"
+      - result: [{RANK: 1}, {RANK: 2}, {RANK: 3}]
+    -
+      # ties share a rank and the next row skips one
+      - query: select name, rank() over (partition by team order by score) as rnk from player where team = 'trojans'
+      - explain: "ISCAN(MV1 [EQUALS promote(@c22 AS STRING)]+rank BY_RANK) | MAP (_.NAME AS NAME, _._3 AS RNK)"
+      - result: [{NAME: 'menelaus', RNK: 1}, {NAME: 'paris', RNK: 1}, {NAME: 'hector', RNK: 3}]
+    -
+      # nothing binds the group, so BY_VALUE across every partition, in entry key order (team, score, name)
+      - query: select name, team, rank() over (partition by team order by score) as rnk from player
+      - explain: "ISCAN(MV1 <,>+rank) | MAP (_.NAME AS NAME, _.TEAM AS TEAM, _._3 AS RNK)"
+      - result: [{NAME: 'odysseus', TEAM: 'greeks', RNK: 1}, {NAME: 'patroclus', TEAM: 'greeks', RNK: 2}, {NAME: 'achilles', TEAM: 'greeks', RNK: 3},
+                 {NAME: 'menelaus', TEAM: 'trojans', RNK: 1}, {NAME: 'paris', TEAM: 'trojans', RNK: 1}, {NAME: 'hector', TEAM: 'trojans', RNK: 3}]
+    -
+      # NAME is not an entry key column, so it comes from the fetched record
+      - query: select name, team, score, rank() over (partition by team order by score) as rnk from player where team = 'greeks'
+      - explain: "ISCAN(MV1 [EQUALS promote(@c26 AS STRING)]+rank BY_RANK) | MAP (_.NAME AS NAME, _.TEAM AS TEAM, _.SCORE AS SCORE, _._3 AS RNK)"
+      - result: [{NAME: 'odysseus', TEAM: 'greeks', SCORE: 60, RNK: 1}, {NAME: 'patroclus', TEAM: 'greeks', SCORE: 80, RNK: 2}, {NAME: 'achilles', TEAM: 'greeks', SCORE: 100, RNK: 3}]
+    -
+      # the rank composes into an expression above the scan rather than blocking the match
+      - query: select rank() over (partition by team order by score) + 1 as rnk from player where team = 'greeks'
+      - explain: "ISCAN(MV1 [EQUALS promote(@c22 AS STRING)]+rank BY_RANK) | MAP (_._3 + @c14 AS RNK)"
+      - result: [{RNK: 2}, {RNK: 3}, {RNK: 4}]
+    -
+      # filtered from an outer query: rnk < 2 becomes a second component of the scan range, not a filter
+      - query: select rnk from (select name, rank() over (partition by team order by score) as rnk from player where team = 'greeks') as t where rnk < 2
+      - explain: "ISCAN(MV1 [EQUALS promote(@c26 AS STRING), [LESS_THAN promote(@c33 AS LONG)]]+rank BY_RANK) | MAP (_._3 AS RNK)"
+      - result: [{RNK: 1}]
+---
+# QUALIFY filters on a window function, which WHERE cannot. Every bound probe here must put the rank in the
+# BY_RANK range rather than in a filter above the scan.
+test_block:
+  name: rank-index-qualify
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select name, team, score, rank() over (partition by team order by score) as rnk from player where team = 'greeks'
+               qualify rank() over (partition by team order by score) between 1 and 2
+      - explain: "ISCAN(MV1 [EQUALS promote(@c26 AS STRING), [GREATER_THAN_OR_EQUALS promote(@c41 AS LONG) && LESS_THAN_OR_EQUALS promote(@c43 AS LONG)]]+rank BY_RANK) | MAP (_.NAME AS NAME, _.TEAM AS TEAM, _.SCORE AS SCORE, _._3 AS RNK)"
+      - result: [{NAME: 'odysseus', TEAM: 'greeks', SCORE: 60, RNK: 1}, {NAME: 'patroclus', TEAM: 'greeks', SCORE: 80, RNK: 2}]
+    -
+      - query: select rank() over (partition by team order by score) as rnk from player where team = 'greeks'
+               qualify rank() over (partition by team order by score) < 2
+      - explain: "ISCAN(MV1 [EQUALS promote(@c20 AS STRING), [LESS_THAN promote(@c35 AS LONG)]]+rank BY_RANK) | MAP (_._3 AS RNK)"
+      - result: [{RNK: 1}]
+    -
+      - query: select name, rank() over (partition by team order by score) as rnk from player where team = 'greeks'
+               qualify rank() over (partition by team order by score) = 2
+      - explain: "ISCAN(MV1 [EQUALS promote(@c22 AS STRING), EQUALS promote(@c37 AS LONG)]+rank BY_RANK) | MAP (_.NAME AS NAME, _._3 AS RNK)"
+      - result: [{NAME: 'patroclus', RNK: 2}]
+    -
+      - query: select name, rank() over (partition by team order by score) as rnk from player where team = 'greeks'
+               qualify rank() over (partition by team order by score) >= 1
+      - explain: "ISCAN(MV1 [EQUALS promote(@c22 AS STRING), [GREATER_THAN_OR_EQUALS promote(@c38 AS LONG)]]+rank BY_RANK) | MAP (_.NAME AS NAME, _._3 AS RNK)"
+      - result: [{NAME: 'odysseus', RNK: 1}, {NAME: 'patroclus', RNK: 2}, {NAME: 'achilles', RNK: 3}]
+    -
+      # two conjuncts fold into the same range as BETWEEN
+      - query: select rank() over (partition by team order by score) as rnk from player where team = 'greeks'
+               qualify rank() over (partition by team order by score) >= 1
+                   and rank() over (partition by team order by score) <= 2
+      - explain: "ISCAN(MV1 [EQUALS promote(@c20 AS STRING), [GREATER_THAN_OR_EQUALS promote(@c36 AS LONG) && LESS_THAN_OR_EQUALS promote(@c52 AS LONG)]]+rank BY_RANK) | MAP (_._3 AS RNK)"
+      - result: [{RNK: 1}, {RNK: 2}]
+    -
+      # no WHERE, so no group to convert a rank range against: the one probe whose plan should carry a FILTER
+      - query: select name, team, rank() over (partition by team order by score) as rnk from player
+               qualify rank() over (partition by team order by score) = 1
+      - explain: "ISCAN(MV1 <,>+rank) | FILTER _._3 EQUALS promote(@c35 AS LONG) | MAP (_.NAME AS NAME, _.TEAM AS TEAM, _._3 AS RNK)"
+      - result: [{NAME: 'odysseus', TEAM: 'greeks', RNK: 1}, {NAME: 'menelaus', TEAM: 'trojans', RNK: 1}, {NAME: 'paris', TEAM: 'trojans', RNK: 1}]
+---
+# A rank range over a partition that TIES. The range is converted to a score range, and tied rows share a rank
+# while occupying distinct slots of the ranked set, so the conversion has to select whole tie blocks. Getting
+# this wrong returns rows ranked outside the range; see RANK_SQL_SEMANTICS and page 06 of the design series.
+test_block:
+  name: rank-index-ties
+  preset: single_repetition_ordered
+  tests:
+    -
+      # trojans ranks 1, 1, 3 -- the range starts above the tie, which must be dropped whole
+      - query: select name, rank() over (partition by team order by score) as rnk from player where team = 'trojans'
+               qualify rank() over (partition by team order by score) >= 2
+      - explain: "ISCAN(MV1 [EQUALS promote(@c22 AS STRING), [GREATER_THAN_OR_EQUALS promote(@c38 AS LONG)]]+rank BY_RANK) | MAP (_.NAME AS NAME, _._3 AS RNK)"
+      - result: [{NAME: 'hector', RNK: 3}]
+    -
+      # rank 2 belongs to no row: the tie consumed the slot
+      - query: select name, rank() over (partition by team order by score) as rnk from player where team = 'trojans'
+               qualify rank() over (partition by team order by score) = 2
+      - explain: "ISCAN(MV1 [EQUALS promote(@c22 AS STRING), EQUALS promote(@c37 AS LONG)]+rank BY_RANK) | MAP (_.NAME AS NAME, _._3 AS RNK)"
+      - result: []
+    -
+      # the tie's own rank selects both of its rows, because both genuinely hold it
+      - query: select name, rank() over (partition by team order by score) as rnk from player where team = 'trojans'
+               qualify rank() over (partition by team order by score) = 1
+      - explain: "ISCAN(MV1 [EQUALS promote(@c22 AS STRING), EQUALS promote(@c37 AS LONG)]+rank BY_RANK) | MAP (_.NAME AS NAME, _._3 AS RNK)"
+      - result: [{NAME: 'menelaus', RNK: 1}, {NAME: 'paris', RNK: 1}]
+---
+test_block:
+  name: rank-of-child-among-siblings
+  preset: single_repetition_ordered
+  tests:
+    -
+      # ranking by the primary key puts the ranked column inside it, recovered by position rather than appended
+      - query: select rank() over (partition by parent_id order by id) as position from node where parent_id = 1
+      - explain: "ISCAN(MV2 [EQUALS promote(@c20 AS LONG)]+rank BY_RANK) | MAP (_._3 AS POSITION)"
+      - result: [{POSITION: 1}, {POSITION: 2}, {POSITION: 3}]
+---
+# t2 primary key (a, c), index key (b, c): "c" is inside the key, "a" and the recordTypeKey are appended, so
+# the entry key is (b, c, recordTypeKey, a) and the candidate flows (b, c, a, d, rank).
+test_block:
+  name: rank-index-primary-key
+  preset: single_repetition_ordered
+  tests:
+    -
+      - query: select rank() over (partition by b order by c) as r from t2 where b = 100
+      - explain: "ISCAN(I2 [EQUALS promote(@c20 AS LONG)]+rank BY_RANK) | MAP (_._4 AS R)"
+      - result: [{R: 1}, {R: 2}, {R: 3}]
+    -
+      # both kinds of primary key component: "c" inside the index key, "a" appended after it
+      - query: select a, c, rank() over (partition by b order by c) as r from t2 where b = 100
+      - explain: "ISCAN(I2 [EQUALS promote(@c24 AS LONG)]+rank BY_RANK) | MAP (_.A AS A, _.C AS C, _._4 AS R)"
+      - result: [{A: 1, C: 10, R: 1}, {A: 2, C: 20, R: 2}, {A: 3, C: 30, R: 3}]
+    -
+      # "d" is in neither key, so the record is fetched and merged with the entry's rank
+      - query: select d, rank() over (partition by b order by c) as r from t2 where b = 100
+      - explain: "ISCAN(I2 [EQUALS promote(@c22 AS LONG)]+rank BY_RANK) | MAP (_.D AS D, _._4 AS R)"
+      - result: [{D: 1000, R: 1}, {D: 1001, R: 2}, {D: 1002, R: 3}]
+    -
+      - query: select b, rank() over (partition by b order by c) as r from t2 where b = 200
+      - explain: "ISCAN(I2 [EQUALS promote(@c22 AS LONG)]+rank BY_RANK) | MAP (_.B AS B, _._4 AS R)"
+      - result: [{B: 200, R: 1}]
+    -
+      # inequality on the partitioning column: not pinned down, so a plain key range
+      - query: select b, c, rank() over (partition by b order by c) as r from t2 where b < 200
+      - explain: "ISCAN(I2 [[LESS_THAN promote(@c24 AS LONG)]]+rank) | MAP (_.B AS B, _.C AS C, _._4 AS R)"
+      - result: [{B: 100, C: 10, R: 1}, {B: 100, C: 20, R: 2}, {B: 100, C: 30, R: 3}]
+    -
+      # widened across both partitions: the ranks restart at the boundary
+      - query: select b, c, rank() over (partition by b order by c) as r from t2 where b < 300
+      - explain: "ISCAN(I2 [[LESS_THAN promote(@c24 AS LONG)]]+rank) | MAP (_.B AS B, _.C AS C, _._4 AS R)"
+      - result: [{B: 100, C: 10, R: 1}, {B: 100, C: 20, R: 2}, {B: 100, C: 30, R: 3}, {B: 200, C: 15, R: 1}]
+---
+# t3 index key (a, b, c, z), grouping count 3: how much of the PARTITION BY prefix a query has to bind.
+test_block:
+  name: rank-index-partitioning
+  preset: single_repetition_ordered
+  tests:
+    -
+      # the whole prefix by equality -- the only shape BY_RANK can take
+      - query: select z, rank() over (partition by a, b, c order by z) as r from t3 where a = 10 and b = 100 and c = 1000
+      - explain: "ISCAN(I3 [EQUALS promote(@c26 AS LONG), EQUALS promote(@c30 AS LONG), EQUALS promote(@c34 AS LONG)]+rank BY_RANK) | MAP (_.Z AS Z, _._5 AS R)"
+      - result: [{Z: 5, R: 1}, {Z: 7, R: 2}, {Z: 9, R: 3}]
+    -
+      # an inequality anywhere in the prefix loses the group, however much precedes it
+      - query: select b, z, rank() over (partition by a, b, c order by z) as r from t3 where a = 10 and b < 200
+      - explain: "ISCAN(I3 [EQUALS promote(@c28 AS LONG), [LESS_THAN promote(@c32 AS LONG)]]+rank) | MAP (_.B AS B, _.Z AS Z, _._5 AS R)"
+      - result: [{B: 100, Z: 5, R: 1}, {B: 100, Z: 7, R: 2}, {B: 100, Z: 9, R: 3}]
+    -
+      - query: select b, z, rank() over (partition by a, b, c order by z) as r from t3 where a = 10 and b < 300
+      - explain: "ISCAN(I3 [EQUALS promote(@c28 AS LONG), [LESS_THAN promote(@c32 AS LONG)]]+rank) | MAP (_.B AS B, _.Z AS Z, _._5 AS R)"
+      - result: [{B: 100, Z: 5, R: 1}, {B: 100, Z: 7, R: 2}, {B: 100, Z: 9, R: 3}, {B: 200, Z: 6, R: 1}]
+    -
+      # a strict prefix, all by equality: still short of the group
+      - query: select b, z, rank() over (partition by a, b, c order by z) as r from t3 where a = 10
+      - explain: "ISCAN(I3 [EQUALS promote(@c28 AS LONG)]+rank) | MAP (_.B AS B, _.Z AS Z, _._5 AS R)"
+      - result: [{B: 100, Z: 5, R: 1}, {B: 100, Z: 7, R: 2}, {B: 100, Z: 9, R: 3}, {B: 200, Z: 6, R: 1}]
+    -
+      - query: select a, b, z, rank() over (partition by a, b, c order by z) as r from t3
+      - explain: "ISCAN(I3 <,>+rank) | MAP (_.A AS A, _.B AS B, _.Z AS Z, _._5 AS R)"
+      - result: [{A: 10, B: 100, Z: 5, R: 1}, {A: 10, B: 100, Z: 7, R: 2}, {A: 10, B: 100, Z: 9, R: 3}, {A: 10, B: 200, Z: 6, R: 1}, {A: 20, B: 100, Z: 8, R: 1}]
+...
+#
+# Not supported yet. Each is a gap recorded in the window-function-planning design series.
+#
+# No PARTITION BY -- no candidate has an empty grouping prefix (UnableToPlanException):
+#   select rank() over (order by score) as rnk from player
+#
+# RANK in ORDER BY -- the BY_RANK scan already provides it, but the planner does not use it (UnableToPlanException):
+#   select name from player where team = 'greeks' order by rank() over (partition by team order by score)
+#
+# Two RANKs over different partitionings -- plans, then crashes at execution rather than being refused:
+#   select rank() over (partition by team order by score) as a, rank() over (order by score) as b from player
+#
+# Descending ORDER BY inside OVER -- refused, as intended; a rank index materializes one direction (UNSUPPORTED_SORT):
+#   select rank() over (partition by team order by score desc) as rnk from player where team = 'greeks'
+#
+# Named windows -- the WINDOW w AS (...) clause is commented out of the grammar (UNSUPPORTED_QUERY):
+#   select rank() over w as rnk from player where team = 'greeks'
+#
+# A window function over a JOIN -- the candidate is expanded over one base quantifier (UnableToPlanException):
+#   select rank() over (partition by child.parent_id order by child.id) from node as parent
+#     join node as child on child.parent_id = parent.id where parent.id = 1
+#
+# QUALIFY on a non-window column -- WRONG ANSWER, not refused: it sinks below the window and re-ranks the
+# survivors from 1, where the standard ranks over the whole partition first:
+#   select name, rank() over (partition by team order by score) as rnk from player where team = 'greeks'
+#     qualify score > 70        -- expected RNK 2,3; today RNK 1,2
+#
+# A predicate on a non-partitioning column -- correctly refused; needs a streaming window operator:
+#   select name, rank() over (partition by team order by score) as rnk from player where score > 70

@@ -1,7 +1,7 @@
-ù
+ø
 N
-$sql-functions-with-struct-parameters&EXPLAIN select * from f1((10, '100'));¦
-Ò“ÿÿ9Y ÙŸœ&(0ðüé8/@ÕSCAN([IS NESTED]) | FILTER _.R.V.Y EQUALS promote((@c6 AS _0, @c8 AS _1) AS LONG AS Y, STRING AS Z).Y AND _.R.V.Z EQUALS promote((@c6 AS _0, @c8 AS _1) AS LONG AS Y, STRING AS Z).Z | MAP (_.ID AS ID, _.R.V.Y AS Y)¯digraph G {
+$sql-functions-with-struct-parameters&EXPLAIN select * from f1((10, '100'));¥
+ä‘ík §˜ª(0Ëá!8/@ÕSCAN([IS NESTED]) | FILTER _.R.V.Y EQUALS promote((@c6 AS _0, @c8 AS _1) AS LONG AS Y, STRING AS Z).Y AND _.R.V.Z EQUALS promote((@c6 AS _0, @c8 AS _1) AS LONG AS Y, STRING AS Z).Z | MAP (_.ID AS ID, _.R.V.Y AS Y)¯digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -12,10 +12,11 @@ $sql-functions-with-struct-parameters&EXPLAIN select * from f1((10, '100'));¦
   3 -> 2 [ label=<&nbsp;q12> label="q12" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q49> label="q49" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}
+}Ž
 ã
-$sql-functions-with-struct-parameters+EXPLAIN select * from temp_f1((10, '100'));create temporary function temp_f1 ( in a type st1 ) on commit drop function as select id, r.v.y from nested where r.v.y = a.y and r.v.z = a.z¦
-Ò¸€ÖY æº¦(0ìƒ‡8/@ÕSCAN([IS NESTED]) | FILTER _.R.V.Y EQUALS promote((@c6 AS _0, @c8 AS _1) AS LONG AS Y, STRING AS Z).Y AND _.R.V.Z EQUALS promote((@c6 AS _0, @c8 AS _1) AS LONG AS Y, STRING AS Z).Z | MAP (_.ID AS ID, _.R.V.Y AS Y)¯digraph G {
+$sql-functions-with-struct-parameters+EXPLAIN select * from temp_f1((10, '100'));create temporary function temp_f1 ( in a type st1 ) on commit drop function as select id, r.v.y from nested where r.v.y = a.y and r.v.z = a.z¥
+äåÝ¿
+k ©ÿ›(0ù%8/@ÕSCAN([IS NESTED]) | FILTER _.R.V.Y EQUALS promote((@c6 AS _0, @c8 AS _1) AS LONG AS Y, STRING AS Z).Y AND _.R.V.Z EQUALS promote((@c6 AS _0, @c8 AS _1) AS LONG AS Y, STRING AS Z).Z | MAP (_.ID AS ID, _.R.V.Y AS Y)¯digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -26,20 +27,20 @@ $sql-functions-with-struct-parameters+EXPLAIN select * from temp_f1((10, '100')
   3 -> 2 [ label=<&nbsp;q12> label="q12" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q49> label="q49" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}	
+}ÿ
 G
-$sql-functions-with-struct-parametersEXPLAIN select * from f2('red')µ
-‰çâë> ÚõŒ	(0Š÷«8,@gTF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c5 AS ENUM<red(0), green(1), blue(2)>) AS A)­digraph G {
+$sql-functions-with-struct-parametersEXPLAIN select * from f2('red')³
+ž—Ô¬S ¾Ãi(0åÃ;8,@gTF range(0l, promote(1l AS LONG), STEP 1l) | MAP (promote(@c5 AS ENUM<red(0), green(1), blue(2)>) AS A)­digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (promote(@c5 AS ENUM&lt;red(0), green(1), blue(2)&gt;) AS A)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ENUM&lt;red(0), green(1), blue(2)&gt; AS A)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(0l, promote(1l AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 -> 1 [ label=<&nbsp;q31> label="q31" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¨
+}§
 J
-$sql-functions-with-struct-parameters"EXPLAIN select * from f3('green');Ù
-§¹ÐåL ³ ´(0ñÄˆ8+@WSCAN([IS COLORFUL]) | FILTER _.X EQUALS promote(@c5 AS ENUM<red(0), green(1), blue(2)>)ádigraph G {
+$sql-functions-with-struct-parameters"EXPLAIN select * from f3('green');Ø
+¹Õƒð^ ôÿÖ(0¸Û8+@WSCAN([IS COLORFUL]) | FILTER _.X EQUALS promote(@c5 AS ENUM<red(0), green(1), blue(2)>)ádigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -51,7 +52,7 @@ $sql-functions-with-struct-parameters"EXPLAIN select * from f3('green');Ù
 }¡
 H
 $sql-functions-with-struct-parameters EXPLAIN select y from non_green;Ô
-û‡þ×6C ùº¼+(0¢”|8@vSCAN([IS COLORFUL]) | FILTER _.X IS_DISTINCT_FROM promote('green' AS ENUM<red(0), green(1), blue(2)>) | MAP (_.Y AS Y)¾digraph G {
+ÿõüÅG ´°²(0¬à8@vSCAN([IS COLORFUL]) | FILTER _.X IS_DISTINCT_FROM promote('green' AS ENUM<red(0), green(1), blue(2)>) | MAP (_.Y AS Y)¾digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

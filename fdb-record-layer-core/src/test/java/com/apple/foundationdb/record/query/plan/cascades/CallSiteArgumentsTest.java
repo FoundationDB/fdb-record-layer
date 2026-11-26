@@ -20,17 +20,21 @@
 
 package com.apple.foundationdb.record.query.plan.cascades;
 
+import com.apple.foundationdb.record.PlanSerializationContext;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.WindowFrameSpecification;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import javax.annotation.Nonnull;
 import java.util.Set;
@@ -48,6 +52,11 @@ class CallSiteArgumentsTest {
     private static final Value TWO = LiteralValue.ofScalar(2);
     @Nonnull
     private static final CallSiteArguments.Option<Integer> AN_OPTION = CallSiteArguments.Option.ofInteger("anInt");
+    @Nonnull
+    private static final WindowFrameSpecification NON_DEFAULT_FRAME =
+            new WindowFrameSpecification(WindowFrameSpecification.FrameType.ROW,
+                    new WindowFrameSpecification.Bounded(LiteralValue.ofScalar(1L)),
+                    new WindowFrameSpecification.CurrentRow(), WindowFrameSpecification.Exclusion.NO_OTHER);
 
     @Test
     void emptyCallSiteCarriesNothing() {
@@ -256,7 +265,7 @@ class CallSiteArgumentsTest {
     }
 
     @Test
-    void windowSpecificationIsNoneOnlyWhenBothComponentsAreEmpty() {
+    void windowSpecificationIsNoneOnlyWhenEveryComponentIsEmptyOrDefault() {
         Assertions.assertTrue(CallSiteArguments.WindowSpecification.NONE.isNone());
         Assertions.assertTrue(new CallSiteArguments.WindowSpecification(ImmutableList.of(), ImmutableList.of()).isNone(),
                 "an independently built empty specification should also count as none");
@@ -266,6 +275,35 @@ class CallSiteArgumentsTest {
         Assertions.assertFalse(new CallSiteArguments.WindowSpecification(ImmutableList.of(),
                         ImmutableList.of(orderingPart(OrderingPart.RequestedSortOrder.ASCENDING))).isNone(),
                 "an ORDER BY only specification is a window specification");
+        Assertions.assertFalse(new CallSiteArguments.WindowSpecification(ImmutableList.of(), ImmutableList.of(),
+                        NON_DEFAULT_FRAME).isNone(),
+                "a frame clause alone already makes this a window specification");
+    }
+
+    @Test
+    void windowSpecificationWithoutAnExplicitFrameSpansTheWholePartition() {
+        final var specification = new CallSiteArguments.WindowSpecification(ImmutableList.of(ONE),
+                ImmutableList.of(orderingPart(OrderingPart.RequestedSortOrder.ASCENDING)));
+
+        Assertions.assertEquals(WindowFrameSpecification.defaultSpecification(), specification.frameSpecification());
+        Assertions.assertTrue(specification.frameSpecification().isDefault());
+        Assertions.assertEquals(specification,
+                new CallSiteArguments.WindowSpecification(specification.partitioningValues(),
+                        specification.orderingParts(), WindowFrameSpecification.defaultSpecification()),
+                "the convenience constructor should agree with passing the default frame explicitly");
+    }
+
+    @Test
+    void windowSpecificationKeepsAnExplicitFrame() {
+        final var specification = new CallSiteArguments.WindowSpecification(ImmutableList.of(ONE), ImmutableList.of(),
+                NON_DEFAULT_FRAME);
+
+        Assertions.assertEquals(NON_DEFAULT_FRAME, specification.frameSpecification());
+        final var arguments = CallSiteArguments.ofPositional(ImmutableList.of(ONE))
+                .withWindowSpecification(specification);
+        Assertions.assertEquals(NON_DEFAULT_FRAME, arguments.getWindowSpecification().frameSpecification(),
+                "the frame should survive being attached to a call site");
+        Assertions.assertTrue(arguments.isWindowed());
     }
 
     @Test
@@ -384,6 +422,19 @@ class CallSiteArgumentsTest {
             Assertions.assertTrue(ascending.toString().startsWith(ONE.toString()),
                     "the rendering should start with the ordering value");
         }
+
+        @ParameterizedTest
+        @EnumSource(OrderingPart.RequestedSortOrder.class)
+        void toProtoFromProtoRoundTripsPart(@Nonnull final OrderingPart.RequestedSortOrder sortOrder) {
+            final var part = orderingPart(sortOrder);
+            final var roundTripped = WindowOrderingPart.fromProto(PlanSerializationContext.newForCurrentMode(),
+                    part.toProto(PlanSerializationContext.newForCurrentMode()));
+
+            Assertions.assertEquals(part, roundTripped);
+            Assertions.assertEquals(sortOrder, roundTripped.getSortOrder());
+            Assertions.assertEquals(ONE, roundTripped.getValue());
+        }
+
     }
 
     @Nonnull

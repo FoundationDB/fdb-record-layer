@@ -47,7 +47,7 @@ public class SemanticException extends RecordCoreException {
         OPERAND_OF_LIKE_OPERATOR_IS_NOT_STRING(7, "The like operator expects string operands but was invoked with an operand of another type."),
         ESCAPE_CHAR_OF_LIKE_OPERATOR_IS_NOT_SINGLE_CHAR(8, "The like operator expects an escape character of length 1."),
         FUNCTION_UNDEFINED_FOR_GIVEN_ARGUMENT_TYPES(9, "The function is not defined for the given argument types"),
-        ORDERING_IS_OF_INCOMPATIBLE_TYPE(10, "The specified ordering expecting an argument of a primitive or record type, is invoked with an argument of an array type or other complex type."),
+        /**/ORDERING_IS_OF_INCOMPATIBLE_TYPE(10, "The specified ordering expecting an argument of a primitive or record type, is invoked with an argument of an array type or other complex type."),
         ARGUMENT_TO_COLLATE_IS_OF_COMPLEX_TYPE(11, "The argument to a collate expression expecting an argument of a primitive type, is invoked with an argument of a complex type, e.g. an array or a record."),
         INVALID_ENUM_VALUE(12, "Invalid enum value for the enum type"),
         INVALID_UUID_VALUE(13, "Invalid UUID value for the UUID type"),

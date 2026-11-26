@@ -43,6 +43,8 @@ import java.util.function.Supplier;
 
 /**
  * A value merges the input messages given to it into an output message.
+ * todo this class should be consolidated wth {@code WindowValue} once we align ANN query modelling and planning with
+ * modelling and planning of olap functions (rank()).
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class WindowedValue extends AbstractValue {

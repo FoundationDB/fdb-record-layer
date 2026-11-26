@@ -2,7 +2,7 @@
 [
 
 join-testsMEXPLAIN select fname, lname, name from emp, dept where emp.dept_id = dept.id;È
-À∏à '‰ ¯‘è(N0ÔåV8y@éISCAN(EMPDEPT <,>) | FLATMAP q0 -> { SCAN([IS DEPT, EQUALS q0.DEPT_ID]) AS q1 RETURN (q0.FNAME AS FNAME, q0.LNAME AS LNAME, q1.NAME AS NAME) }πdigraph G {
+Õ€’Ã*Ê ´åﬁ(N0õˇT8y@éISCAN(EMPDEPT <,>) | FLATMAP q0 -> { SCAN([IS DEPT, EQUALS q0.DEPT_ID]) AS q1 RETURN (q0.FNAME AS FNAME, q0.LNAME AS LNAME, q1.NAME AS NAME) }πdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -27,7 +27,7 @@ join-testsMEXPLAIN select fname, lname, name from emp, dept where emp.dept_id =
 [
 
 join-testsMEXPLAIN select fname, lname, name from emp, dept where dept.id = emp.dept_id;È
-À∑ßî!‰ €¸Ã(N0ëíF8y@éISCAN(EMPDEPT <,>) | FLATMAP q0 -> { SCAN([IS DEPT, EQUALS q0.DEPT_ID]) AS q1 RETURN (q0.FNAME AS FNAME, q0.LNAME AS LNAME, q1.NAME AS NAME) }πdigraph G {
+Õ‘“è+Ê ÚΩ°(N0åÃY8y@éISCAN(EMPDEPT <,>) | FLATMAP q0 -> { SCAN([IS DEPT, EQUALS q0.DEPT_ID]) AS q1 RETURN (q0.FNAME AS FNAME, q0.LNAME AS LNAME, q1.NAME AS NAME) }πdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -52,7 +52,7 @@ join-testsMEXPLAIN select fname, lname, name from emp, dept where dept.id = emp
 r
 
 join-testsdEXPLAIN select fname, lname from emp where not exists (select * from project where emp_id = emp.id);ë#
-“ò©⁄é À£¢(10ƒ·L84@≥ISCAN(EMPDEPT <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q0.ID | DEFAULT NULL | FILTER NOT _ NOT_NULL AS q1 RETURN (q0.FNAME AS FNAME, q0.LNAME AS LNAME) }º!digraph G {
+÷©—‡í ÛπÌ(10ä°84@≥ISCAN(EMPDEPT <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q0.ID | DEFAULT NULL | FILTER NOT _ NOT_NULL AS q1 RETURN (q0.FNAME AS FNAME, q0.LNAME AS LNAME) }º!digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -86,7 +86,7 @@ join-testsdEXPLAIN select fname, lname from emp where not exists (select * from
 Å
 
 join-testssEXPLAIN select emp.fname, emp.lname from emp left join project on project.emp_id = emp.id where project.id is null;Ä#
-Å≠Æíô Ê≤	(/0ê≥J8=@≤ISCAN(EMPDEPT <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q0.ID | ON EMPTY NULL | FILTER _.ID IS_NULL AS q1 RETURN (q0.FNAME AS FNAME, q0.LNAME AS LNAME) }¨!digraph G {
+â‚·•° πêç	(/0›•48=@≤ISCAN(EMPDEPT <,>) | FLATMAP q0 -> { SCAN([IS PROJECT]) | FILTER _.EMP_ID EQUALS q0.ID | ON EMPTY NULL | FILTER _.ID IS_NULL AS q1 RETURN (q0.FNAME AS FNAME, q0.LNAME AS LNAME) }¨!digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -120,8 +120,8 @@ join-testssEXPLAIN select emp.fname, emp.lname from emp left join project on pr
 ó
 
 join-testsàEXPLAIN select fname, lname from emp inner join project on emp_id = emp.id inner join dept on dept_id = dept.id and dept.name = 'Sales';ñ+
-ê!¨¸ÖÀô
- ÔüÓ8(ê0ﬂã◊8∏@&ÒSCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) | FILTER _.NAME EQUALS promote(@c29 AS STRING) AS q2 RETURN q1 } AS q1 RETURN (q1.FNAME AS FNAME, q1.LNAME AS LNAME) }ˇ(digraph G {
+î!°–˝’ù
+ √§¥9(ê0èÈﬁ8∏@&ÒSCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) | FILTER _.NAME EQUALS promote(@c29 AS STRING) AS q2 RETURN q1 } AS q1 RETURN (q1.FNAME AS FNAME, q1.LNAME AS LNAME) }ˇ(digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -171,7 +171,7 @@ join-testsàEXPLAIN select fname, lname from emp inner join project on emp_id =
 Ö
 
 join-testswEXPLAIN select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id;“$
-àÑ©à•ù ﬁ¥°1(Â0•çú8ü@∫SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) AS q2 RETURN q2 } AS q2 RETURN (q2.NAME AS _0, q0.NAME AS _1) }Ú"digraph G {
+ä◊·Ì™ü ÿˇ€4(Â0òÆ∏8ü@∫SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) AS q2 RETURN q2 } AS q2 RETURN (q2.NAME AS _0, q0.NAME AS _1) }Ú"digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -179,27 +179,19 @@ join-testswEXPLAIN select dept.name, project.name from emp, dept, project where
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS PROJECT]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS DSC, LONG AS EMP_ID)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS DSC, LONG AS EMP_ID)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP q6</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS EMP, EQUALS q10.EMP_ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS FNAME, STRING AS LNAME, LONG AS DEPT_ID)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS DEPT, EQUALS q2.DEPT_ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME)" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS FNAME, STRING AS LNAME, LONG AS DEPT_ID)" ];
-  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS DEPT, EQUALS q2.DEPT_ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS EMP, EQUALS q10.EMP_ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS FNAME, STRING AS LNAME, LONG AS DEPT_ID)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS FNAME, STRING AS LNAME, LONG AS DEPT_ID)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q10> label="q10" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   8 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    6 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    5 -> 6 [ color="red" style="invis" ];
-  }
-  {
-    5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+    6 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
     4 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
@@ -208,12 +200,20 @@ join-testswEXPLAIN select dept.name, project.name from emp, dept, project where
     rank=same;
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
+  }
+  {
+    5 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    6 -> 5 [ color="red" style="invis" ];
   }
 }Ó%
 ñ
 
 join-testsáEXPLAIN select dept.name, project.name from emp inner join dept on emp.dept_id = dept.id inner join project on project.emp_id = emp.id;“$
-àÎÉŒùù ≤¶◊,(Â0‘≠Â8ü@∫SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) AS q2 RETURN q2 } AS q2 RETURN (q2.NAME AS _0, q0.NAME AS _1) }Ú"digraph G {
+äÓÚá®ü Ëıÿ0(Â0◊¨ã8ü@∫SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) AS q2 RETURN q2 } AS q2 RETURN (q2.NAME AS _0, q0.NAME AS _1) }Ú"digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -233,14 +233,6 @@ join-testsáEXPLAIN select dept.name, project.name from emp inner join dept on 
   8 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    6 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    5 -> 6 [ color="red" style="invis" ];
-  }
-  {
     5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
@@ -250,12 +242,20 @@ join-testsáEXPLAIN select dept.name, project.name from emp inner join dept on 
     rank=same;
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
+  }
+  {
+    6 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    5 -> 6 [ color="red" style="invis" ];
   }
 }%
 ò
 
 join-testsâEXPLAIN select * from (select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id) X;“$
-£„ö¨¢¢ ´Íê.(Á0ù≤ñ8£@∫SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) AS q2 RETURN q2 } AS q2 RETURN (q2.NAME AS _0, q0.NAME AS _1) }Ú"digraph G {
+®Å¿€™ß ∏çá2(Á0ÿ◊ñ8£@∫SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) AS q2 RETURN q2 } AS q2 RETURN (q2.NAME AS _0, q0.NAME AS _1) }Ú"digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -275,6 +275,14 @@ join-testsâEXPLAIN select * from (select dept.name, project.name from emp, dep
   8 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
+    6 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    5 -> 6 [ color="red" style="invis" ];
+  }
+  {
     5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
@@ -285,19 +293,11 @@ join-testsâEXPLAIN select * from (select dept.name, project.name from emp, dep
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-  {
-    6 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    5 -> 6 [ color="red" style="invis" ];
-  }
 }Ö&
 ö
 
 join-testsãEXPLAIN select (*) from (select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id) X;Â$
-£√’πå¢ Ô°€2(Á0≥ï¬8£@¡SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) AS q2 RETURN q2 } AS q2 RETURN ((q2.NAME AS _0, q0.NAME AS _1) AS X) }˛"digraph G {
+®¡˛Ñßß ¸©¡/(Á0ìÙˆ8£@¡SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) AS q2 RETURN q2 } AS q2 RETURN ((q2.NAME AS _0, q0.NAME AS _1) AS X) }˛"digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -305,19 +305,19 @@ join-testsãEXPLAIN select (*) from (select dept.name, project.name from emp, d
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS PROJECT]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS DSC, LONG AS EMP_ID)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS DSC, LONG AS EMP_ID)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP q6</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS EMP, EQUALS q10.EMP_ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS FNAME, STRING AS LNAME, LONG AS DEPT_ID)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS DEPT, EQUALS q2.DEPT_ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME)" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS FNAME, STRING AS LNAME, LONG AS DEPT_ID)" ];
-  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS DEPT, EQUALS q2.DEPT_ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS EMP, EQUALS q10.EMP_ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS FNAME, STRING AS LNAME, LONG AS DEPT_ID)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS FNAME, STRING AS LNAME, LONG AS DEPT_ID)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q10> label="q10" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   8 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+    6 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
     4 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
@@ -328,18 +328,18 @@ join-testsãEXPLAIN select (*) from (select dept.name, project.name from emp, d
     2 -> 4 [ color="red" style="invis" ];
   }
   {
-    6 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+    5 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
     rank=same;
     rankDir=LR;
-    5 -> 6 [ color="red" style="invis" ];
+    6 -> 5 [ color="red" style="invis" ];
   }
 }%
 ñ
 
 join-testsáEXPLAIN select dept.name, project.name from project inner join emp on emp.id = project.emp_id inner join dept on emp.dept_id = dept.id;‘$
-—∆ïˆ¢¥ üÚÛ/(Í0Ó“´8ß@∫SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) AS q2 RETURN q2 } AS q2 RETURN (q2.NAME AS _0, q0.NAME AS _1) }Ù"digraph G {
+”ﬂˆÀ©∂ ˚µÅ0(Í0Çî´8ß@∫SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) AS q2 RETURN q2 } AS q2 RETURN (q2.NAME AS _0, q0.NAME AS _1) }Ù"digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -381,7 +381,7 @@ join-testsáEXPLAIN select dept.name, project.name from project inner join emp 
 •
 
 join-testsñEXPLAIN select dept.id, dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id not in (1)à+
-åá£ø¡æ	 †ò∂7(ˇ0ò˝®8Ì@(˘SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) | FILTER NOT _.ID IN promote(@c40 AS ARRAY(LONG)) AS q2 RETURN q2 } AS q2 RETURN (q2.ID AS ID, q2.NAME AS _1, q0.NAME AS _2) }È(digraph G {
+éˆ÷≠…¿	 ’‰∑8(ˇ0•Ê≈8Ì@(˘SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) | FILTER NOT _.ID IN promote(@c40 AS ARRAY(LONG)) AS q2 RETURN q2 } AS q2 RETURN (q2.ID AS ID, q2.NAME AS _1, q0.NAME AS _2) }È(digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -431,7 +431,7 @@ join-testsñEXPLAIN select dept.id, dept.name, project.name from emp, dept, pro
 µ
 
 join-tests¶EXPLAIN select dept.id, dept.name, project.name from emp inner join dept on emp.dept_id = dept.id and dept.id not in (1) inner join project on project.emp_id = emp.idà+
-åÃ·èÈæ	 ëÿ¢7(ˇ0úè™8Ì@(˘SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) | FILTER NOT _.ID IN promote(@c31 AS ARRAY(LONG)) AS q2 RETURN q2 } AS q2 RETURN (q2.ID AS ID, q2.NAME AS _1, q0.NAME AS _2) }È(digraph G {
+éøáÅ∆¿	 —»Ê<(ˇ0©Õû8Ì@(˘SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) | FILTER NOT _.ID IN promote(@c31 AS ARRAY(LONG)) AS q2 RETURN q2 } AS q2 RETURN (q2.ID AS ID, q2.NAME AS _1, q0.NAME AS _2) }È(digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -453,17 +453,6 @@ join-tests¶EXPLAIN select dept.id, dept.name, project.name from emp inner join
   9 -> 8 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    8 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    6 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    5 -> 6 [ color="red" style="invis" ];
-  }
-  {
     5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
@@ -477,11 +466,22 @@ join-tests¶EXPLAIN select dept.id, dept.name, project.name from emp inner join
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
+  {
+    8 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    6 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    5 -> 6 [ color="red" style="invis" ];
+  }
 }˙/
 ∑
 
 join-tests®EXPLAIN select project.id, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id not in (3) and project.id not in (3)Ω.
-ı"ŒÊ…œÉ Æ˘’9(î0ÉΩ“	8∞@:•SCAN([IS PROJECT]) | FILTER NOT _.ID IN promote(@c36 AS ARRAY(LONG)) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) | FILTER NOT _.ID IN promote(@c36 AS ARRAY(LONG)) AS q2 RETURN (1 AS _0) } AS q3 RETURN (q0.ID AS ID, q0.NAME AS NAME) }Ú+digraph G {
+˜"Ã°Ê‡Ö ◊ñ‚?(î0ÃÔ	8∞@:•SCAN([IS PROJECT]) | FILTER NOT _.ID IN promote(@c36 AS ARRAY(LONG)) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) | FILTER NOT _.ID IN promote(@c36 AS ARRAY(LONG)) AS q2 RETURN (1 AS _0) } AS q3 RETURN (q0.ID AS ID, q0.NAME AS NAME) }Ú+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -526,11 +526,11 @@ join-tests®EXPLAIN select project.id, project.name from emp, dept, project whe
     rankDir=LR;
     6 -> 7 [ color="red" style="invis" ];
   }
-}¯4
+}ˆ4
 §
 
-join-testsïEXPLAIN select dept.id, dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id in (1, 2)Œ3
-"ﬂ√’ÇÙÙE  ù©”(Ü0Í¥ Ä8•$@ã¶[IN arrayDistinct(promote(@c39 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS DEPT, EQUALS q0._0]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FLATMAP q2 -> { SCAN([IS EMP, EQUALS q2.EMP_ID]) | FILTER _.DEPT_ID EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN (q1.ID AS ID, q1.NAME AS _1, q2.NAME AS _2) } }˛0digraph G {
+join-testsïEXPLAIN select dept.id, dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id in (1, 2)Ã3
+ ·√üç”∆ˆE ô‡€x(Ü0¡„ÑB8•$@ã¶[IN arrayDistinct(promote(@c39 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS DEPT, EQUALS q0._0]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FLATMAP q2 -> { SCAN([IS EMP, EQUALS q2.EMP_ID]) | FILTER _.DEPT_ID EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN (q1.ID AS ID, q1.NAME AS _1, q2.NAME AS _2) } }˛0digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -556,6 +556,11 @@ join-testsïEXPLAIN select dept.id, dept.name, project.name from emp, dept, pro
   11 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
+    rank=same;
+    rankDir=LR;
+    11 -> 2 [ color="red" style="invis" ];
+  }
+  {
     9 -> 2 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
@@ -568,11 +573,6 @@ join-testsïEXPLAIN select dept.id, dept.name, project.name from emp, dept, pro
     rank=same;
     rankDir=LR;
     3 -> 4 [ color="red" style="invis" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    11 -> 2 [ color="red" style="invis" ];
   }
   {
     9 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
@@ -589,7 +589,7 @@ join-testsïEXPLAIN select dept.id, dept.name, project.name from emp, dept, pro
 Ñ
 
 join-testsvEXPLAIN select emp.id, fname from emp, dept where emp.dept_id = dept.id and dept.id in (1, 2) and emp.id not in (1, 5)ï&
-ò2àÃ”≈Ë Ä∑ËW(¯0ˇ ¡8Ë@=°[IN arrayDistinct(promote(@c23 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS DEPT, EQUALS q0._0]) } | FLATMAP q1 -> { COVERING(EMPDEPT [EQUALS q1.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER NOT _.ID IN promote(@c34 AS ARRAY(LONG)) | FETCH AS q2 RETURN (q2.ID AS ID, q2.FNAME AS FNAME) }Œ#digraph G {
+ö2ë ÒéÍ ïÆ¨N(¯0Ùäí8Ë@=°[IN arrayDistinct(promote(@c23 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS DEPT, EQUALS q0._0]) } | FLATMAP q1 -> { COVERING(EMPDEPT [EQUALS q1.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER NOT _.ID IN promote(@c34 AS ARRAY(LONG)) | FETCH AS q2 RETURN (q2.ID AS ID, q2.FNAME AS FNAME) }Œ#digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -627,7 +627,7 @@ join-testsvEXPLAIN select emp.id, fname from emp, dept where emp.dept_id = dept
 Ñ
 
 join-testsvEXPLAIN select emp.id, fname from emp, dept where dept.id = emp.dept_id and dept.id in (1, 2) and emp.id not in (1, 5)ï&
-Ù*ÎËúˇÊ ‚Ø¯G(√0‡®ª8Ç@;°[IN arrayDistinct(promote(@c23 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS DEPT, EQUALS q0._0]) } | FLATMAP q1 -> { COVERING(EMPDEPT [EQUALS q1.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER NOT _.ID IN promote(@c34 AS ARRAY(LONG)) | FETCH AS q2 RETURN (q2.ID AS ID, q2.FNAME AS FNAME) }Œ#digraph G {
+ˆ*«£ÂåË õ¬ßM(√0©îØ8Ç@;°[IN arrayDistinct(promote(@c23 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS DEPT, EQUALS q0._0]) } | FLATMAP q1 -> { COVERING(EMPDEPT [EQUALS q1.ID] -> [DEPT_ID: KEY:[0], ID: KEY:[2]]) | FILTER NOT _.ID IN promote(@c34 AS ARRAY(LONG)) | FETCH AS q2 RETURN (q2.ID AS ID, q2.FNAME AS FNAME) }Œ#digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -665,7 +665,7 @@ join-testsvEXPLAIN select emp.id, fname from emp, dept where dept.id = emp.dept
 y
 
 join-testskEXPLAIN select emp.id from emp, dept where emp.dept_id = dept.id and dept.id = 1 and emp.id in (10, 20, 30)≈"
-¿5ö‹∂€ì ã¨üW(ù0ß›Ã8„	@<›[IN arrayDistinct(promote(@c27 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS EMP, EQUALS q0._0]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) | FILTER _.ID EQUALS promote(@c21 AS LONG) AS q2 RETURN (q1.ID AS ID) } }¬ digraph G {
+¬5∫°–Ôï Â•ÇY(ù0–≥®8„	@<›[IN arrayDistinct(promote(@c27 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS EMP, EQUALS q0._0]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) | FILTER _.ID EQUALS promote(@c21 AS LONG) AS q2 RETURN (q1.ID AS ID) } }¬ digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -685,11 +685,6 @@ join-testskEXPLAIN select emp.id from emp, dept where emp.dept_id = dept.id and
   8 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    rank=same;
-    rankDir=LR;
-    8 -> 2 [ color="red" style="invis" ];
-  }
-  {
     6 -> 2 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
@@ -700,11 +695,16 @@ join-testskEXPLAIN select emp.id from emp, dept where emp.dept_id = dept.id and
     rankDir=LR;
     3 -> 4 [ color="red" style="invis" ];
   }
+  {
+    rank=same;
+    rankDir=LR;
+    8 -> 2 [ color="red" style="invis" ];
+  }
 }Ÿ(
 K
 
 join-tests=EXPLAIN select * from ja join jb using(c1) join jd using(c1);â(
-Ω	Ω‹„\˛ ∫‘õ(P0ù»ì8à@ÁSCAN([IS JD]) | FLATMAP q0 -> { SCAN([IS JB]) | FLATMAP q1 -> { SCAN([IS JA, EQUALS q1.C1]) | FILTER _.C1 EQUALS q0.C1 AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.C1 AS C1, q3._0.C2 AS C2, q3._1.C3 AS C3, q0.C4 AS C4) }˛%digraph G {
+ø	¥—§CÄ ˝éΩ(P0ß⁄´8à@ÁSCAN([IS JD]) | FLATMAP q0 -> { SCAN([IS JB]) | FLATMAP q1 -> { SCAN([IS JA, EQUALS q1.C1]) | FILTER _.C1 EQUALS q0.C1 AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.C1 AS C1, q3._0.C2 AS C2, q3._1.C3 AS C3, q0.C4 AS C4) }˛%digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -712,43 +712,43 @@ join-tests=EXPLAIN select * from ja join jb using(c1) join jd using(c1);â(
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS JD]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C4)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C4)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2 AS _0, q6 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C2 AS _0, LONG AS C1, LONG AS C3 AS _1)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS JB]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C3)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.C1 EQUALS q10.C1</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C2)" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C3)" ];
-  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS JA, EQUALS q6.C1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C2)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.C1 EQUALS q10.C1</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C2)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS JB]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C3)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS JA, EQUALS q6.C1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C2)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C3)" ];
   9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C2)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q10> label="q10" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  8 -> 6 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  9 -> 8 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  9 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 1 [ label=<&nbsp;q53> label="q53" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    6 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+    7 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    5 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    6 -> 5 [ color="red" style="invis" ];
+  }
+  {
+    5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
     rank=same;
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-  {
-    8 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    6 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    5 -> 6 [ color="red" style="invis" ];
-  }
 }∂)
 c
 
 join-testsUEXPLAIN select jua.c5, jub.c5, jud.c5 from jua join jub using(c1) join jud using(c1);Œ(
-Ω	œ°ıY˝ ö÷•(P0È◊Ω8à@⁄SCAN([IS JUD]) | FLATMAP q0 -> { SCAN([IS JUB]) | FLATMAP q1 -> { SCAN([IS JUA, EQUALS q1.C1]) | FILTER _.C1 EQUALS q0.C1 AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.C5 AS _0, q3._1.C5 AS _1, q0.C5 AS _2) }–&digraph G {
+ø	àÛé=ˇ à≈¸(P0∆òè8à@⁄SCAN([IS JUD]) | FLATMAP q0 -> { SCAN([IS JUB]) | FLATMAP q1 -> { SCAN([IS JUA, EQUALS q1.C1]) | FILTER _.C1 EQUALS q0.C1 AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.C5 AS _0, q3._1.C5 AS _1, q0.C5 AS _2) }–&digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -756,43 +756,43 @@ join-testsUEXPLAIN select jua.c5, jub.c5, jud.c5 from jua join jub using(c1) jo
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS JUD]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C4, LONG AS C5)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C4, LONG AS C5)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2 AS _0, q6 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C2, LONG AS C5 AS _0, LONG AS C1, LONG AS C3, LONG AS C5 AS _1)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS JUB]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C3, LONG AS C5)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.C1 EQUALS q10.C1</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C2, LONG AS C5)" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C3, LONG AS C5)" ];
-  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS JUA, EQUALS q6.C1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C2, LONG AS C5)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.C1 EQUALS q10.C1</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C2, LONG AS C5)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS JUB]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C3, LONG AS C5)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS JUA, EQUALS q6.C1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C2, LONG AS C5)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C3, LONG AS C5)" ];
   9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C2, LONG AS C5)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q10> label="q10" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  8 -> 6 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  9 -> 8 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  9 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 1 [ label=<&nbsp;q53> label="q53" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    6 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+    7 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    5 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    6 -> 5 [ color="red" style="invis" ];
+  }
+  {
+    5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
     rank=same;
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-  {
-    8 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    6 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    5 -> 6 [ color="red" style="invis" ];
-  }
-}Ç&
+}Å&
 d
 
-join-testsVEXPLAIN select * from jua join (select * from jub join jud using(c1)) as X using (c1);ô%
-®≠’—ã√ ﬂŒ≤$(z0ìıÅ8Ù@áSCAN([IS JUA]) | FLATMAP q0 -> { SCAN([IS JUB, EQUALS q0.C1]) | FLATMAP q1 -> { SCAN([IS JUD, EQUALS q1.C1]) AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q0.C1 AS C1, q0.C2 AS C2, q0.C5 AS _2, q3._0.C3 AS C3, q3._0.C5 AS _4, q3._1.C4 AS C4, q3._1.C5 AS _6) }Ì"digraph G {
+join-testsVEXPLAIN select * from jua join (select * from jub join jud using(c1)) as X using (c1);ò%
+≠˛Ñ•{» Åü…(z0»Ò˜8Ù@áSCAN([IS JUA]) | FLATMAP q0 -> { SCAN([IS JUB, EQUALS q0.C1]) | FLATMAP q1 -> { SCAN([IS JUD, EQUALS q1.C1]) AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q0.C1 AS C1, q0.C2 AS C2, q0.C5 AS _2, q3._0.C3 AS C3, q3._0.C5 AS _4, q3._1.C4 AS C4, q3._1.C5 AS _6) }Ì"digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -812,14 +812,6 @@ join-testsVEXPLAIN select * from jua join (select * from jub join jud using(c1)
   8 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 1 [ label=<&nbsp;q61> label="q61" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    6 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    5 -> 6 [ color="red" style="invis" ];
-  }
-  {
     5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
@@ -827,11 +819,19 @@ join-testsVEXPLAIN select * from jua join (select * from jub join jud using(c1)
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
+  {
+    6 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    5 -> 6 [ color="red" style="invis" ];
+  }
 }é
 à
 
 join-testszEXPLAIN select emp.fname, emp.lname from emp, dept where emp.lname > dept.name and dept.name = 'Sales' and emp.lname < 'W'Ä
-∏ÿ®ıHô ‘Ø›(\0–’∞8ò@
+ºì†é0ù ™®¡(\0Ç¸Ç8ò@
 ≈ISCAN(DEPTNAME [EQUALS promote(@c25 AS STRING)]) | FLATMAP q0 -> { ISCAN(EMPNAME [[GREATER_THAN q0.NAME && LESS_THAN promote(@c31 AS STRING)]]) AS q1 RETURN (q1.FNAME AS FNAME, q1.LNAME AS LNAME) }ódigraph G {
   fontname=courier;
   rankdir=BT;
@@ -857,7 +857,7 @@ join-testszEXPLAIN select emp.fname, emp.lname from emp, dept where emp.lname >
 à
 
 join-testszEXPLAIN select emp.fname, emp.lname from emp, dept where dept.name < emp.lname and dept.name = 'Sales' and emp.lname < 'W'∫
-ê	‰Ç∏O± ‡«Ò(d0ŸµÒ8ß@˚ISCAN(EMPNAME [[LESS_THAN promote(@c31 AS STRING)]]) | FLATMAP q0 -> { COVERING(DEPTNAME [EQUALS promote(@c25 AS STRING)] -> [ID: KEY:[2], NAME: KEY:[0]]) | FILTER _.NAME LESS_THAN q0.LNAME | FETCH AS q1 RETURN (q0.FNAME AS FNAME, q0.LNAME AS LNAME) }õdigraph G {
+î	’ßÑ/µ Ë‚ã(d0çÒÑ8ß@˚ISCAN(EMPNAME [[LESS_THAN promote(@c31 AS STRING)]]) | FLATMAP q0 -> { COVERING(DEPTNAME [EQUALS promote(@c25 AS STRING)] -> [ID: KEY:[2], NAME: KEY:[0]]) | FILTER _.NAME LESS_THAN q0.LNAME | FETCH AS q1 RETURN (q0.FNAME AS FNAME, q0.LNAME AS LNAME) }õdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -886,7 +886,7 @@ join-testszEXPLAIN select emp.fname, emp.lname from emp, dept where dept.name <
 O
 
 join-testsAEXPLAIN select ja.c1, ja.c2, jb.c3 from ja inner join jb on true;˛
-»√ﬁÁ ï õäí(&0∂òF82@dSCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) AS q1 RETURN (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }˘digraph G {
+Ã—œ¡ô ˆ„¬(&0„ƒ-82@dSCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) AS q1 RETURN (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }˘digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -908,7 +908,7 @@ join-testsAEXPLAIN select ja.c1, ja.c2, jb.c3 from ja inner join jb on true;˛
 H
 
 join-tests:EXPLAIN select ja.c1, ja.c2, jb.c3 from ja, jb where true;˛
-»ßí€ï „–∫(&0Ïá@82@dSCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) AS q1 RETURN (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }˘digraph G {
+ÃÎ˘œô Ø¡ã(&0¶Û)82@dSCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) AS q1 RETURN (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }˘digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -930,7 +930,7 @@ join-tests:EXPLAIN select ja.c1, ja.c2, jb.c3 from ja, jb where true;˛
 P
 
 join-testsBEXPLAIN select ja.c1, ja.c2, jb.c3 from ja inner join jb on false;›
-Œìù¯ ì Æ“Œ(&0À⁄W86@sSCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER false AS q1 RETURN (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }…digraph G {
+“∂°÷ó ªÓÆ(&0Æ⁄086@sSCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER false AS q1 RETURN (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }…digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -954,7 +954,7 @@ join-testsBEXPLAIN select ja.c1, ja.c2, jb.c3 from ja inner join jb on false;›
 I
 
 join-tests;EXPLAIN select ja.c1, ja.c2, jb.c3 from ja, jb where false;›
-Œå€Öì ∫‹›	(&0Õ•_86@sSCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER false AS q1 RETURN (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }…digraph G {
+“ÔŸ≥ó ≤Ωœ(&0∆Ê.86@sSCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER false AS q1 RETURN (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }…digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -978,7 +978,7 @@ join-tests;EXPLAIN select ja.c1, ja.c2, jb.c3 from ja, jb where false;›
 `
 
 join-testsREXPLAIN select ja.c1, ja.c2, jb.c3 from ja inner join jb on cast(null as boolean);€
-Ω≤âé ü¶“	($0ßõK81@rSCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER null AS q1 RETURN (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }»digraph G {
+øŒÚâê ≥Äˇ($0Á«,81@rSCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER null AS q1 RETURN (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }»digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1002,7 +1002,7 @@ join-testsREXPLAIN select ja.c1, ja.c2, jb.c3 from ja inner join jb on cast(nul
 Y
 
 join-testsKEXPLAIN select ja.c1, ja.c2, jb.c3 from ja, jb where cast(null as boolean);€
-Ω¡Ç∆é ∑≤‘	($0‰ëL81@rSCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER null AS q1 RETURN (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }»digraph G {
+øÔŸèê ∑’ˆ($0÷«-81@rSCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER null AS q1 RETURN (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }»digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1026,7 +1026,7 @@ join-testsKEXPLAIN select ja.c1, ja.c2, jb.c3 from ja, jb where cast(null as bo
 O
 
 join-testsAEXPLAIN select ja.c1, ja.c2, jb.c3 from ja inner join jb on null;€
-ΩäÒöé Çí≈	($0ø´G81@rSCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER null AS q1 RETURN (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }»digraph G {
+ø˘∏Ìê üÂ($0Ö•+81@rSCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER null AS q1 RETURN (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }»digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1050,7 +1050,7 @@ join-testsAEXPLAIN select ja.c1, ja.c2, jb.c3 from ja inner join jb on null;€
 H
 
 join-tests:EXPLAIN select ja.c1, ja.c2, jb.c3 from ja, jb where null;€
-Ω…âœé ÿ†ˇ($0É“J81@rSCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER null AS q1 RETURN (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }»digraph G {
+øëﬁÒê €∆†($0‰ü081@rSCAN([IS JA]) | FLATMAP q0 -> { SCAN([IS JB]) | FILTER null AS q1 RETURN (q0.C1 AS C1, q0.C2 AS C2, q1.C3 AS C3) }»digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1073,7 +1073,7 @@ join-tests:EXPLAIN select ja.c1, ja.c2, jb.c3 from ja, jb where null;€
 } ,
 Ø
 "three-way-joins-right-deep-planneràEXPLAIN select fname, lname from emp inner join project on emp_id = emp.id inner join dept on dept_id = dept.id and dept.name = 'Sales';ï+
-öõâ˝g§ ﬂ‰Æ (≥0„ú„8â@ÒSCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) | FILTER _.NAME EQUALS promote(@c29 AS STRING) AS q2 RETURN q1 } AS q1 RETURN (q1.FNAME AS FNAME, q1.LNAME AS LNAME) }ˇ(digraph G {
+ûÔ≈•o® ¨üç (≥0∑¬Ú8â@ÒSCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) | FILTER _.NAME EQUALS promote(@c29 AS STRING) AS q2 RETURN q1 } AS q1 RETURN (q1.FNAME AS FNAME, q1.LNAME AS LNAME) }ˇ(digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1081,66 +1081,33 @@ join-tests:EXPLAIN select ja.c1, ja.c2, jb.c3 from ja, jb where null;€
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS PROJECT]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS DSC, LONG AS EMP_ID)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS DSC, LONG AS EMP_ID)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP q2</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS FNAME, STRING AS LNAME, LONG AS DEPT_ID)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS EMP, EQUALS q6.EMP_ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS FNAME, STRING AS LNAME, LONG AS DEPT_ID)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q10.NAME EQUALS promote(@c29 AS STRING)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME)" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS FNAME, STRING AS LNAME, LONG AS DEPT_ID)" ];
-  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS DEPT, EQUALS q2.DEPT_ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q10.NAME EQUALS promote(@c29 AS STRING)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS EMP, EQUALS q6.EMP_ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS FNAME, STRING AS LNAME, LONG AS DEPT_ID)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS DEPT, EQUALS q2.DEPT_ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS FNAME, STRING AS LNAME, LONG AS DEPT_ID)" ];
   9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q10> label="q10" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  8 -> 6 [ label=<&nbsp;q10> label="q10" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  9 -> 8 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q10> label="q10" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ label=<&nbsp;q10> label="q10" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  9 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+    7 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
-    8 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    4 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+    5 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
     rank=same;
     rankDir=LR;
-    2 -> 4 [ color="red" style="invis" ];
+    6 -> 5 [ color="red" style="invis" ];
   }
   {
-    8 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+    7 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
-  {
-    6 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    5 -> 6 [ color="red" style="invis" ];
-  }
-}Ù%
-ù
-"three-way-joins-right-deep-plannerwEXPLAIN select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id;—$
-‡ü´ü_ÿ ¯òà(†0¬ßØ8“@∫SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) AS q2 RETURN q2 } AS q2 RETURN (q2.NAME AS _0, q0.NAME AS _1) }Ú"digraph G {
-  fontname=courier;
-  rankdir=BT;
-  splines=line;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q6.NAME AS _0, q10.NAME AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, STRING AS _1)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS PROJECT]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS DSC, LONG AS EMP_ID)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS DSC, LONG AS EMP_ID)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP q6</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS DEPT, EQUALS q2.DEPT_ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS EMP, EQUALS q10.EMP_ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS FNAME, STRING AS LNAME, LONG AS DEPT_ID)" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME)" ];
-  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS FNAME, STRING AS LNAME, LONG AS DEPT_ID)" ];
-  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q10> label="q10" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  8 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  4 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
     6 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
@@ -1152,18 +1119,10 @@ join-tests:EXPLAIN select ja.c1, ja.c2, jb.c3 from ja, jb where null;€
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-  {
-    5 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    6 -> 5 [ color="red" style="invis" ];
-  }
-}Ö&
-Æ
-"three-way-joins-right-deep-planneráEXPLAIN select dept.name, project.name from emp inner join dept on emp.dept_id = dept.id inner join project on project.emp_id = emp.id;—$
-‡∏›Ä]ÿ –”¡(†0™åØ8“@∫SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) AS q2 RETURN q2 } AS q2 RETURN (q2.NAME AS _0, q0.NAME AS _1) }Ú"digraph G {
+}Ù%
+ù
+"three-way-joins-right-deep-plannerwEXPLAIN select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id;—$
+‚à˚¯V⁄ ˆÈù(†0Ú‘ó8“@∫SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) AS q2 RETURN q2 } AS q2 RETURN (q2.NAME AS _0, q0.NAME AS _1) }Ú"digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1201,10 +1160,51 @@ join-tests:EXPLAIN select ja.c1, ja.c2, jb.c3 from ja, jb where null;€
     rankDir=LR;
     5 -> 6 [ color="red" style="invis" ];
   }
+}Ö&
+Æ
+"three-way-joins-right-deep-planneráEXPLAIN select dept.name, project.name from emp inner join dept on emp.dept_id = dept.id inner join project on project.emp_id = emp.id;—$
+‚ò≥∆[⁄ ªŸª(†0àîÆ8“@∫SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) AS q2 RETURN q2 } AS q2 RETURN (q2.NAME AS _0, q0.NAME AS _1) }Ú"digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q6.NAME AS _0, q10.NAME AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS _0, STRING AS _1)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS PROJECT]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS DSC, LONG AS EMP_ID)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS DSC, LONG AS EMP_ID)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP q6</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS EMP, EQUALS q10.EMP_ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS FNAME, STRING AS LNAME, LONG AS DEPT_ID)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS DEPT, EQUALS q2.DEPT_ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS FNAME, STRING AS LNAME, LONG AS DEPT_ID)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q10> label="q10" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    6 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    5 -> 6 [ color="red" style="invis" ];
+  }
+  {
+    5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    4 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    2 -> 4 [ color="red" style="invis" ];
+  }
 }á&
 ∞
 "three-way-joins-right-deep-plannerâEXPLAIN select * from (select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id) X;—$
-˚È÷£\› •àõ(¢0˜˙•8÷@∫SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) AS q2 RETURN q2 } AS q2 RETURN (q2.NAME AS _0, q0.NAME AS _1) }Ú"digraph G {
+Ä˚∏ﬁ`‚ …Òÿ(¢0Ÿ–ø8÷@∫SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) AS q2 RETURN q2 } AS q2 RETURN (q2.NAME AS _0, q0.NAME AS _1) }Ú"digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1245,7 +1245,7 @@ join-tests:EXPLAIN select ja.c1, ja.c2, jb.c3 from ja, jb where null;€
 }ú&
 ≤
 "three-way-joins-right-deep-plannerãEXPLAIN select (*) from (select dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id) X;‰$
-˚È…¨`› á˙∞(¢0óß∆8÷@¡SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) AS q2 RETURN q2 } AS q2 RETURN ((q2.NAME AS _0, q0.NAME AS _1) AS X) }˛"digraph G {
+Äö≈Ãf‚ ¨ï∑(¢0⁄™ø8÷@¡SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) AS q2 RETURN q2 } AS q2 RETURN ((q2.NAME AS _0, q0.NAME AS _1) AS X) }˛"digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1265,14 +1265,6 @@ join-tests:EXPLAIN select ja.c1, ja.c2, jb.c3 from ja, jb where null;€
   8 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    6 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    5 -> 6 [ color="red" style="invis" ];
-  }
-  {
     5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
@@ -1283,10 +1275,18 @@ join-tests:EXPLAIN select ja.c1, ja.c2, jb.c3 from ja, jb where null;€
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
+  {
+    6 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    5 -> 6 [ color="red" style="invis" ];
+  }
 }á&
 Æ
 "three-way-joins-right-deep-planneráEXPLAIN select dept.name, project.name from project inner join emp on emp.id = project.emp_id inner join dept on emp.dept_id = dept.id;”$
-‡æå»^ÿ ˛Í(†0Ò◊™8“@∫SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) AS q2 RETURN q2 } AS q2 RETURN (q2.NAME AS _0, q0.NAME AS _1) }Ù"digraph G {
+‚¢÷¶a⁄  —»(†0Œˇµ8“@∫SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) AS q2 RETURN q2 } AS q2 RETURN (q2.NAME AS _0, q0.NAME AS _1) }Ù"digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1306,6 +1306,14 @@ join-tests:EXPLAIN select ja.c1, ja.c2, jb.c3 from ja, jb where null;€
   8 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 1 [ label=<&nbsp;q10> label="q10" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
+    6 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    5 -> 6 [ color="red" style="invis" ];
+  }
+  {
     5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
@@ -1316,18 +1324,10 @@ join-tests:EXPLAIN select ja.c1, ja.c2, jb.c3 from ja, jb where null;€
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-  {
-    6 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    5 -> 6 [ color="red" style="invis" ];
-  }
 } ,
 Ω
 "three-way-joins-right-deep-plannerñEXPLAIN select dept.id, dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id not in (1)á+
-ÚÇÌ´j¢ ÑøÒ(∞0ûÒ÷8˚@˘SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) | FILTER NOT _.ID IN promote(@c40 AS ARRAY(LONG)) AS q2 RETURN q2 } AS q2 RETURN (q2.ID AS ID, q2.NAME AS _1, q0.NAME AS _2) }È(digraph G {
+ÙÑ÷˝o§ ØÁ°!(∞0áùÌ8˚@˘SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) | FILTER NOT _.ID IN promote(@c40 AS ARRAY(LONG)) AS q2 RETURN q2 } AS q2 RETURN (q2.ID AS ID, q2.NAME AS _1, q0.NAME AS _2) }È(digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1349,6 +1349,17 @@ join-tests:EXPLAIN select ja.c1, ja.c2, jb.c3 from ja, jb where null;€
   9 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
+    7 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    5 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    6 -> 5 [ color="red" style="invis" ];
+  }
+  {
     5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
@@ -1362,21 +1373,10 @@ join-tests:EXPLAIN select ja.c1, ja.c2, jb.c3 from ja, jb where null;€
     rankDir=LR;
     2 -> 4 [ color="red" style="invis" ];
   }
-  {
-    7 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    5 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    6 -> 5 [ color="red" style="invis" ];
-  }
 }⁄,
 Õ
 "three-way-joins-right-deep-planner¶EXPLAIN select dept.id, dept.name, project.name from emp inner join dept on emp.dept_id = dept.id and dept.id not in (1) inner join project on project.emp_id = emp.idá+
-ÚóüÄ[¢ ⁄⁄≤(∞0üß´8˚@˘SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) | FILTER NOT _.ID IN promote(@c31 AS ARRAY(LONG)) AS q2 RETURN q2 } AS q2 RETURN (q2.ID AS ID, q2.NAME AS _1, q0.NAME AS _2) }È(digraph G {
+ÙÏÁ d§ ‚Ôè(∞0Úˇœ8˚@˘SCAN([IS PROJECT]) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) | FILTER NOT _.ID IN promote(@c31 AS ARRAY(LONG)) AS q2 RETURN q2 } AS q2 RETURN (q2.ID AS ID, q2.NAME AS _1, q0.NAME AS _2) }È(digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1425,7 +1425,7 @@ join-tests:EXPLAIN select ja.c1, ja.c2, jb.c3 from ja, jb where null;€
 }ë0
 œ
 "three-way-joins-right-deep-planner®EXPLAIN select project.id, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id not in (3) and project.id not in (3)º.
-ﬁòä®iÀ àôŒ(∂0¡¶Î8ã@•SCAN([IS PROJECT]) | FILTER NOT _.ID IN promote(@c36 AS ARRAY(LONG)) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) | FILTER NOT _.ID IN promote(@c36 AS ARRAY(LONG)) AS q2 RETURN (1 AS _0) } AS q3 RETURN (q0.ID AS ID, q0.NAME AS NAME) }Ú+digraph G {
+‡ú¿ÛrÕ ƒ≠÷!(∂0µ¡ä8ã@•SCAN([IS PROJECT]) | FILTER NOT _.ID IN promote(@c36 AS ARRAY(LONG)) | FLATMAP q0 -> { SCAN([IS EMP, EQUALS q0.EMP_ID]) | FLATMAP q1 -> { SCAN([IS DEPT, EQUALS q1.DEPT_ID]) | FILTER NOT _.ID IN promote(@c36 AS ARRAY(LONG)) AS q2 RETURN (1 AS _0) } AS q3 RETURN (q0.ID AS ID, q0.NAME AS NAME) }Ú+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1434,46 +1434,47 @@ join-tests:EXPLAIN select ja.c1, ja.c2, jb.c3 from ja, jb where null;€
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS PROJECT]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS DSC, LONG AS EMP_ID)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME, STRING AS DSC, LONG AS EMP_ID)" ];
   5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (1 AS _0)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(INT AS _0)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE NOT q6.ID IN promote(@c36 AS ARRAY(LONG))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME)" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS EMP, EQUALS q10.EMP_ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS FNAME, STRING AS LNAME, LONG AS DEPT_ID)" ];
-  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS DEPT, EQUALS q2.DEPT_ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME)" ];
-  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS FNAME, STRING AS LNAME, LONG AS DEPT_ID)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS EMP, EQUALS q10.EMP_ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS FNAME, STRING AS LNAME, LONG AS DEPT_ID)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE NOT q6.ID IN promote(@c36 AS ARRAY(LONG))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS FNAME, STRING AS LNAME, LONG AS DEPT_ID)" ];
+  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS DEPT, EQUALS q2.DEPT_ID]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME)" ];
   10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS NAME)" ];
   3 -> 2 [ label=<&nbsp;q10> label="q10" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q10> label="q10" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 5 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 5 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  8 -> 6 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  9 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  10 -> 8 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  9 -> 7 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  10 -> 9 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 1 [ label=<&nbsp;q77> label="q77" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    8 -> 5 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    6 -> 5 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    7 -> 6 [ color="red" style="invis" ];
-  }
-  {
-    7 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
     2 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    6 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
     rank=same;
     rankDir=LR;
     2 -> 5 [ color="red" style="invis" ];
   }
+  {
+    9 -> 5 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    7 -> 5 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    6 -> 7 [ color="red" style="invis" ];
+  }
 }å5
 º
 "three-way-joins-right-deep-plannerïEXPLAIN select dept.id, dept.name, project.name from emp, dept, project where emp.dept_id = dept.id and project.emp_id = emp.id and dept.id in (1, 2) 3
-ãKÉÕí…ò œÅÔ8(¿0∞„ﬂ	8û@f¶[IN arrayDistinct(promote(@c39 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS DEPT, EQUALS q0._0]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FLATMAP q2 -> { SCAN([IS EMP, EQUALS q2.EMP_ID]) | FILTER _.DEPT_ID EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN (q1.ID AS ID, q1.NAME AS _1, q2.NAME AS _2) } }˛0digraph G {
+çK•”ª◊ö ¨µ¬:(¿0òçæ
+8û@f¶[IN arrayDistinct(promote(@c39 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS DEPT, EQUALS q0._0]) | FLATMAP q1 -> { SCAN([IS PROJECT]) | FLATMAP q2 -> { SCAN([IS EMP, EQUALS q2.EMP_ID]) | FILTER _.DEPT_ID EQUALS q1.ID AS q3 RETURN q2 } AS q2 RETURN (q1.ID AS ID, q1.NAME AS _1, q2.NAME AS _2) } }˛0digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1499,6 +1500,17 @@ join-tests:EXPLAIN select ja.c1, ja.c2, jb.c3 from ja, jb where null;€
   11 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
+    9 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    7 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    6 -> 7 [ color="red" style="invis" ];
+  }
+  {
     9 -> 2 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
@@ -1517,21 +1529,10 @@ join-tests:EXPLAIN select ja.c1, ja.c2, jb.c3 from ja, jb where null;€
     rankDir=LR;
     11 -> 2 [ color="red" style="invis" ];
   }
-  {
-    9 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    7 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
-  }
-  {
-    rank=same;
-    rankDir=LR;
-    6 -> 7 [ color="red" style="invis" ];
-  }
 }(
 c
 "three-way-joins-right-deep-planner=EXPLAIN select * from ja join jb using(c1) join jd using(c1);à(
-éÌ≈ﬂ<‚ ë≠π(A0®Âœ8j@ÁSCAN([IS JD]) | FLATMAP q0 -> { SCAN([IS JB]) | FLATMAP q1 -> { SCAN([IS JA, EQUALS q1.C1]) | FILTER _.C1 EQUALS q0.C1 AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.C1 AS C1, q3._0.C2 AS C2, q3._1.C3 AS C3, q0.C4 AS C4) }˛%digraph G {
+êü¿’-‰ Ö‰œ(A0ö◊ê8j@ÁSCAN([IS JD]) | FLATMAP q0 -> { SCAN([IS JB]) | FLATMAP q1 -> { SCAN([IS JA, EQUALS q1.C1]) | FILTER _.C1 EQUALS q0.C1 AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.C1 AS C1, q3._0.C2 AS C2, q3._1.C3 AS C3, q0.C4 AS C4) }˛%digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1539,32 +1540,32 @@ c
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS JD]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C4)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C4)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2 AS _0, q6 AS _1)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C2 AS _0, LONG AS C1, LONG AS C3 AS _1)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS JB]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C3)" ];
-  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.C1 EQUALS q10.C1</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C2)" ];
-  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C3)" ];
-  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS JA, EQUALS q6.C1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C2)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.C1 EQUALS q10.C1</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C2)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS JB]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C3)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS JA, EQUALS q6.C1]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C2)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C3)" ];
   9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [A, PROJECT, B, JUB, JA, JUA, JB, JUD, EMP, JD, DEPT]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS C1, LONG AS C2)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q10> label="q10" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  6 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  8 -> 6 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  9 -> 8 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  9 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 1 [ label=<&nbsp;q47> label="q47" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
-    8 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+    7 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
-    6 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+    5 -> 4 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
     rank=same;
     rankDir=LR;
-    5 -> 6 [ color="red" style="invis" ];
+    6 -> 5 [ color="red" style="invis" ];
   }
   {
-    6 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+    5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
   }
   {
     rank=same;
@@ -1574,7 +1575,7 @@ c
 }Õ)
 {
 "three-way-joins-right-deep-plannerUEXPLAIN select jua.c5, jub.c5, jud.c5 from jua join jub using(c1) join jud using(c1);Õ(
-é”˚æB· ç±—(A0çµå8j@⁄SCAN([IS JUD]) | FLATMAP q0 -> { SCAN([IS JUB]) | FLATMAP q1 -> { SCAN([IS JUA, EQUALS q1.C1]) | FILTER _.C1 EQUALS q0.C1 AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.C5 AS _0, q3._1.C5 AS _1, q0.C5 AS _2) }–&digraph G {
+ê®ÁÍ,„ ∞Áﬂ(A0æüå8j@⁄SCAN([IS JUD]) | FLATMAP q0 -> { SCAN([IS JUB]) | FLATMAP q1 -> { SCAN([IS JUA, EQUALS q1.C1]) | FILTER _.C1 EQUALS q0.C1 AS q2 RETURN (q2 AS _0, q1 AS _1) } AS q3 RETURN (q3._0.C5 AS _0, q3._1.C5 AS _1, q0.C5 AS _2) }–&digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1617,7 +1618,7 @@ c
 }ô&
 |
 "three-way-joins-right-deep-plannerVEXPLAIN select * from jua join (select * from jub join jud using(c1)) as X using (c1);ò%
-Ÿ ¥ò@Ä ∆—Ì(R0á¯ó8ñ@	áSCAN([IS JUA]) | FLATMAP q0 -> { SCAN([IS JUB, EQUALS q0.C1]) | FLATMAP q1 -> { SCAN([IS JUD, EQUALS q1.C1]) AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q0.C1 AS C1, q0.C2 AS C2, q0.C5 AS _2, q3._0.C3 AS C3, q3._0.C5 AS _4, q3._1.C4 AS C4, q3._1.C5 AS _6) }Ì"digraph G {
+ﬁ‹°¢GÖ àûÄ(R0Å¨¥8ñ@	áSCAN([IS JUA]) | FLATMAP q0 -> { SCAN([IS JUB, EQUALS q0.C1]) | FLATMAP q1 -> { SCAN([IS JUD, EQUALS q1.C1]) AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q0.C1 AS C1, q0.C2 AS C2, q0.C5 AS _2, q3._0.C3 AS C3, q3._0.C5 AS _4, q3._1.C4 AS C4, q3._1.C5 AS _6) }Ì"digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1655,7 +1656,7 @@ c
 }Æ
 g
 join-range-testsSEXPLAIN SELECT T1.id, T2.id AS t2_id FROM T1, T2 WHERE T1.x BETWEEN T2.lo AND T2.hi¬
-ı™çÉ¥ ◊≥ê	(30ÔÈ;8L@†SCAN([IS T1]) | FLATMAP q0 -> { ISCAN(T2_LO [[LESS_THAN_OR_EQUALS q0.X]]) | FILTER _.HI GREATER_THAN_OR_EQUALS q0.X AS q1 RETURN (q0.ID AS ID, q1.ID AS T2_ID) }Ädigraph G {
+˜¥∑≥∂ ¸à∂	(30ﬁº>8L@†SCAN([IS T1]) | FLATMAP q0 -> { ISCAN(T2_LO [[LESS_THAN_OR_EQUALS q0.X]]) | FILTER _.HI GREATER_THAN_OR_EQUALS q0.X AS q1 RETURN (q0.ID AS ID, q1.ID AS T2_ID) }Ädigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1684,7 +1685,7 @@ g
 }±
 j
 join-range-testsVEXPLAIN SELECT T1.id, T2.id AS t2_id FROM T1, T2 WHERE T2.lo <= T1.x AND T2.hi >= T1.x¬
-ıÇÉ‚¥ “©€(30¿‡?8L@†SCAN([IS T1]) | FLATMAP q0 -> { ISCAN(T2_LO [[LESS_THAN_OR_EQUALS q0.X]]) | FILTER _.HI GREATER_THAN_OR_EQUALS q0.X AS q1 RETURN (q0.ID AS ID, q1.ID AS T2_ID) }Ädigraph G {
+˜œÉ“∂ ÆÃπ	(30´ì@8L@†SCAN([IS T1]) | FLATMAP q0 -> { ISCAN(T2_LO [[LESS_THAN_OR_EQUALS q0.X]]) | FILTER _.HI GREATER_THAN_OR_EQUALS q0.X AS q1 RETURN (q0.ID AS ID, q1.ID AS T2_ID) }Ädigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1713,7 +1714,7 @@ j
 }Ã
 j
 join-range-testsVEXPLAIN SELECT T1.id, T2.id AS t2_id FROM T1, T2 WHERE T1.x >= T2.lo AND T1.x <= T2.hi›
-èéœ”¶ ›çõ	(/0˝Ò78@@©ISCAN(T2_LO <,>) | FLATMAP q0 -> { SCAN([IS T1]) | FILTER _.X GREATER_THAN_OR_EQUALS q0.LO AND _.X LESS_THAN_OR_EQUALS q0.HI AS q1 RETURN (q1.ID AS ID, q0.ID AS T2_ID) }ídigraph G {
+ëÉªÉ® ™ƒ’	(/0üŸ78@@©ISCAN(T2_LO <,>) | FLATMAP q0 -> { SCAN([IS T1]) | FILTER _.X GREATER_THAN_OR_EQUALS q0.LO AND _.X LESS_THAN_OR_EQUALS q0.HI AS q1 RETURN (q1.ID AS ID, q0.ID AS T2_ID) }ídigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

@@ -73,6 +73,10 @@ public class PushRequestedOrderingThroughGroupByRule extends AbstractCascadesRul
                 call.getPlannerConstraintMaybe(RequestedOrderingConstraint.REQUESTED_ORDERING)
                         .orElse(ImmutableSet.of());
 
+        if (requestedOrderings.isEmpty()) {
+            return;
+        }
+
         final var refinedRequestedOrderings =
                 collectCompatibleOrderings(call.getEvaluationContext(), groupByExpression, innerQuantifier,
                         requestedOrderings);
@@ -127,7 +131,7 @@ public class PushRequestedOrderingThroughGroupByRule extends AbstractCascadesRul
                     // results in
                     //   pushed requested ordering: a, b, c, d
                     //
-                    // TODO we should push down all permutations
+                    // TODO we should push down all permutations, see https://github.com/FoundationDB/fdb-record-layer/issues/4831
                     //
                     // Note in the remainder we use the terminology 'requested...' for the ordering imposed on this
                     // expression by a constraint push, and 'required...' for the ordering imposed by the grouping

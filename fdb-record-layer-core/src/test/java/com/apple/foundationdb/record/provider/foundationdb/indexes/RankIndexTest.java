@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordFunction;
@@ -61,20 +62,41 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.expressions.QueryRecordFunctionWithComparison;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.QueryRecordFunction;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
+import com.apple.foundationdb.record.query.plan.cascades.CascadesPlanner;
+import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.cascades.OrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Reference;
+import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalDistinctExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSortExpression;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.OrPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.record.query.plan.cascades.values.CompileTimeWindowValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.WindowFrameSpecification;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.util.pair.Pair;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
@@ -90,6 +112,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -97,32 +120,36 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.provider.foundationdb.query.FDBQueryGraphTestHelpers.fullTypeScan;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.unbounded;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.containsAll;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PrimitiveMatchers.equalsObject;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.QueryPredicateMatchers.valuePredicate;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.comparisonKeyValues;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.coveringIndexPlan;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.fetchFromPartialRecordPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.filterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.mapPlan;
+import static com.apple.foundationdb.record.query.plan.cascades.properties.UsedTypesProperty.usedTypes;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.indexPlanOf;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.intersectionOnExpressionPlan;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.intersectionOnValuesPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicates;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.predicatesFilterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.queryComponents;
@@ -131,7 +158,6 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.scanPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.typeFilterPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedPrimaryKeyDistinctPlan;
-import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RecordQueryPlanMatchers.unorderedUnionPlan;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.ValueMatchers.fieldValueWithFieldNames;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.coveringIndexScan;
@@ -189,6 +215,14 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
         metaDataBuilder.addIndex("RepeatedRankedRecord",
                 new Index("score_by_repeated_field",
                         field("score", KeyExpression.FanType.FanOut).ungrouped(),
+                        IndexTypes.RANK));
+        // Partitions by a column of one nested type and ranks a column of another, so that the entry key is
+        // (y.d, x.a, x.b): x is covered in full, y only in part -- y.c has to come from the record.
+        metaDataBuilder.getRecordType("TwoNestedRankedRecord")
+                .setPrimaryKey(field("x").nest(Key.Expressions.concatenateFields("a", "b")));
+        metaDataBuilder.addIndex("TwoNestedRankedRecord",
+                new Index("nested_a_by_nested_d",
+                        field("x").nest(field("a")).groupBy(field("y").nest(field("d"))),
                         IndexTypes.RANK));
         hook.apply(metaDataBuilder);
         createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
@@ -305,21 +339,33 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
             assertEquals((Long)1L, recordStore.evaluateRecordFunction(rank, rec).get());
             commit(context);
         }
-        RecordQuery query = RecordQuery.newBuilder()
-                .setRecordType("BasicRankedRecord")
-                .setFilter(Query.rank("score").equalsValue(2L))
-                .build();
-        RecordQueryPlan plan = planQuery(query);
-        assertMatchesExactly(plan,
+        final BindingMatcher<? extends RecordQueryIndexPlan> rankScanMatcher =
                 indexPlan()
                         .where(RecordQueryPlanMatchers.indexName("BasicRankedRecord$score"))
                         .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_RANK))
-                        .and(scanComparisons(range("[[2],[2]]"))));
+                        .and(scanComparisons(range("[[2],[2]]")));
+
+        final RecordQueryPlan plan;
+        if (planner instanceof CascadesPlanner) {
+            // The same thing spelled with a window value, which the rewriting rule turns into a WindowExpression that
+            // the rank index's match candidate can be matched against. Query.rank builds an existential self-join over
+            // a RankValue instead, which no candidate models. The scan is the same; the window value is projected
+            // rather than merely compared, so the scan reports the rank and a map reassembles the record above it.
+            plan = rankEqualsTwoViaWindowValue((CascadesPlanner)planner);
+            assertMatchesExactly(plan, mapPlan(rankScanMatcher));
+        } else {
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("BasicRankedRecord")
+                    .setFilter(Query.rank("score").equalsValue(2L))
+                    .build();
+            plan = planQuery(query);
+            assertMatchesExactly(plan, rankScanMatcher);
+        }
 
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
             int i = 0;
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = executeRankPlan(plan).asIterator()) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecordsRankProto.BasicRankedRecord.Builder myrec = TestRecordsRankProto.BasicRankedRecord.newBuilder();
@@ -466,6 +512,168 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
     }
 
 
+    /** An index that counts duplicates, so a tie occupies two slots of the ranked set. */
+    @Nonnull
+    private RecordMetaDataHook tieIndex() {
+        return md -> {
+            md.removeIndex("BasicRankedRecord$score");
+            md.addIndex("BasicRankedRecord", new Index("score_count_dupes", field("score").ungrouped(),
+                    IndexTypes.RANK, Collections.singletonMap(IndexOptions.RANK_COUNT_DUPLICATES, "true")));
+        };
+    }
+
+    @Nonnull
+    private static ScanProperties scanIn(@Nonnull ExecuteProperties.ExecutionMode mode) {
+        return ExecuteProperties.newBuilder().setExecutionMode(mode).build().asScanProperties(false);
+    }
+
+    /** The names a rank range returns, in scan order. */
+    @Nonnull
+    private List<String> namesForRankRange(@Nonnull TupleRange range,
+                                           @Nonnull ExecuteProperties.ExecutionMode mode) throws Exception {
+        final List<String> names = new ArrayList<>();
+        try (RecordCursorIterator<FDBIndexedRecord<Message>> cursor =
+                     recordStore.scanIndexRecords("score_count_dupes", IndexScanType.BY_RANK, range, null,
+                             scanIn(mode)).asIterator()) {
+            while (cursor.hasNext()) {
+                final TestRecordsRankProto.BasicRankedRecord.Builder rec =
+                        TestRecordsRankProto.BasicRankedRecord.newBuilder();
+                rec.mergeFrom(cursor.next().getRecord());
+                names.add(rec.getName());
+            }
+        }
+        return names;
+    }
+
+    @Nonnull
+    private static TupleRange inclusiveRanks(long low, long high) {
+        return new TupleRange(Tuple.from(low), Tuple.from(high),
+                EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE);
+    }
+
+    private void buildTieIndex() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, tieIndex());
+            recordStore.rebuildIndex(recordStore.getRecordMetaData().getIndex("score_count_dupes")).join();
+            commit(context);
+        }
+    }
+
+    /**
+     * Under {@link ExecuteProperties.ExecutionMode#LEGACY} a rank range is a range over ordinal positions in the
+     * ranked set. The scores are 75, 100, 200, 200, 300, so positions 3 and 4 are the second 200 and the 300 — but a
+     * position is reached through a score bound, which cannot separate one member of a tie from the other, so the
+     * first 200 comes back as well. Asserted so the ANSI SQL behaviour cannot change it by accident.
+     */
+    @Test
+    void legacyRankScanOverPositionsIncludesAWholeTie() throws Exception {
+        buildTieIndex();
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, tieIndex());
+            assertEquals(List.of("helen", "penelope", "laodice"),
+                    namesForRankRange(inclusiveRanks(3L, 4L), ExecuteProperties.ExecutionMode.LEGACY));
+        }
+    }
+
+    /**
+     * Under {@link ExecuteProperties.ExecutionMode#ANSI_SQL} the same bounds mean SQL ranks: one-based, shared by a
+     * tie, and skipping afterwards, so the same scores rank 1, 2, 3, 3, 5 with nothing at rank 4.
+     */
+    @Test
+    void ansiSqlRankScanSelectsWholeTies() throws Exception {
+        buildTieIndex();
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, tieIndex());
+            final ExecuteProperties.ExecutionMode ansi = ExecuteProperties.ExecutionMode.ANSI_SQL;
+            assertEquals(List.of("laodice"), namesForRankRange(inclusiveRanks(4L, 5L), ansi));
+            assertEquals(List.of("helen", "penelope"), namesForRankRange(inclusiveRanks(3L, 3L), ansi));
+            assertEquals(List.of(), namesForRankRange(inclusiveRanks(4L, 4L), ansi));
+        }
+    }
+
+    /**
+     * Every rank range over every tie arrangement, checked against ranks computed outside the index.
+     */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("tieArrangements")
+    void ansiSqlRankRangesMatchComputedRanks(String name, long[] scores) throws Exception {
+        final List<String> names = new ArrayList<>();
+        for (int i = 0; i < scores.length; i++) {
+            names.add(String.format("r%02d", i));
+        }
+        final Map<String, Long> ranks = new HashMap<>();
+        for (int i = 0; i < scores.length; i++) {
+            long smaller = 0;
+            for (long other : scores) {
+                if (other < scores[i]) {
+                    smaller++;
+                }
+            }
+            ranks.put(names.get(i), smaller + 1L);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, tieIndex());
+            recordStore.deleteAllRecords();
+            for (int i = 0; i < scores.length; i++) {
+                recordStore.saveRecord(TestRecordsRankProto.BasicRankedRecord.newBuilder()
+                        .setName(names.get(i)).setScore((int)scores[i]).setGender("x").build());
+            }
+            recordStore.rebuildIndex(recordStore.getRecordMetaData().getIndex("score_count_dupes")).join();
+            commit(context);
+        }
+
+        final Long[] bounds = {null, 0L, 1L, 2L, 3L, 4L, 5L, 6L};
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, tieIndex());
+            for (Long low : bounds) {
+                for (Long high : bounds) {
+                    for (boolean lowInclusive : new boolean[] {true, false}) {
+                        for (boolean highInclusive : new boolean[] {true, false}) {
+                            if ((low == null && !lowInclusive) || (high == null && !highInclusive)) {
+                                continue;
+                            }
+                            final List<String> expected = names.stream()
+                                    .filter(n -> rankInRange(ranks.get(n), low, lowInclusive, high, highInclusive))
+                                    .sorted(Comparator.<String, Long>comparing(ranks::get).thenComparing(n -> n))
+                                    .collect(Collectors.toList());
+                            final TupleRange range = new TupleRange(
+                                    low == null ? null : Tuple.from(low),
+                                    high == null ? null : Tuple.from(high),
+                                    low == null ? EndpointType.TREE_START
+                                                : lowInclusive ? EndpointType.RANGE_INCLUSIVE : EndpointType.RANGE_EXCLUSIVE,
+                                    high == null ? EndpointType.TREE_END
+                                                 : highInclusive ? EndpointType.RANGE_INCLUSIVE : EndpointType.RANGE_EXCLUSIVE);
+                            assertEquals(expected,
+                                    namesForRankRange(range, ExecuteProperties.ExecutionMode.ANSI_SQL),
+                                    () -> String.format("%s, rank %s%s, %s%s", name,
+                                            lowInclusive ? "[" : "(", low == null ? "-inf" : low,
+                                            high == null ? "+inf" : high, highInclusive ? "]" : ")"));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private static boolean rankInRange(long rank, Long low, boolean lowInclusive, Long high, boolean highInclusive) {
+        if (low != null && (lowInclusive ? rank < low : rank <= low)) {
+            return false;
+        }
+        return high == null || (highInclusive ? rank <= high : rank < high);
+    }
+
+    static Stream<Arguments> tieArrangements() {
+        return Stream.of(
+                Arguments.of("no ties", new long[] {10, 20, 30, 40, 50}),
+                Arguments.of("tie at the low bound", new long[] {10, 10, 30, 40, 50}),
+                Arguments.of("tie in the middle", new long[] {10, 20, 20, 40, 50}),
+                Arguments.of("tie at the high bound", new long[] {10, 20, 30, 50, 50}),
+                Arguments.of("two separate ties", new long[] {10, 10, 30, 30, 50}),
+                Arguments.of("triple tie", new long[] {10, 20, 20, 20, 50}),
+                Arguments.of("every score tied", new long[] {10, 10, 10, 10, 10}));
+    }
+
     @Test
     void checkUpdateWithTies() throws Exception {
         try (FDBRecordContext context = openContext()) {
@@ -521,15 +729,14 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("BasicRankedRecord")
                 .setFilter(Query.rank("score").greaterThan(2L))
                 .build();
-        RecordQueryPlan plan = planQuery(query);
-        assertMatchesExactly(plan,
+        RecordQueryPlan plan = rankPlan(query,
                 indexPlan()
                         .where(RecordQueryPlanMatchers.indexName("BasicRankedRecord$score"))
                         .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_RANK))
                         .and(scanComparisons(range("([2],>"))));
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = executeRankPlan(plan)) {
                 FDBQueriedRecord<Message> rec = cursor.getNext().get();
                 TestRecordsRankProto.BasicRankedRecord.Builder myrec = TestRecordsRankProto.BasicRankedRecord.newBuilder();
                 myrec.mergeFrom(rec.getRecord());
@@ -546,8 +753,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("BasicRankedRecord")
                 .setFilter(Query.rank("score").lessThan(2L))
                 .build();
-        RecordQueryPlan plan = planQuery(query);
-        assertMatchesExactly(plan,
+        RecordQueryPlan plan = rankPlan(query,
                 indexPlan()
                         .where(RecordQueryPlanMatchers.indexName("BasicRankedRecord$score"))
                         .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_RANK))
@@ -555,7 +761,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = executeRankPlan(plan)) {
                 RecordCursorResult<FDBQueriedRecord<Message>> result = cursor.getNext();
                 FDBQueriedRecord<Message> rec = result.get();
                 TestRecordsRankProto.BasicRankedRecord.Builder myrec = TestRecordsRankProto.BasicRankedRecord.newBuilder();
@@ -583,16 +789,28 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
                         Query.field("gender").equalsValue("M"),
                         Query.rank(field("score").groupBy(field("gender"))).lessThan(1L)))
                 .build();
-        RecordQueryPlan plan = planQuery(query);
-        assertMatchesExactly(plan,
+        final BindingMatcher<? extends RecordQueryIndexPlan> rankScanMatcher =
                 indexPlan()
                         .where(RecordQueryPlanMatchers.indexName("rank_by_gender"))
                         .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_RANK))
-                        .and(scanComparisons(range("([M, null],[M, 1])"))));
+                        .and(scanComparisons(range("([M, null],[M, 1])")));
+        final RecordQueryPlan plan;
+        if (planner instanceof CascadesPlanner) {
+            plan = rankViaWindowValue("BasicRankedRecord", ImmutableList.of(ImmutableList.of("gender")),
+                    ImmutableList.of("score"),
+                    new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 1L),
+                    baseValue -> ImmutableList.of(new ValuePredicate(
+                            FieldValue.ofFieldName(baseValue, "gender"),
+                            new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "M"))));
+            assertMatchesExactly(plan, mapPlan(rankScanMatcher));
+        } else {
+            plan = planQuery(query);
+            assertMatchesExactly(plan, rankScanMatcher);
+        }
 
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = executeRankPlan(plan)) {
                 FDBQueriedRecord<Message> rec = cursor.getNext().get();
                 TestRecordsRankProto.BasicRankedRecord.Builder myrec = TestRecordsRankProto.BasicRankedRecord.newBuilder();
                 myrec.mergeFrom(rec.getRecord());
@@ -687,9 +905,8 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
             openRecordStore(context);
 
             for (int i = 0; i < queries.size(); i++) {
-                RecordQueryPlan plan = planQuery(queries.get(i));
-                assertMatchesExactly(plan, matchers.get(i));
-                List<String> names = recordStore.executeQuery(plan)
+                RecordQueryPlan plan = rankPlan(queries.get(i), matchers.get(i));
+                List<String> names = executeRankPlan(plan)
                         .map(record -> TestRecordsRankProto.BasicRankedRecord.newBuilder().mergeFrom(record.getRecord()).getName())
                         .asList().join();
                 assertEquals(names,  resultLists.get(i), "Iteration " + i);
@@ -835,10 +1052,9 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
                         )
                         .collect(ImmutableList.toImmutableList());
 
-        List<RecordQueryPlan> plans = queries.stream().map(this::planQuery).collect(Collectors.toList());
-        for (int i = 0; i < plans.size(); i++) {
-            assertMatchesExactly(plans.get(i), matchers.get(i));
-        }
+        List<RecordQueryPlan> plans = IntStream.range(0, queries.size())
+                .mapToObj(i -> rankPlan(queries.get(i), matchers.get(i)))
+                .collect(Collectors.toList());
         List<List<String>> resultLists = Arrays.asList(
                 Collections.singletonList("achilles"),
                 Collections.singletonList("helen"),
@@ -851,7 +1067,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
             openRecordStore(context);
 
             for (int i = 0; i < plans.size(); i++) {
-                List<String> names = recordStore.executeQuery(plans.get(i))
+                List<String> names = executeRankPlan(plans.get(i))
                         .map(record -> TestRecordsRankProto.BasicRankedRecord.newBuilder().mergeFrom(record.getRecord()).getName())
                         .asList().join();
                 assertEquals(resultLists.get(i), names);
@@ -1036,46 +1252,50 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(
                         Query.rank(expr).lessThanOrEquals(10L));
 
-        RecordQuery query = builder.setRemoveDuplicates(false).build();
-        RecordQueryPlan plan = planQuery(query);
-        assertMatchesExactly(plan,
+        final BindingMatcher<? extends RecordQueryIndexPlan> rankScanMatcher =
                 indexPlan()
                         .where(RecordQueryPlanMatchers.indexName("score_by_repeated_field"))
                         .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_RANK))
-                        .and(scanComparisons(range("([null],[10]]"))));
+                        .and(scanComparisons(range("([null],[10]]")));
+
+        RecordQuery query = builder.setRemoveDuplicates(false).build();
+        RecordQueryPlan plan;
+        if (planner instanceof CascadesPlanner) {
+            plan = repeatedRankViaWindowValue((CascadesPlanner)planner,
+                    new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, 10L));
+            assertMatchesExactly(plan, mapPlan(rankScanMatcher));
+        } else {
+            plan = planQuery(query);
+            assertMatchesExactly(plan, rankScanMatcher);
+        }
         List<String> res;
 
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            res = recordStore.executeQuery(plan)
+            res = executeRankPlan(plan)
                     .map(rec -> TestRecordsRankProto.RepeatedRankedRecord.newBuilder().mergeFrom(rec.getRecord()).getName())
                     .asList().join();
         }
         assertEquals(Arrays.asList("achilles", "achilles", "patroclus", "patroclus", "achilles", "patroclus", "hector", "patroclus", "hector", "hector", "achilles", "hector", "achilles", "hector", "patroclus"), res);
         
         query = builder.setRemoveDuplicates(true).build();
-        plan = planQuery(query);
-        if (planner instanceof RecordQueryPlanner) {
-            assertMatchesExactly(plan,
-                    unorderedPrimaryKeyDistinctPlan(
-                            indexPlan()
-                                    .where(RecordQueryPlanMatchers.indexName("score_by_repeated_field"))
-                                    .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_RANK))
-                                    .and(scanComparisons(range("([null],[10]]")))));
+        if (planner instanceof CascadesPlanner) {
+            plan = repeatedRankViaWindowValue((CascadesPlanner)planner,
+                    new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, 10L), true);
         } else {
-            assertMatchesExactly(plan,
-                    fetchFromPartialRecordPlan(
-                            unorderedPrimaryKeyDistinctPlan(
-                                    coveringIndexPlan().where(
-                                            indexPlanOf(indexPlan()
-                                                    .where(RecordQueryPlanMatchers.indexName("score_by_repeated_field"))
-                                                    .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_RANK))
-                                                    .and(scanComparisons(range("([null],[10]]"))))))));
+            plan = planQuery(query);
+        }
+        if (planner instanceof CascadesPlanner) {
+            // the window value is projected, so the scan's entries are mapped rather than covered, and the distinct
+            // sits on top of that
+            assertMatchesExactly(plan, unorderedPrimaryKeyDistinctPlan(mapPlan(rankScanMatcher)));
+        } else {
+            assertMatchesExactly(plan, unorderedPrimaryKeyDistinctPlan(rankScanMatcher));
         }
 
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            res = recordStore.executeQuery(plan)
+            res = executeRankPlan(plan)
                     .map(rec -> TestRecordsRankProto.RepeatedRankedRecord.newBuilder().mergeFrom(rec.getRecord()).getName())
                     .asList().join();
         }
@@ -1279,13 +1499,23 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(
                         Query.rank(expr).withParameterComparison(Comparisons.Type.EQUALS, "RANK_VALUE"));
 
-        RecordQuery query = builder.setRemoveDuplicates(false).build();
-        RecordQueryPlan plan = planQuery(query);
-        assertMatchesExactly(plan,
+        final BindingMatcher<? extends RecordQueryIndexPlan> rankScanMatcher =
                 indexPlan()
                         .where(RecordQueryPlanMatchers.indexName("score_by_repeated_field"))
                         .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_RANK))
-                        .and(scanComparisons(range("[EQUALS $RANK_VALUE]"))));
+                        .and(scanComparisons(range("[EQUALS $RANK_VALUE]")));
+
+        final RecordQueryPlan plan;
+        if (planner instanceof CascadesPlanner) {
+            // As in checkRanks: spelled with a window value so the rewriting rule can produce a WindowExpression that
+            // the match candidate can be matched against.
+            plan = repeatedRankViaWindowValue((CascadesPlanner)planner);
+            assertMatchesExactly(plan, mapPlan(rankScanMatcher));
+        } else {
+            RecordQuery query = builder.setRemoveDuplicates(false).build();
+            plan = planQuery(query);
+            assertMatchesExactly(plan, rankScanMatcher);
+        }
 
         assertAll(IntStream.range(0, rankWithTies.size()).mapToObj(i -> () -> {
             Set<String> tie = rankWithTies.get(i);
@@ -1296,9 +1526,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
                 } catch (Exception e) {
                     Assertions.fail(e);
                 }
-                final List<String> actualRecords = plan.execute(recordStore, EvaluationContext.forBinding("RANK_VALUE", i))
-                        .map(rec -> TestRecordsRankProto.RepeatedRankedRecord.newBuilder().mergeFrom(rec.getRecord()).getName())
-                        .asList().join();
+                final List<String> actualRecords = namesAtRank(plan, i);
                 assertThat("For Rank " + i, actualRecords, containsInAnyOrder(tie.toArray()));
             }
         }));
@@ -1312,13 +1540,24 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
                         Query.field("header").matches(Query.field("group").equalsValue("buffaloes")),
                         Query.rank(field("score").groupBy(field("header").nest(field("group")))).greaterThan(1L)))
                 .build();
-        RecordQueryPlan plan = planQuery(query);
-        assertEquals("ISCAN(score_by_nested_id ([buffaloes, 1],[buffaloes]] BY_RANK)", plan.toString());
-        assertMatchesExactly(plan,
+        final BindingMatcher<? extends RecordQueryIndexPlan> rankScanMatcher =
                 indexPlan()
                         .where(RecordQueryPlanMatchers.indexName("score_by_nested_id"))
                         .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_RANK))
-                        .and(scanComparisons(range("([buffaloes, 1],[buffaloes]]"))));
+                        .and(scanComparisons(range("([buffaloes, 1],[buffaloes]]")));
+        if (planner instanceof CascadesPlanner) {
+            final RecordQueryPlan plan = rankViaWindowValue("HeaderRankedRecord",
+                    ImmutableList.of(ImmutableList.of("header", "group")), ImmutableList.of("score"),
+                    new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 1L),
+                    baseValue -> ImmutableList.of(new ValuePredicate(
+                            FieldValue.ofFieldNames(baseValue, ImmutableList.of("header", "group")),
+                            new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "buffaloes"))));
+            assertMatchesExactly(plan, mapPlan(rankScanMatcher));
+            return;
+        }
+        RecordQueryPlan plan = planQuery(query);
+        assertEquals("ISCAN(score_by_nested_id ([buffaloes, 1],[buffaloes]] BY_RANK)", plan.toString());
+        assertMatchesExactly(plan, rankScanMatcher);
     }
 
     @Test
@@ -1609,8 +1848,25 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("BasicRankedRecord")
                 .setFilter(filter)
                 .build();
-        RecordQueryPlan plan = planQuery(query);
-        if (planner instanceof RecordQueryPlanner) {
+        final RecordQueryPlan plan;
+        if (planner instanceof CascadesPlanner) {
+            plan = rankCombinedWithPredicateViaWindowValue((rankValue, baseValue) -> OrPredicate.or(
+                    new ValuePredicate(rankValue,
+                            new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, 0L)),
+                    new ValuePredicate(FieldValue.ofFieldName(baseValue, "gender"),
+                            new Comparisons.SimpleComparison(Comparisons.Type.NOT_EQUALS, "M"))));
+            // as in rankScanUnion: a row satisfies the disjunction by its rank or by its gender, so the scan reports
+            // every row's rank and the disjunction is a residual. The old planner cannot use the rank index here at
+            // all and falls back on a full scan with the query component as a filter.
+            assertMatchesExactly(plan,
+                    mapPlan(
+                            predicatesFilterPlan(
+                                    indexPlan()
+                                            .where(RecordQueryPlanMatchers.indexName("BasicRankedRecord$score"))
+                                            .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_RANK))
+                                            .and(scanComparisons(unbounded())))));
+        } else {
+            plan = planQuery(query);
             assertEquals("SCAN(<,>) | TFILTER BasicRankedRecord | QCFILTER Or([gender NOT_EQUALS M, rank(Field { 'score' None} group 1) LESS_THAN_OR_EQUALS 0])", plan.toString());
             assertMatchesExactly(plan,
                     filterPlan(
@@ -1618,25 +1874,6 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
                                     scanPlan().where(scanComparisons(unbounded())))
                                     .where(recordTypes(containsAll(ImmutableSet.of("BasicRankedRecord")))))
                             .where(queryComponents(exactly(equalsObject(filter)))));
-        } else {
-            assertMatchesExactly(plan,
-                    fetchFromPartialRecordPlan(
-                            unorderedPrimaryKeyDistinctPlan(
-                                    unorderedUnionPlan(
-                                            predicatesFilterPlan(
-                                                    coveringIndexPlan()
-                                                            .where(indexPlanOf(
-                                                                    indexPlan()
-                                                                            .where(RecordQueryPlanMatchers.indexName("rank_by_gender"))
-                                                                            .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_VALUE))
-                                                                            .and(scanComparisons(unbounded())))))
-                                                    .where(predicates(valuePredicate(fieldValueWithFieldNames("gender"), new Comparisons.SimpleComparison(Comparisons.Type.NOT_EQUALS, "M")))),
-                                            coveringIndexPlan()
-                                                    .where(indexPlanOf(
-                                                            indexPlan()
-                                                                    .where(RecordQueryPlanMatchers.indexName("BasicRankedRecord$score"))
-                                                                    .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_RANK))
-                                                                    .and(scanComparisons(range("([null],[0]]")))))))));
         }
 
         TestRecordsRankProto.BasicRankedRecord recordWithNoGender = TestRecordsRankProto.BasicRankedRecord.newBuilder()
@@ -1645,7 +1882,7 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
             recordStore.saveRecord(recordWithNoGender);
-            List<String> names = recordStore.executeQuery(plan)
+            List<String> names = executeRankPlan(plan)
                     .map(rec -> TestRecordsRankProto.BasicRankedRecord.newBuilder().mergeFrom(rec.getRecord()).getName())
                     .asList().join();
             assertEquals(ImmutableSet.of("hector", "helen", "laodice", "penelope"), ImmutableSet.copyOf(names));
@@ -1727,6 +1964,247 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
                             .join().getLong(0));
             commit(context);
         }
+    }
+
+    /**
+     * The names of the records at the given rank.
+     */
+    @Nonnull
+    private List<String> namesAtRank(@Nonnull final RecordQueryPlan plan, final int rank) {
+        return executeRankPlan(plan, Bindings.newBuilder().set("RANK_VALUE", rank).build())
+                .map(rec -> TestRecordsRankProto.RepeatedRankedRecord.newBuilder().mergeFrom(rec.getRecord()).getName())
+                .asList().join();
+    }
+
+    /**
+     * {@code rank() over (partition by <partitioningFieldPaths> order by <orderingFieldPath>) <rankComparison>}, with
+     * {@code otherPredicates} on the base record alongside it, built as a graph so that the predicate carries a
+     * {@link CompileTimeWindowValue} rather than the {@link RankValue} {@code Query.rank} produces: the rewriting rule
+     * turns the former into a {@link WindowExpression} a rank index's match candidate can be matched against, while the
+     * latter becomes an existential self-join no candidate models.
+     */
+    @Nonnull
+    private RecordQueryPlan rankViaWindowValue(@Nonnull final String recordTypeName,
+                                               @Nonnull final List<List<String>> partitioningFieldPaths,
+                                               @Nonnull final List<String> orderingFieldPath,
+                                               @Nonnull final Comparisons.Comparison rankComparison,
+                                               @Nonnull final Function<Value, List<QueryPredicate>> otherPredicates) {
+        return planGraph(() -> {
+            final var base = fullTypeScan(planner.getRecordMetaData(), recordTypeName);
+            final var baseValue = base.getFlowedObjectValue();
+            final var rankValue = new CompileTimeWindowValue(CompileTimeWindowValue.WindowFunction.RANK,
+                    ImmutableList.of(),
+                    partitioningFieldPaths.stream()
+                            .map(fieldPath -> (Value)FieldValue.ofFieldNames(baseValue, fieldPath))
+                            .collect(ImmutableList.toImmutableList()),
+                    ImmutableList.of(new WindowOrderingPart(FieldValue.ofFieldNames(baseValue, orderingFieldPath),
+                            OrderingPart.RequestedSortOrder.ASCENDING)),
+                    WindowFrameSpecification.defaultSpecification());
+            final var expansion = GraphExpansion.builder();
+            expansion.addQuantifier(base);
+            expansion.addPredicate(new ValuePredicate(rankValue, rankComparison));
+            otherPredicates.apply(baseValue).forEach(expansion::addPredicate);
+            expansion.addResultValue(baseValue);
+            final var qun = Quantifier.forEach(Reference.initialOf(expansion.build().buildSelect()));
+            return Reference.initialOf(LogicalSortExpression.unsorted(qun));
+        });
+    }
+
+    /**
+     * {@code rank() over (order by score)} over the whole table, under the single predicate the caller builds from the
+     * window value and the base record, which stays above the window expression because it mentions the window value.
+     *
+     * <p>That is where a predicate combined with {@code Query.rank(...)} belongs: the rank is taken over every record,
+     * not over the records the other predicate keeps, so filtering first would rank a different set of rows. The
+     * rewriting rule pushes a predicate that does not mention the window value below the window, which is WHERE's own
+     * meaning, so a faithful spelling of these queries has to hand the rule one predicate that does.
+     */
+    @Nonnull
+    private RecordQueryPlan rankCombinedWithPredicateViaWindowValue(
+            @Nonnull final BiFunction<Value, Value, QueryPredicate> predicate) {
+        return planGraph(() -> Reference.initialOf(LogicalSortExpression.unsorted(
+                rankCombinedWithPredicateQuantifier(predicate))));
+    }
+
+    /**
+     * The same, except that the predicate the caller builds is a select of its own on top, which is how a conjunction
+     * of a rank comparison and a plain predicate has to be spelled: handed to the rewriting rule as one predicate it
+     * stays one opaque conjunct, and a plain predicate alongside the rank in the same select would be pushed below the
+     * window, where filtering would rank a different set of rows.
+     */
+    @Nonnull
+    private RecordQueryPlan rankThenFilterViaWindowValue(@Nonnull final Comparisons.Comparison rankComparison,
+                                                         @Nonnull final Function<Value, QueryPredicate> predicateAbove) {
+        return planGraph(() -> {
+            final var rankedQun = rankCombinedWithPredicateQuantifier(
+                    (rankValue, baseValue) -> new ValuePredicate(rankValue, rankComparison));
+            final var above = GraphExpansion.builder();
+            above.addQuantifier(rankedQun);
+            // the select below flows the record in a column of its own, so a column of it is read through that
+            above.addPredicate(predicateAbove.apply(
+                    FieldValue.ofOrdinalNumber(rankedQun.getFlowedObjectValue(), 0)));
+            above.addResultValue(FieldValue.ofOrdinalNumber(rankedQun.getFlowedObjectValue(), 0));
+            final var qun = Quantifier.forEach(Reference.initialOf(above.build().buildSelect()));
+            return Reference.initialOf(LogicalSortExpression.unsorted(qun));
+        });
+    }
+
+    /**
+     * A quantifier over {@code rank() over (order by score)} on the whole table under the caller's predicate, flowing
+     * the base record as it stands so that anything above reads its columns directly.
+     */
+    @Nonnull
+    private Quantifier.ForEach rankCombinedWithPredicateQuantifier(
+            @Nonnull final BiFunction<Value, Value, QueryPredicate> predicate) {
+        final var base = fullTypeScan(planner.getRecordMetaData(), "BasicRankedRecord");
+        final var baseValue = base.getFlowedObjectValue();
+        final var rankValue = new CompileTimeWindowValue(CompileTimeWindowValue.WindowFunction.RANK,
+                ImmutableList.of(), ImmutableList.of(),
+                ImmutableList.of(new WindowOrderingPart(FieldValue.ofFieldName(baseValue, "score"),
+                        OrderingPart.RequestedSortOrder.ASCENDING)),
+                WindowFrameSpecification.defaultSpecification());
+        final var expansion = GraphExpansion.builder();
+        expansion.addQuantifier(base);
+        expansion.addPredicate(predicate.apply(rankValue, baseValue));
+        expansion.addResultValue(baseValue);
+        return Quantifier.forEach(Reference.initialOf(expansion.build().buildSelect()));
+    }
+
+    /**
+     * The plan for a query whose only filter is an ungrouped rank comparison, spelled as a window value for the
+     * Cascades planner and left as it is for the old one, with the scan asserted either way. The window value is
+     * projected rather than merely compared, so the Cascades plan maps the entries the scan reports.
+     */
+    @Nonnull
+    private RecordQueryPlan rankPlan(@Nonnull final RecordQuery query,
+                                     @Nonnull final BindingMatcher<? extends RecordQueryIndexPlan> rankScanMatcher) {
+        if (planner instanceof CascadesPlanner) {
+            final var rankComparison =
+                    ((QueryRecordFunctionWithComparison)Objects.requireNonNull(query.getFilter())).getComparison();
+            final var plan = rankViaWindowValue(Iterables.getOnlyElement(query.getRecordTypes()),
+                    ImmutableList.of(), ImmutableList.of("score"), rankComparison,
+                    baseValue -> ImmutableList.of());
+            assertMatchesExactly(plan, mapPlan(rankScanMatcher));
+            return plan;
+        }
+        final var plan = planQuery(query);
+        assertMatchesExactly(plan, rankScanMatcher);
+        return plan;
+    }
+
+    /**
+     * Executes the plan as {@code recordStore.executeQuery} does, with the types it uses registered: a graph-built plan
+     * decodes index entries into a record type of its own, which has to be in a repository for an entry to be read at
+     * all. What comes back is the queried record the scan reported, which the map above it keeps.
+     */
+    @Nonnull
+    private RecordCursor<FDBQueriedRecord<Message>> executeRankPlan(@Nonnull final RecordQueryPlan plan) {
+        return executeRankPlan(plan, Bindings.EMPTY_BINDINGS);
+    }
+
+    @Nonnull
+    private RecordCursor<FDBQueriedRecord<Message>> executeRankPlan(@Nonnull final RecordQueryPlan plan,
+                                                                    @Nonnull final Bindings bindings) {
+        return executeRankPlan(plan, bindings, null, ExecuteProperties.SERIAL_EXECUTE);
+    }
+
+    @Nonnull
+    private RecordCursor<FDBQueriedRecord<Message>> executeRankPlan(@Nonnull final RecordQueryPlan plan,
+                                                                    @Nonnull final Bindings bindings,
+                                                                    @Nullable final byte[] continuation,
+                                                                    @Nonnull final ExecuteProperties executeProperties) {
+        final var typeRepository = TypeRepository.newBuilder().addAllTypes(usedTypes().evaluate(plan)).build();
+        return plan.executePlan(recordStore,
+                        EvaluationContext.forBindingsAndTypeRepository(bindings, typeRepository), continuation,
+                        executeProperties)
+                .map(QueryResult::getQueriedRecord);
+    }
+
+    /**
+     * {@code rank() over (order by score) = $RANK_VALUE} over the exploded repeated field, which is what
+     * {@code field("score", FanOut).ungrouped()} indexes.
+     */
+    @Nonnull
+    private RecordQueryPlan repeatedRankViaWindowValue(@Nonnull final CascadesPlanner cascadesPlanner) {
+        return repeatedRankViaWindowValue(cascadesPlanner,
+                new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, "RANK_VALUE"));
+    }
+
+    /**
+     * {@code rank() over (order by score) <rankComparison>} over the exploded repeated field, as
+     * {@link #repeatedRankViaWindowValue(CascadesPlanner)} but for any comparison.
+     */
+    @Nonnull
+    private RecordQueryPlan repeatedRankViaWindowValue(@Nonnull final CascadesPlanner cascadesPlanner,
+                                                       @Nonnull final Comparisons.Comparison rankComparison) {
+        return repeatedRankViaWindowValue(cascadesPlanner, rankComparison, false);
+    }
+
+    /**
+     * {@code rank() over (order by score) <rankComparison>} over the exploded repeated field, optionally with the
+     * duplicates one record contributes removed, which is what {@code setRemoveDuplicates(true)} asks for.
+     */
+    @Nonnull
+    private RecordQueryPlan repeatedRankViaWindowValue(@Nonnull final CascadesPlanner cascadesPlanner,
+                                                       @Nonnull final Comparisons.Comparison rankComparison,
+                                                       final boolean removeDuplicates) {
+        return planGraph(() -> {
+            final var base = (Quantifier.ForEach)fullTypeScan(cascadesPlanner.getRecordMetaData(),
+                    "RepeatedRankedRecord");
+            //
+            // An explode is a table function over an ExplodeValue, flowing an (element, ordinal) struct per element. A
+            // select over it projecting the element is what the window then orders by -- the same shape a fan-out key
+            // expression expands to, which flows the element rather than the struct (KeyExpressionExpansionVisitor),
+            // so that the ordering the query states and the one the candidate provides are the same value.
+            //
+            final var explode = Quantifier.forEach(Reference.initialOf(new TableFunctionExpression(
+                    new ExplodeValue(FieldValue.ofFieldName(base.getFlowedObjectValue(), "score")))));
+            final var element = Quantifier.forEach(Reference.initialOf(
+                    GraphExpansion.builder()
+                            .addQuantifier(explode)
+                            .build()
+                            .buildSelectWithResultValue(
+                                    ExplodeValue.elementValue(explode.getFlowedObjectValue()))));
+            final var rankValue = new CompileTimeWindowValue(CompileTimeWindowValue.WindowFunction.RANK,
+                    ImmutableList.of(), ImmutableList.of(),
+                    ImmutableList.of(new WindowOrderingPart(element.getFlowedObjectValue(),
+                            OrderingPart.RequestedSortOrder.ASCENDING)),
+                    WindowFrameSpecification.defaultSpecification());
+            final var expansion = GraphExpansion.builder();
+            expansion.addQuantifier(base);
+            expansion.addQuantifier(element);
+            expansion.addPredicate(new ValuePredicate(rankValue, rankComparison));
+            expansion.addResultValue(base.getFlowedObjectValue());
+            final var qun = Quantifier.forEach(Reference.initialOf(expansion.build().buildSelect()));
+            if (removeDuplicates) {
+                return Reference.initialOf(LogicalSortExpression.unsorted(
+                        Quantifier.forEach(Reference.initialOf(new LogicalDistinctExpression(qun)))));
+            }
+            return Reference.initialOf(LogicalSortExpression.unsorted(qun));
+        });
+    }
+
+    /**
+     * {@code rank(score) over (order by score) = 2} over the whole table, built as a graph so that the predicate
+     * carries a {@link CompileTimeWindowValue} rather than the {@link RankValue} {@code Query.rank} produces.
+     */
+    @Nonnull
+    private RecordQueryPlan rankEqualsTwoViaWindowValue(@Nonnull final CascadesPlanner cascadesPlanner) {
+        return planGraph(() -> {
+            final var base = fullTypeScan(cascadesPlanner.getRecordMetaData(), "BasicRankedRecord");
+            final var scoreValue = FieldValue.ofFieldName(base.getFlowedObjectValue(), "score");
+            final var rankValue = new CompileTimeWindowValue(CompileTimeWindowValue.WindowFunction.RANK,
+                    ImmutableList.of(), ImmutableList.of(),
+                    ImmutableList.of(new WindowOrderingPart(scoreValue, OrderingPart.RequestedSortOrder.ASCENDING)),
+                    WindowFrameSpecification.defaultSpecification());
+            final var builder = GraphExpansion.builder();
+            builder.addQuantifier(base);
+            builder.addPredicate(new ValuePredicate(rankValue,
+                    new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 2L)));
+            builder.addResultValue(base.getFlowedObjectValue());
+            final var qun = Quantifier.forEach(Reference.initialOf(builder.build().buildSelect()));
+            return Reference.initialOf(LogicalSortExpression.unsorted(qun));
+        });
     }
 
     @Test
@@ -1829,7 +2307,15 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
                             Query.rank("score").equalsValue(2),
                             Query.field("gender").equalsValue("F")))
                     .build();
-            RecordQueryPlan plan = planQuery(query);
+            final RecordQueryPlan plan;
+            if (planner instanceof CascadesPlanner) {
+                plan = rankThenFilterViaWindowValue(
+                        new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 2L),
+                        rankedValue -> new ValuePredicate(FieldValue.ofFieldName(rankedValue, "gender"),
+                                new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "F")));
+            } else {
+                plan = planQuery(query);
+            }
             if (planner instanceof RecordQueryPlanner) {
                 assertMatchesExactly(plan,
                                 intersectionOnExpressionPlan(
@@ -1842,33 +2328,31 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
                                                 .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_VALUE))
                                                 .and(scanComparisons(range("[[F],[F]]")))));
             } else {
+                // the rank is projected rather than merely compared, so one scan answers the rank and the other
+                // predicate is a residual on top of it -- where the old planner intersects two scans, neither of which
+                // could report a rank
                 assertMatchesExactly(plan,
-                        fetchFromPartialRecordPlan(
-                                intersectionOnValuesPlan(
-                                        coveringIndexPlan()
-                                                .where(indexPlanOf(indexPlan()
-                                                        .where(RecordQueryPlanMatchers.indexName("BasicRankedRecord$score"))
-                                                        .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_RANK))
-                                                        .and(scanComparisons(range("[[2],[2]]"))))),
-                                        coveringIndexPlan()
-                                                .where(indexPlanOf(indexPlan()
-                                                        .where(RecordQueryPlanMatchers.indexName("BasicRankedRecord$gender"))
-                                                        .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_VALUE))
-                                                        .and(scanComparisons(range("[[F],[F]]"))))))
-                                        .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("name"))))));
+                        mapPlan(
+                                predicatesFilterPlan(
+                                        indexPlan()
+                                                .where(RecordQueryPlanMatchers.indexName("BasicRankedRecord$score"))
+                                                .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_RANK))
+                                                .and(scanComparisons(range("[[2],[2]]"))))
+                                        .where(predicates(valuePredicate(fieldValueWithFieldNames("gender"),
+                                                new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "F"))))));
             }
 
             Set<String> names = new HashSet<>();
             Function<FDBQueriedRecord<Message>, String> name = rec -> TestRecordsRankProto.BasicRankedRecord.newBuilder().mergeFrom(rec.getRecord()).getName();
-            RecordCursor<String> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(1).build()).map(name);
+            RecordCursor<String> cursor = executeRankPlan(plan, Bindings.EMPTY_BINDINGS, null, ExecuteProperties.newBuilder().setReturnedRowLimit(1).build()).map(name);
             RecordCursorResult<String> result = cursor.getNext();
             assertTrue(result.hasNext());
             names.add(result.get());
-            cursor = recordStore.executeQuery(plan, result.getContinuation().toBytes(), ExecuteProperties.newBuilder().setReturnedRowLimit(1).build()).map(name);
+            cursor = executeRankPlan(plan, Bindings.EMPTY_BINDINGS, result.getContinuation().toBytes(), ExecuteProperties.newBuilder().setReturnedRowLimit(1).build()).map(name);
             result = cursor.getNext();
             assertTrue(result.hasNext());
             names.add(result.get());
-            cursor = recordStore.executeQuery(plan, result.getContinuation().toBytes(), ExecuteProperties.newBuilder().setReturnedRowLimit(1).build()).map(name);
+            cursor = executeRankPlan(plan, Bindings.EMPTY_BINDINGS, result.getContinuation().toBytes(), ExecuteProperties.newBuilder().setReturnedRowLimit(1).build()).map(name);
             result = cursor.getNext();
             assertFalse(result.hasNext());
             assertEquals(Sets.newHashSet("penelope", "helen"), names);
@@ -1896,8 +2380,25 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
                             Query.rank("score").equalsValue(2),
                             Query.field("gender").equalsValue("F")))
                     .build();
-            RecordQueryPlan plan = planQuery(query);
-            if (planner instanceof RecordQueryPlanner) {
+            final RecordQueryPlan plan;
+            if (planner instanceof CascadesPlanner) {
+                plan = rankCombinedWithPredicateViaWindowValue((rankValue, baseValue) -> OrPredicate.or(
+                        new ValuePredicate(rankValue, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 2L)),
+                        new ValuePredicate(FieldValue.ofFieldName(baseValue, "gender"),
+                                new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "F"))));
+                // Nothing can narrow the scan: a row satisfies the disjunction by its rank or by its gender, so every
+                // row's rank has to be computed. One scan over the whole index reports them and the disjunction is a
+                // residual, where the old planner unions two scans -- which it can do only because neither of its
+                // branches has to report a rank.
+                assertMatchesExactly(plan,
+                        mapPlan(
+                                predicatesFilterPlan(
+                                        indexPlan()
+                                                .where(RecordQueryPlanMatchers.indexName("BasicRankedRecord$score"))
+                                                .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_RANK))
+                                                .and(scanComparisons(unbounded())))));
+            } else {
+                plan = planQuery(query);
                 assertMatchesExactly(plan,
                         RecordQueryPlanMatchers.unionOnExpressionPlan(
                                 indexPlan()
@@ -1908,24 +2409,9 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
                                         .where(RecordQueryPlanMatchers.indexName("BasicRankedRecord$gender"))
                                         .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_VALUE))
                                         .and(scanComparisons(range("[[F],[F]]")))));
-            } else {
-                assertMatchesExactly(plan,
-                        fetchFromPartialRecordPlan(
-                                RecordQueryPlanMatchers.unionOnValuesPlan(
-                                        coveringIndexPlan()
-                                                .where(indexPlanOf(indexPlan()
-                                                        .where(RecordQueryPlanMatchers.indexName("BasicRankedRecord$score"))
-                                                        .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_RANK))
-                                                        .and(scanComparisons(range("[[2],[2]]"))))),
-                                        coveringIndexPlan()
-                                                .where(indexPlanOf(indexPlan()
-                                                        .where(RecordQueryPlanMatchers.indexName("BasicRankedRecord$gender"))
-                                                        .and(RecordQueryPlanMatchers.indexScanType(IndexScanType.BY_VALUE))
-                                                        .and(scanComparisons(range("[[F],[F]]"))))))
-                                        .where(comparisonKeyValues(exactly(fieldValueWithFieldNames("name"))))));
             }
 
-            final List<String> names = recordStore.executeQuery(plan)
+            final List<String> names = executeRankPlan(plan)
                     .map(rec -> TestRecordsRankProto.BasicRankedRecord.newBuilder().mergeFrom(rec.getRecord()).getName())
                     .asList().join();
             commit(context);
@@ -2007,4 +2493,77 @@ class RankIndexTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    /**
+     * Where a column that is neither ranked nor part of the partition can live in a RANK index. There is no value half
+     * to carry it in: it has to join either the ranked tuple or the grouping, and both change what the rank means.
+     */
+    @Test
+    void anExtraColumnHasNowhereToLiveInARankIndex() throws Exception {
+        fdb = dbExtension.getDatabase();
+
+        // (a) as the value half of a keyWithValue, via the (root, value) constructor -- the root is no longer a
+        // GroupingKeyExpression, which is what the rank index requires
+        assertEquals("InvalidExpressionException: index type requires grouping",
+                describe(md -> md.addIndex("BasicRankedRecord",
+                        new Index("extra_as_value",
+                                field("score").groupBy(field("gender")),
+                                field("description"),
+                                IndexTypes.RANK, IndexOptions.EMPTY_OPTIONS))));
+
+        // (b) the same thing spelled out
+        assertEquals("InvalidExpressionException: index type requires grouping",
+                describe(md -> md.addIndex("BasicRankedRecord",
+                        new Index("extra_as_key_with_value",
+                                Key.Expressions.keyWithValue(
+                                        Key.Expressions.concat(field("gender"), field("score"), field("description")), 2),
+                                IndexTypes.RANK))));
+
+        // (c) inside the ranked tuple: ranks run over (score, description), so hector's 75 sorts before achilles' 100
+        assertEquals("[Field { 'gender' None}, Field { 'score' None}, Field { 'description' None}] group 2  ->  "
+                        + "[key=(\"M\", 75, \"trojan\", \"hector\") value=(), "
+                        + "key=(\"M\", 100, \"greek\", \"achilles\") value=()]",
+                describe(md -> md.addIndex("BasicRankedRecord",
+                        new Index("extra_in_ranked_tuple",
+                                Key.Expressions.concat(field("gender"), field("score"), field("description")).group(2),
+                                IndexTypes.RANK))));
+
+        // (d) as another grouping column: one ranked set per (gender, description), so the entries sort by description
+        assertEquals("[Field { 'gender' None}, Field { 'description' None}, Field { 'score' None}] group 1  ->  "
+                        + "[key=(\"M\", \"greek\", 100, \"achilles\") value=(), "
+                        + "key=(\"M\", \"trojan\", 75, \"hector\") value=()]",
+                describe(md -> md.addIndex("BasicRankedRecord",
+                        new Index("extra_as_grouping",
+                                Key.Expressions.concat(field("gender"), field("description"), field("score")).group(1),
+                                IndexTypes.RANK))));
+    }
+
+    /**
+     * Opens a store with the given index, writes two records and reports either the failure or the index entries.
+     */
+    @Nonnull
+    private String describe(@Nonnull final RecordMetaDataHook hook) {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, hook);
+            recordStore.deleteAllRecords();
+            final var index = recordStore.getRecordMetaData().getAllIndexes().stream()
+                    .filter(i -> i.getName().startsWith("extra_")).findFirst().orElseThrow();
+            recordStore.rebuildIndex(index).join();
+            recordStore.saveRecord(TestRecordsRankProto.BasicRankedRecord.newBuilder()
+                    .setName("achilles").setScore(100).setGender("M").setDescription("greek").build());
+            recordStore.saveRecord(TestRecordsRankProto.BasicRankedRecord.newBuilder()
+                    .setName("hector").setScore(75).setGender("M").setDescription("trojan").build());
+            final var entries = new ArrayList<String>();
+            try (RecordCursorIterator<IndexEntry> cursor =
+                         recordStore.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.ALL, null,
+                                 ScanProperties.FORWARD_SCAN).asIterator()) {
+                while (cursor.hasNext()) {
+                    final var entry = cursor.next();
+                    entries.add("key=" + entry.getKey() + " value=" + entry.getValue());
+                }
+            }
+            return index.getRootExpression() + "  ->  " + entries;
+        } catch (final Exception e) {
+            return e.getClass().getSimpleName() + ": " + e.getMessage();
+        }
+    }
 }

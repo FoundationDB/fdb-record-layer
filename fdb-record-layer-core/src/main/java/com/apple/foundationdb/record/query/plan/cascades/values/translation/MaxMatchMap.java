@@ -280,6 +280,16 @@ public class MaxMatchMap {
         if (!Sets.intersection(rangedOverAliases, translatedQueryResultValue.getCorrelatedTo()).isEmpty()) {
             return Optional.empty();
         }
+        //
+        // A value that references nothing at all looks constant to the check above, so it would be left in place and
+        // recomputed on top of the match. An index-only value is not constant: it only ever exists inside an index
+        // entry and throws when evaluated anywhere else. A window function is the case in point -- rank() carries its
+        // operand in the window specification rather than as an argument, so it is correlated to nothing, and leaving
+        // it unmatched yields a plan that scans the right index and then recomputes what the scan already reported.
+        //
+        if (translatedQueryResultValue.preOrderStream().anyMatch(Value.IndexOnlyValue.class::isInstance)) {
+            return Optional.empty();
+        }
         return Optional.of(translatedQueryResultValue);
     }
 

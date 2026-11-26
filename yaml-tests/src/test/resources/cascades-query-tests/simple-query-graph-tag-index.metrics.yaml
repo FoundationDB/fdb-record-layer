@@ -4,10 +4,10 @@ simple-query-graph-tag-index:
     ref: simple-query-graph-tag-index.yamsql:112
     explain: ISCAN(RESTAURANT_TAG_VALUE [EQUALS promote(@c24 AS STRING)]) | MAP (_.NAME
         AS NAME)
-    task_count: 584
+    task_count: 590
     task_total_time_ms: 17
-    transform_count: 181
-    transform_time_ms: 10
+    transform_count: 187
+    transform_time_ms: 9
     transform_yield_count: 59
     insert_time_ms: 0
     insert_new_count: 64
@@ -19,9 +19,9 @@ simple-query-graph-tag-index:
         | FLATMAP q1 -> { TF explode(arrayDistinct(@c24)) | FILTER _._0 EQUALS q1._0.VALUE
         AS q2 RETURN (@c12 AS _0) } | DEFAULT NULL | FILTER _ NOT_NULL AS q3 RETURN
         (q0.NAME AS NAME) }
-    task_count: 999
-    task_total_time_ms: 23
-    transform_count: 337
+    task_count: 1003
+    task_total_time_ms: 22
+    transform_count: 341
     transform_time_ms: 11
     transform_yield_count: 78
     insert_time_ms: 1

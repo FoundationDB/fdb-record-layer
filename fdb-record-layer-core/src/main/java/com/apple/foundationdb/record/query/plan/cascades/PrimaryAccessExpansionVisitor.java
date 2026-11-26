@@ -70,7 +70,7 @@ public class PrimaryAccessExpansionVisitor extends KeyExpressionExpansionVisitor
         @Nullable final var recordTypeKeyParameterAlias = Key.Expressions.recordType().isPrefixKey(primaryKey)
                 ? newParameterAlias()
                 : null;
-        final Quantifier.ForEach baseQuantifier = Quantifier.forEach(ExpansionVisitor.createBaseRef(availableRecordTypeNames,
+        final Quantifier.ForEach baseQuantifier = Quantifier.forEach(ExpansionVisitor.createFuseReference(availableRecordTypeNames,
                 queriedRecordTypeNames, baseType, recordTypeKeyParameterAlias, accessHint));
 
         final var graphExpansionBuilder =

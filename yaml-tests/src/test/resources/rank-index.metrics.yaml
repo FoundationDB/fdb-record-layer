@@ -1,0 +1,366 @@
+rank-index-results:
+-   query: EXPLAIN select rank() over (partition by team order by score) as rank from
+        player where team = 'greeks'
+    ref: rank-index.yamsql:79
+    explain: ISCAN(MV1 [EQUALS promote(@c20 AS STRING)]+rank BY_RANK) | MAP (_._3
+        AS RANK)
+    task_count: 521
+    task_total_time_ms: 153
+    transform_count: 153
+    transform_time_ms: 98
+    transform_yield_count: 43
+    insert_time_ms: 9
+    insert_new_count: 58
+    insert_reused_count: 4
+-   query: EXPLAIN select name, rank() over (partition by team order by score) as
+        rnk from player where team = 'trojans'
+    ref: rank-index.yamsql:84
+    explain: ISCAN(MV1 [EQUALS promote(@c22 AS STRING)]+rank BY_RANK) | MAP (_.NAME
+        AS NAME, _._3 AS RNK)
+    task_count: 521
+    task_total_time_ms: 52
+    transform_count: 153
+    transform_time_ms: 29
+    transform_yield_count: 43
+    insert_time_ms: 3
+    insert_new_count: 58
+    insert_reused_count: 4
+-   query: EXPLAIN select name, team, rank() over (partition by team order by score)
+        as rnk from player
+    ref: rank-index.yamsql:89
+    explain: ISCAN(MV1 <,>+rank) | MAP (_.NAME AS NAME, _.TEAM AS TEAM, _._3 AS RNK)
+    task_count: 381
+    task_total_time_ms: 34
+    transform_count: 114
+    transform_time_ms: 21
+    transform_yield_count: 36
+    insert_time_ms: 2
+    insert_new_count: 37
+    insert_reused_count: 4
+-   query: EXPLAIN select name, team, score, rank() over (partition by team order
+        by score) as rnk from player where team = 'greeks'
+    ref: rank-index.yamsql:95
+    explain: ISCAN(MV1 [EQUALS promote(@c26 AS STRING)]+rank BY_RANK) | MAP (_.NAME
+        AS NAME, _.TEAM AS TEAM, _.SCORE AS SCORE, _._3 AS RNK)
+    task_count: 521
+    task_total_time_ms: 49
+    transform_count: 153
+    transform_time_ms: 27
+    transform_yield_count: 43
+    insert_time_ms: 3
+    insert_new_count: 58
+    insert_reused_count: 4
+-   query: EXPLAIN select rank() over (partition by team order by score) + 1 as rnk
+        from player where team = 'greeks'
+    ref: rank-index.yamsql:100
+    explain: ISCAN(MV1 [EQUALS promote(@c22 AS STRING)]+rank BY_RANK) | MAP (_._3
+        + @c14 AS RNK)
+    task_count: 521
+    task_total_time_ms: 40
+    transform_count: 153
+    transform_time_ms: 25
+    transform_yield_count: 43
+    insert_time_ms: 2
+    insert_new_count: 58
+    insert_reused_count: 4
+-   query: EXPLAIN select rnk from (select name, rank() over (partition by team order
+        by score) as rnk from player where team = 'greeks') as t where rnk < 2
+    ref: rank-index.yamsql:105
+    explain: ISCAN(MV1 [EQUALS promote(@c26 AS STRING), [LESS_THAN promote(@c33 AS
+        LONG)]]+rank BY_RANK) | MAP (_._3 AS RNK)
+    task_count: 558
+    task_total_time_ms: 35
+    transform_count: 163
+    transform_time_ms: 20
+    transform_yield_count: 45
+    insert_time_ms: 2
+    insert_new_count: 63
+    insert_reused_count: 4
+rank-index-qualify:
+-   query: EXPLAIN select name, team, score, rank() over (partition by team order
+        by score) as rnk from player where team = 'greeks' qualify rank() over (partition
+        by team order by score) between 1 and 2
+    ref: rank-index.yamsql:117
+    explain: ISCAN(MV1 [EQUALS promote(@c26 AS STRING), [GREATER_THAN_OR_EQUALS promote(@c41
+        AS LONG) && LESS_THAN_OR_EQUALS promote(@c43 AS LONG)]]+rank BY_RANK) | MAP
+        (_.NAME AS NAME, _.TEAM AS TEAM, _.SCORE AS SCORE, _._3 AS RNK)
+    task_count: 532
+    task_total_time_ms: 34
+    transform_count: 154
+    transform_time_ms: 20
+    transform_yield_count: 43
+    insert_time_ms: 2
+    insert_new_count: 59
+    insert_reused_count: 4
+-   query: EXPLAIN select rank() over (partition by team order by score) as rnk from
+        player where team = 'greeks' qualify rank() over (partition by team order
+        by score) < 2
+    ref: rank-index.yamsql:122
+    explain: ISCAN(MV1 [EQUALS promote(@c20 AS STRING), [LESS_THAN promote(@c35 AS
+        LONG)]]+rank BY_RANK) | MAP (_._3 AS RNK)
+    task_count: 532
+    task_total_time_ms: 33
+    transform_count: 154
+    transform_time_ms: 20
+    transform_yield_count: 43
+    insert_time_ms: 2
+    insert_new_count: 59
+    insert_reused_count: 4
+-   query: EXPLAIN select name, rank() over (partition by team order by score) as
+        rnk from player where team = 'greeks' qualify rank() over (partition by team
+        order by score) = 2
+    ref: rank-index.yamsql:127
+    explain: ISCAN(MV1 [EQUALS promote(@c22 AS STRING), EQUALS promote(@c37 AS LONG)]+rank
+        BY_RANK) | MAP (_.NAME AS NAME, _._3 AS RNK)
+    task_count: 532
+    task_total_time_ms: 30
+    transform_count: 155
+    transform_time_ms: 18
+    transform_yield_count: 43
+    insert_time_ms: 2
+    insert_new_count: 59
+    insert_reused_count: 4
+-   query: EXPLAIN select name, rank() over (partition by team order by score) as
+        rnk from player where team = 'greeks' qualify rank() over (partition by team
+        order by score) >= 1
+    ref: rank-index.yamsql:132
+    explain: ISCAN(MV1 [EQUALS promote(@c22 AS STRING), [GREATER_THAN_OR_EQUALS promote(@c38
+        AS LONG)]]+rank BY_RANK) | MAP (_.NAME AS NAME, _._3 AS RNK)
+    task_count: 532
+    task_total_time_ms: 30
+    transform_count: 154
+    transform_time_ms: 18
+    transform_yield_count: 43
+    insert_time_ms: 2
+    insert_new_count: 59
+    insert_reused_count: 4
+-   query: EXPLAIN select rank() over (partition by team order by score) as rnk from
+        player where team = 'greeks' qualify rank() over (partition by team order
+        by score) >= 1 and rank() over (partition by team order by score) <= 2
+    ref: rank-index.yamsql:139
+    explain: ISCAN(MV1 [EQUALS promote(@c20 AS STRING), [GREATER_THAN_OR_EQUALS promote(@c36
+        AS LONG) && LESS_THAN_OR_EQUALS promote(@c52 AS LONG)]]+rank BY_RANK) | MAP
+        (_._3 AS RNK)
+    task_count: 532
+    task_total_time_ms: 29
+    transform_count: 154
+    transform_time_ms: 17
+    transform_yield_count: 43
+    insert_time_ms: 2
+    insert_new_count: 59
+    insert_reused_count: 4
+-   query: EXPLAIN select name, team, rank() over (partition by team order by score)
+        as rnk from player qualify rank() over (partition by team order by score)
+        = 1
+    ref: rank-index.yamsql:145
+    explain: ISCAN(MV1 <,>+rank) | FILTER _._3 EQUALS promote(@c35 AS LONG) | MAP
+        (_.NAME AS NAME, _.TEAM AS TEAM, _._3 AS RNK)
+    task_count: 412
+    task_total_time_ms: 23
+    transform_count: 120
+    transform_time_ms: 14
+    transform_yield_count: 37
+    insert_time_ms: 1
+    insert_new_count: 41
+    insert_reused_count: 4
+rank-index-ties:
+-   query: EXPLAIN select name, rank() over (partition by team order by score) as
+        rnk from player where team = 'trojans' qualify rank() over (partition by team
+        order by score) >= 2
+    ref: rank-index.yamsql:159
+    explain: ISCAN(MV1 [EQUALS promote(@c22 AS STRING), [GREATER_THAN_OR_EQUALS promote(@c38
+        AS LONG)]]+rank BY_RANK) | MAP (_.NAME AS NAME, _._3 AS RNK)
+    task_count: 532
+    task_total_time_ms: 30
+    transform_count: 154
+    transform_time_ms: 18
+    transform_yield_count: 43
+    insert_time_ms: 2
+    insert_new_count: 59
+    insert_reused_count: 4
+-   query: EXPLAIN select name, rank() over (partition by team order by score) as
+        rnk from player where team = 'trojans' qualify rank() over (partition by team
+        order by score) = 2
+    ref: rank-index.yamsql:165
+    explain: ISCAN(MV1 [EQUALS promote(@c22 AS STRING), EQUALS promote(@c37 AS LONG)]+rank
+        BY_RANK) | MAP (_.NAME AS NAME, _._3 AS RNK)
+    task_count: 532
+    task_total_time_ms: 30
+    transform_count: 155
+    transform_time_ms: 18
+    transform_yield_count: 43
+    insert_time_ms: 2
+    insert_new_count: 59
+    insert_reused_count: 4
+-   query: EXPLAIN select name, rank() over (partition by team order by score) as
+        rnk from player where team = 'trojans' qualify rank() over (partition by team
+        order by score) = 1
+    ref: rank-index.yamsql:171
+    explain: ISCAN(MV1 [EQUALS promote(@c22 AS STRING), EQUALS promote(@c37 AS LONG)]+rank
+        BY_RANK) | MAP (_.NAME AS NAME, _._3 AS RNK)
+    task_count: 532
+    task_total_time_ms: 30
+    transform_count: 155
+    transform_time_ms: 18
+    transform_yield_count: 43
+    insert_time_ms: 2
+    insert_new_count: 59
+    insert_reused_count: 4
+rank-of-child-among-siblings:
+-   query: EXPLAIN select rank() over (partition by parent_id order by id) as position
+        from node where parent_id = 1
+    ref: rank-index.yamsql:181
+    explain: ISCAN(MV2 [EQUALS promote(@c20 AS LONG)]+rank BY_RANK) | MAP (_._3 AS
+        POSITION)
+    task_count: 478
+    task_total_time_ms: 18
+    transform_count: 140
+    transform_time_ms: 10
+    transform_yield_count: 40
+    insert_time_ms: 1
+    insert_new_count: 46
+    insert_reused_count: 3
+rank-index-primary-key:
+-   query: EXPLAIN select rank() over (partition by b order by c) as r from t2 where
+        b = 100
+    ref: rank-index.yamsql:192
+    explain: ISCAN(I2 [EQUALS promote(@c20 AS LONG)]+rank BY_RANK) | MAP (_._4 AS
+        R)
+    task_count: 478
+    task_total_time_ms: 19
+    transform_count: 140
+    transform_time_ms: 11
+    transform_yield_count: 40
+    insert_time_ms: 1
+    insert_new_count: 46
+    insert_reused_count: 3
+-   query: EXPLAIN select a, c, rank() over (partition by b order by c) as r from
+        t2 where b = 100
+    ref: rank-index.yamsql:197
+    explain: ISCAN(I2 [EQUALS promote(@c24 AS LONG)]+rank BY_RANK) | MAP (_.A AS A,
+        _.C AS C, _._4 AS R)
+    task_count: 478
+    task_total_time_ms: 20
+    transform_count: 140
+    transform_time_ms: 12
+    transform_yield_count: 40
+    insert_time_ms: 1
+    insert_new_count: 46
+    insert_reused_count: 3
+-   query: EXPLAIN select d, rank() over (partition by b order by c) as r from t2
+        where b = 100
+    ref: rank-index.yamsql:202
+    explain: ISCAN(I2 [EQUALS promote(@c22 AS LONG)]+rank BY_RANK) | MAP (_.D AS D,
+        _._4 AS R)
+    task_count: 478
+    task_total_time_ms: 30
+    transform_count: 140
+    transform_time_ms: 18
+    transform_yield_count: 40
+    insert_time_ms: 1
+    insert_new_count: 46
+    insert_reused_count: 3
+-   query: EXPLAIN select b, rank() over (partition by b order by c) as r from t2
+        where b = 200
+    ref: rank-index.yamsql:206
+    explain: ISCAN(I2 [EQUALS promote(@c22 AS LONG)]+rank BY_RANK) | MAP (_.B AS B,
+        _._4 AS R)
+    task_count: 478
+    task_total_time_ms: 17
+    transform_count: 140
+    transform_time_ms: 9
+    transform_yield_count: 40
+    insert_time_ms: 0
+    insert_new_count: 46
+    insert_reused_count: 3
+-   query: EXPLAIN select b, c, rank() over (partition by b order by c) as r from
+        t2 where b < 200
+    ref: rank-index.yamsql:211
+    explain: ISCAN(I2 [[LESS_THAN promote(@c24 AS LONG)]]+rank) | MAP (_.B AS B, _.C
+        AS C, _._4 AS R)
+    task_count: 478
+    task_total_time_ms: 18
+    transform_count: 140
+    transform_time_ms: 10
+    transform_yield_count: 40
+    insert_time_ms: 1
+    insert_new_count: 46
+    insert_reused_count: 3
+-   query: EXPLAIN select b, c, rank() over (partition by b order by c) as r from
+        t2 where b < 300
+    ref: rank-index.yamsql:216
+    explain: ISCAN(I2 [[LESS_THAN promote(@c24 AS LONG)]]+rank) | MAP (_.B AS B, _.C
+        AS C, _._4 AS R)
+    task_count: 478
+    task_total_time_ms: 18
+    transform_count: 140
+    transform_time_ms: 10
+    transform_yield_count: 40
+    insert_time_ms: 1
+    insert_new_count: 46
+    insert_reused_count: 3
+rank-index-partitioning:
+-   query: EXPLAIN select z, rank() over (partition by a, b, c order by z) as r from
+        t3 where a = 10 and b = 100 and c = 1000
+    ref: rank-index.yamsql:227
+    explain: ISCAN(I3 [EQUALS promote(@c26 AS LONG), EQUALS promote(@c30 AS LONG),
+        EQUALS promote(@c34 AS LONG)]+rank BY_RANK) | MAP (_.Z AS Z, _._5 AS R)
+    task_count: 478
+    task_total_time_ms: 21
+    transform_count: 140
+    transform_time_ms: 12
+    transform_yield_count: 40
+    insert_time_ms: 1
+    insert_new_count: 46
+    insert_reused_count: 3
+-   query: EXPLAIN select b, z, rank() over (partition by a, b, c order by z) as r
+        from t3 where a = 10 and b < 200
+    ref: rank-index.yamsql:232
+    explain: ISCAN(I3 [EQUALS promote(@c28 AS LONG), [LESS_THAN promote(@c32 AS LONG)]]+rank)
+        | MAP (_.B AS B, _.Z AS Z, _._5 AS R)
+    task_count: 478
+    task_total_time_ms: 19
+    transform_count: 140
+    transform_time_ms: 11
+    transform_yield_count: 40
+    insert_time_ms: 1
+    insert_new_count: 46
+    insert_reused_count: 3
+-   query: EXPLAIN select b, z, rank() over (partition by a, b, c order by z) as r
+        from t3 where a = 10 and b < 300
+    ref: rank-index.yamsql:236
+    explain: ISCAN(I3 [EQUALS promote(@c28 AS LONG), [LESS_THAN promote(@c32 AS LONG)]]+rank)
+        | MAP (_.B AS B, _.Z AS Z, _._5 AS R)
+    task_count: 478
+    task_total_time_ms: 19
+    transform_count: 140
+    transform_time_ms: 11
+    transform_yield_count: 40
+    insert_time_ms: 1
+    insert_new_count: 46
+    insert_reused_count: 3
+-   query: EXPLAIN select b, z, rank() over (partition by a, b, c order by z) as r
+        from t3 where a = 10
+    ref: rank-index.yamsql:241
+    explain: ISCAN(I3 [EQUALS promote(@c28 AS LONG)]+rank) | MAP (_.B AS B, _.Z AS
+        Z, _._5 AS R)
+    task_count: 478
+    task_total_time_ms: 19
+    transform_count: 140
+    transform_time_ms: 11
+    transform_yield_count: 40
+    insert_time_ms: 1
+    insert_new_count: 46
+    insert_reused_count: 3
+-   query: EXPLAIN select a, b, z, rank() over (partition by a, b, c order by z) as
+        r from t3
+    ref: rank-index.yamsql:245
+    explain: ISCAN(I3 <,>+rank) | MAP (_.A AS A, _.B AS B, _.Z AS Z, _._5 AS R)
+    task_count: 381
+    task_total_time_ms: 15
+    transform_count: 114
+    transform_time_ms: 9
+    transform_yield_count: 36
+    insert_time_ms: 1
+    insert_new_count: 37
+    insert_reused_count: 4

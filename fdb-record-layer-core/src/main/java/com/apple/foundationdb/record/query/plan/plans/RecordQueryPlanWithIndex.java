@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -75,6 +76,17 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan, RecordQueryPl
                                                                 @Nullable byte[] continuation,
                                                                 @Nonnull ExecuteProperties executeProperties);
 
+    /**
+     * The value reading the columns this plan's index entries carry beyond the records they point to, merged into each
+     * fetched record as it is flowed. {@code null}, the default, when the fetched record is the whole answer.
+     *
+     * @return that value, or {@code null} if the entries carry nothing beyond the record
+     */
+    @Nullable
+    default Value getIndexEntryToRecordValue() {
+        return null;
+    }
+
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CloseResource")
@@ -85,7 +97,8 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan, RecordQueryPl
         final Function<byte[], RecordCursor<IndexEntry>> entryCursorFunction =
                 nestedContinuation -> executeEntries(store, evaluationContext, nestedContinuation, executeProperties);
         return fetchIndexRecords(store, evaluationContext, entryCursorFunction, continuation, executeProperties)
-                .map(queriedRecord -> QueryResult.fromQueriedRecord(getResultValue().getResultType(), evaluationContext, queriedRecord));
+                .map(queriedRecord -> QueryResult.fromQueriedRecord(getResultValue().getResultType(),
+                        evaluationContext, queriedRecord, store, getIndexEntryToRecordValue()));
     }
 
     @Nonnull

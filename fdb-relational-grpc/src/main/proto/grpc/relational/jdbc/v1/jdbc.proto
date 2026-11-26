@@ -182,6 +182,11 @@ message Options {
   optional bool plan_cache_write_only = 36;
   optional string fixed_epoch_timestamp_millis_for_current_datetime_functions = 37;
   optional bool consider_synthetic_record_type_indexes = 38;
+  enum ExecutionMode {
+    LEGACY = 0;
+    ANSI_SQL = 1;
+  }
+  optional ExecutionMode execution_mode = 39;
 }
 
 // Request that is part of a transactional (stateful) exchange

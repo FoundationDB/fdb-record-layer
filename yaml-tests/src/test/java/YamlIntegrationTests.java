@@ -294,6 +294,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    public void maxIndex(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("max-index.yamsql");
+    }
+
+    @TestTemplate
     public void maxRows(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("maxRows.yamsql");
     }
@@ -366,6 +371,21 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void pseudoFieldClash(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("pseudo-field-clash.yamsql");
+    }
+
+    @TestTemplate
+    public void valueIndexPrimaryKey(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("value-index-primary-key.yamsql");
+    }
+
+    @TestTemplate
+    public void rankRepeatedField(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("rank-repeated-field.yamsql");
+    }
+
+    @TestTemplate
+    public void rankIndex(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("rank-index.yamsql");
     }
 
     @TestTemplate

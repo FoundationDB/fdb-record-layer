@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.query.ddl;
 
 import com.apple.foundationdb.record.FunctionNames;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
@@ -30,10 +31,12 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
+import com.apple.foundationdb.record.query.plan.cascades.WindowOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.typing.PseudoField;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.ArithmeticValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CardinalityValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.CompileTimeWindowValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.CountValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.IndexOnlyAggregateValue;
@@ -50,6 +53,7 @@ import com.apple.foundationdb.relational.recordlayer.query.FieldValueTrieNode;
 import com.apple.foundationdb.relational.util.Assert;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
@@ -73,8 +77,9 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
  * reports the type of index that can store it.
  *
  * <p>A supported kind of value gets a visitation method; {@link #evaluateAtValue} rejects the rest. The grouping of an
- * aggregate index is everything in the projection other than the single aggregate. Sort direction comes from the caller,
- * as an ordering function per column.
+ * aggregate index is everything in the projection other than the single aggregate, while a window function brings its
+ * own grouping in its {@code PARTITION BY} columns. Sort direction comes from the caller, as an ordering function per
+ * column.
  *
  * <p><b>Collapsing.</b> Key columns whose field paths share a prefix can be written in either of two ways. Collapsed, the
  * shared prefix is navigated once and the columns hang underneath it; uncollapsed, every column is navigated from the
@@ -124,6 +129,14 @@ final class ValueToKeyExpressionVisitor implements SimpleValueVisitor<KeyExpress
      */
     @Nonnull
     private String indexType = IndexTypes.VALUE;
+
+    /**
+     * The options the index needs beyond its type, keyed as {@link IndexOptions} names. Empty unless a column calls for
+     * one: a window function is stored by a skip list whose counting behaviour the function's semantics pin down, and
+     * that is an option rather than part of the key.
+     */
+    @Nonnull
+    private Map<String, String> indexOptions = ImmutableMap.of();
 
     /**
      * Whether a run of adjacent field paths may be collapsed under its shared prefix, as {@code r.s.a, r.s.b} into
@@ -178,7 +191,8 @@ final class ValueToKeyExpressionVisitor implements SimpleValueVisitor<KeyExpress
                                    @Nonnull final ExtremumEverStorage extremumEverStorage,
                                    final boolean allowCollapsing) {
         final var visitor = new ValueToKeyExpressionVisitor(orderingFunctions, extremumEverStorage, allowCollapsing);
-        return new Result(Objects.requireNonNull(value.acceptVisitor(visitor)), visitor.indexType);
+        return new Result(Objects.requireNonNull(value.acceptVisitor(visitor)), visitor.indexType,
+                visitor.indexOptions);
     }
 
     /**
@@ -186,8 +200,10 @@ final class ValueToKeyExpressionVisitor implements SimpleValueVisitor<KeyExpress
      *
      * @param keyExpression the key the index is built from
      * @param indexType the type of index that can store it
+     * @param indexOptions the options that index needs, keyed as {@link IndexOptions} names, empty if none
      */
-    public record Result(@Nonnull KeyExpression keyExpression, @Nonnull String indexType) {
+    public record Result(@Nonnull KeyExpression keyExpression, @Nonnull String indexType,
+                         @Nonnull Map<String, String> indexOptions) {
     }
 
     //
@@ -198,6 +214,12 @@ final class ValueToKeyExpressionVisitor implements SimpleValueVisitor<KeyExpress
     @Override
     public KeyExpression visitRecordConstructorValue(@Nonnull final RecordConstructorValue element) {
         final var columns = Values.deconstructRecord(element);
+        if (columns.stream().anyMatch(CompileTimeWindowValue.class::isInstance)) {
+            // a window function already carries its own grouping, so nothing can be concatenated to it
+            Assert.thatUnchecked(columns.size() == 1, ErrorCode.UNSUPPORTED_OPERATION,
+                    "Unsupported index definition, a window function has to be the only column of the projection");
+            return visit(columns.get(0));
+        }
         final var aggregates = columns.stream()
                 .filter(IndexableAggregateValue.class::isInstance)
                 .collect(ImmutableList.toImmutableList());
@@ -309,6 +331,28 @@ final class ValueToKeyExpressionVisitor implements SimpleValueVisitor<KeyExpress
         final var arguments = (ThenKeyExpression)((FunctionKeyExpression)groupedValue).getArguments();
         final var groupedColumn = (FieldKeyExpression)arguments.getChildren().get(0);
         return grouping == null ? groupedColumn.ungrouped() : groupedColumn.groupBy(grouping);
+    }
+
+    /**
+     * A window function takes the same shape as an aggregate: the columns it is computed over, grouped by the
+     * {@code PARTITION BY} columns.
+     */
+    @Nonnull
+    @Override
+    public KeyExpression visitCompileTimeWindowValue(@Nonnull final CompileTimeWindowValue element) {
+        indexType = indexTypeOf(element.getWindowFunction());
+        indexOptions = indexOptionsOf(element.getWindowFunction());
+        final var partitioningValues = element.getPartitioningValues();
+        //
+        // The grouped part of the key expression is what the window orders by, not an argument to the function:
+        // "[TEAM, SCORE] group 1" reads as "partition by TEAM, order by SCORE". So it comes from the ORDER BY of the
+        // OVER clause, which the window value carries as its ordering parts.
+        //
+        final var orderingValues = element.getOrderingParts().stream()
+                .map(WindowOrderingPart::getValue)
+                .collect(ImmutableList.toImmutableList());
+        return grouped(combine(orderingValues),
+                partitioningValues.isEmpty() ? null : combine(partitioningValues));
     }
 
     @Nonnull
@@ -491,13 +535,53 @@ final class ValueToKeyExpressionVisitor implements SimpleValueVisitor<KeyExpress
         final var child = Iterables.getOnlyElement(aggregateValue.getChildren());
         Assert.thatUnchecked(child instanceof FieldValue,
                 "Unsupported index definition, expecting a column argument in aggregation function");
-        final var groupedValue = visit(child);
-        Assert.thatUnchecked(groupedValue instanceof FieldKeyExpression || groupedValue instanceof ThenKeyExpression);
-        if (groupedValue instanceof final FieldKeyExpression field) {
-            return groupingExpression == null ? field.ungrouped() : field.groupBy(groupingExpression);
+        return grouped(Objects.requireNonNull(visit(child)), groupingExpression);
+    }
+
+    /**
+     * Groups the given columns by the grouping ones, or leaves them ungrouped when there are none.
+     */
+    @Nonnull
+    private static KeyExpression grouped(@Nonnull final KeyExpression groupedColumns,
+                                         @Nullable final KeyExpression grouping) {
+        Assert.thatUnchecked(groupedColumns instanceof FieldKeyExpression || groupedColumns instanceof ThenKeyExpression,
+                "Unsupported index definition, expecting columns to group");
+        if (groupedColumns instanceof final FieldKeyExpression field) {
+            return grouping == null ? field.ungrouped() : field.groupBy(grouping);
         }
-        final var then = (ThenKeyExpression)groupedValue;
-        return groupingExpression == null ? then.ungrouped() : then.groupBy(groupingExpression);
+        final var then = (ThenKeyExpression)groupedColumns;
+        return grouping == null ? then.ungrouped() : then.groupBy(grouping);
+    }
+
+    /**
+     * The type of index that can maintain a window function.
+     */
+    @Nonnull
+    private static String indexTypeOf(@Nonnull final CompileTimeWindowValue.WindowFunction windowFunction) {
+        return switch (windowFunction) {
+            case RANK -> IndexTypes.RANK;
+        };
+    }
+
+    /**
+     * What a window function asks of the index beyond its type.
+     *
+     * <p>A rank index ranks through a {@link com.apple.foundationdb.async.RankedSet}, and whether that set counts a
+     * duplicate score separately is what decides which SQL function it computes. SQL {@code RANK()} counts the rows
+     * before a value, so two rows tied at the front put the next row at rank 2; the ranked set does that only with
+     * {@link IndexOptions#RANK_COUNT_DUPLICATES} set, because left off a duplicate score is not inserted at all and
+     * ranks count distinct values instead -- which is {@code DENSE_RANK}. The two functions therefore need opposite
+     * settings of an option that cannot be changed after the index is created, so they cannot share one index.
+     *
+     * @param windowFunction the function the column computes
+     *
+     * @return the options its index needs, keyed as {@link IndexOptions} names
+     */
+    @Nonnull
+    private static Map<String, String> indexOptionsOf(@Nonnull final CompileTimeWindowValue.WindowFunction windowFunction) {
+        return switch (windowFunction) {
+            case RANK -> ImmutableMap.of(IndexOptions.RANK_COUNT_DUPLICATES, Boolean.TRUE.toString());
+        };
     }
 
     /**

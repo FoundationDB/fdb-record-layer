@@ -30,6 +30,7 @@ message BasicRankedRecord {
   required string name = 1 [(field).primary_key = true];
   optional int32 score = 2 [(field).index = { type: "rank" }];
   optional string gender = 3;
+  optional string description = 4;
 }
 
 message NestedRankedRecord {
@@ -58,9 +59,25 @@ message RepeatedRankedRecord {
   repeated int32 score = 2;
 }
 
+// Two nested types, where an index partitions by a column of one and ranks a column of the other, so that the
+// entry covers part of each. The primary key is set in test (RankIndexTest).
+message TwoNestedRankedRecord {
+  message Nt1 {
+    required string a = 1;
+    required int32 b = 2;
+  }
+  message Nt2 {
+    optional string c = 1;
+    optional int32 d = 2;
+  }
+  optional Nt1 x = 1;
+  optional Nt2 y = 2;
+}
+
 message RecordTypeUnion {
   optional BasicRankedRecord _BasicRankedRecord = 1;
   optional NestedRankedRecord _NestedRankedRecord = 2;
   optional HeaderRankedRecord _HeaderRankedRecord = 3;
   optional RepeatedRankedRecord _RepeatedRankedRecord = 4;
+  optional TwoNestedRankedRecord _TwoNestedRankedRecord = 5;
 }

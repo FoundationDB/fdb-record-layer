@@ -1,7 +1,7 @@
-é
+ç
 P
-arrays-cardinality-tests4EXPLAIN SELECT CARDINALITY("int_arr") FROM "tab1_nn"π
-êëÅÍ( ◊¥=(0Ó´8@7SCAN([IS tab1_nn]) | MAP (cardinality(_.int_arr) AS _0)„
+arrays-cardinality-tests4EXPLAIN SELECT CARDINALITY("int_arr") FROM "tab1_nn"∏
+íæ≠K* ≈˚(0˝°8@7SCAN([IS tab1_nn]) | MAP (cardinality(_.int_arr) AS _0)„
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -14,7 +14,7 @@ digraph G {
 }Ñ
 M
 arrays-cardinality-tests1EXPLAIN SELECT CARDINALITY("int_arr") FROM "tab1"≤
-êÑÌ\( Òé+(0¶ª8@4SCAN([IS tab1]) | MAP (cardinality(_.int_arr) AS _0)‡
+íÄ™j* ≠Ù1(0ºâ8@4SCAN([IS tab1]) | MAP (cardinality(_.int_arr) AS _0)‡
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -27,7 +27,7 @@ digraph G {
 }Ù
 >
 arrays-cardinality-index-testsEXPLAIN SELECT * FROM "tab1"±
-ä¡ÙB* Ö«(0ñè8
+å¿¡;, ˇû(0û‚8
 @SCAN([IS tab1])Ñdigraph G {
   fontname=courier;
   rankdir=BT;
@@ -38,7 +38,7 @@ digraph G {
 }€
 I
 arrays-cardinality-index-tests'EXPLAIN SELECT * FROM "tab1_indexed_nn"ç
-€Ò≤†> √≈U(0¨≥8@ ISCAN(tab1_indexed_nn_index <,>)Œdigraph G {
+›Çﬁî@ ·±O(0¥¡8@ ISCAN(tab1_indexed_nn_index <,>)Œdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -48,7 +48,7 @@ I
 }“
 F
 arrays-cardinality-index-tests$EXPLAIN SELECT * FROM "tab1_indexed"á
-€ªÇâ> á‚D(0∂•8@ISCAN(tab1_indexed_index <,>)Àdigraph G {
+›∆ºÇ@ µŒA(0æÎ8@ISCAN(tab1_indexed_index <,>)Àdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -58,7 +58,7 @@ F
 }€
 L
 arrays-cardinality-index-tests*EXPLAIN SELECT "id" FROM "tab1_indexed_nn"ä
-ÔÍÙµ; «¨O(0≠ç	8@GCOVERING(tab1_indexed_nn_index <,> -> [id: KEY:[2]]) | MAP (_.id AS id)§
+Òç‘°= ÍÍE(0äÛ8@GCOVERING(tab1_indexed_nn_index <,> -> [id: KEY:[2]]) | MAP (_.id AS id)§
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -71,7 +71,7 @@ digraph G {
 }“
 I
 arrays-cardinality-index-tests'EXPLAIN SELECT "id" FROM "tab1_indexed"Ñ
-Ô±´∆; ¶Œ^(0≈Ÿ	8@DCOVERING(tab1_indexed_index <,> -> [id: KEY:[2]]) | MAP (_.id AS id)°
+ÒÉÇ•= îÆF(0Ö∫8@DCOVERING(tab1_indexed_index <,> -> [id: KEY:[2]]) | MAP (_.id AS id)°
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -84,8 +84,7 @@ digraph G {
 }´
 n
 arrays-cardinality-index-testsLEXPLAIN SELECT "id", CARDINALITY("int_arr") AS "card" FROM "tab1_indexed_nn"∏
-”•ﬂ∂7 ÃŒQ(0öª
-8@SISCAN(tab1_indexed_nn_index <,>) | MAP (_.id AS id, cardinality(_.int_arr) AS card)∆
+’ô†ò9 †¢D(0¢›8@SISCAN(tab1_indexed_nn_index <,>) | MAP (_.id AS id, cardinality(_.int_arr) AS card)∆
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -98,7 +97,7 @@ digraph G {
 }¢
 k
 arrays-cardinality-index-testsIEXPLAIN SELECT "id", CARDINALITY("int_arr") AS "card" FROM "tab1_indexed"≤
-”óÖ¢7 √âI(0Ó≥8@PISCAN(tab1_indexed_index <,>) | MAP (_.id AS id, cardinality(_.int_arr) AS card)√
+’æñô9 ¨∫D(0ÿØ8@PISCAN(tab1_indexed_index <,>) | MAP (_.id AS id, cardinality(_.int_arr) AS card)√
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -111,7 +110,7 @@ digraph G {
 }∫
 _
 arrays-cardinality-index-tests=EXPLAIN SELECT "id" FROM "tab1_indexed_nn" ORDER BY "id" DESC÷
-úæ˛l, ÒÜ<(0±ç8@-SCAN([IS tab1_indexed_nn]) | MAP (_.id AS id)ãdigraph G {
+û°ﬂp. ‰Â>(0ÃÈ8@-SCAN([IS tab1_indexed_nn]) | MAP (_.id AS id)ãdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -123,7 +122,7 @@ _
 }±
 \
 arrays-cardinality-index-tests:EXPLAIN SELECT "id" FROM "tab1_indexed" ORDER BY "id" DESC–
-úËÏi, ÛÓ9(0äå8@*SCAN([IS tab1_indexed]) | MAP (_.id AS id)àdigraph G {
+ûÓÆa. •Ø2(0√œ8@*SCAN([IS tab1_indexed]) | MAP (_.id AS id)àdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -135,7 +134,7 @@ _
 }ø
 q
 arrays-cardinality-index-testsOEXPLAIN SELECT "id" FROM "tab1_indexed_nn" ORDER BY CARDINALITY("int_arr") DESC…
-Ò∏†A ËßI(0ê◊8@lISCAN(tab1_indexed_nn_index <,> REVERSE) | MAP (_.id AS id, cardinality(_.int_arr) AS _1) | MAP (_.id AS id)ædigraph G {
+Ù∆Ì≥E Å»N(0ô¯8@lISCAN(tab1_indexed_nn_index <,> REVERSE) | MAP (_.id AS id, cardinality(_.int_arr) AS _1) | MAP (_.id AS id)ædigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -149,7 +148,7 @@ q
 }∂
 n
 arrays-cardinality-index-testsLEXPLAIN SELECT "id" FROM "tab1_indexed" ORDER BY CARDINALITY("int_arr") DESC√
-≠ßµA π˚N(0ò•8@iISCAN(tab1_indexed_index <,> REVERSE) | MAP (_.id AS id, cardinality(_.int_arr) AS _1) | MAP (_.id AS id)ªdigraph G {
+ÙÁƒ¢E ÀèF(0Ó´8@iISCAN(tab1_indexed_index <,> REVERSE) | MAP (_.id AS id, cardinality(_.int_arr) AS _1) | MAP (_.id AS id)ªdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -163,7 +162,7 @@ n
 }Ã
 é
 arrays-cardinality-index-testslEXPLAIN SELECT CARDINALITY("int_arr") AS "card", "id" FROM "tab1_indexed_nn" ORDER BY CARDINALITY("int_arr")∏
-¥÷˘ï1 ï⁄O(0‡ë8@SISCAN(tab1_indexed_nn_index <,>) | MAP (cardinality(_.int_arr) AS card, _.id AS id)∆
+∂’Åî3 ùÓG(0∞≤8@SISCAN(tab1_indexed_nn_index <,>) | MAP (cardinality(_.int_arr) AS card, _.id AS id)∆
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -176,7 +175,7 @@ digraph G {
 }√
 ã
 arrays-cardinality-index-testsiEXPLAIN SELECT CARDINALITY("int_arr") AS "card", "id" FROM "tab1_indexed" ORDER BY CARDINALITY("int_arr")≤
-¥£Éê1 ¿“H(0∂Ã8@PISCAN(tab1_indexed_index <,>) | MAP (cardinality(_.int_arr) AS card, _.id AS id)√
+∂∑∞ô3 ØÎK(0îÚ8@PISCAN(tab1_indexed_index <,>) | MAP (cardinality(_.int_arr) AS card, _.id AS id)√
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -189,7 +188,7 @@ digraph G {
 }®
 m
 arrays-cardinality-index-testsKEXPLAIN SELECT "id" FROM "tab1_indexed_nn" WHERE CARDINALITY("int_arr") = 1∂
-á¸µñh êÆm(!0«¸8*@aCOVERING(tab1_indexed_nn_index [EQUALS promote(@c10 AS INT)] -> [id: KEY:[2]]) | MAP (_.id AS id)∂
+ãÊà∂l ÕË|(!0Ö⁄8*@aCOVERING(tab1_indexed_nn_index [EQUALS promote(@c10 AS INT)] -> [id: KEY:[2]]) | MAP (_.id AS id)∂
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -202,7 +201,7 @@ digraph G {
 }ü
 j
 arrays-cardinality-index-testsHEXPLAIN SELECT "id" FROM "tab1_indexed" WHERE CARDINALITY("int_arr") = 1∞
-áìåôh ‰Ón(!0µÀ8*@^COVERING(tab1_indexed_index [EQUALS promote(@c10 AS INT)] -> [id: KEY:[2]]) | MAP (_.id AS id)≥
+ãˇ°æl ñè(!0…±8*@^COVERING(tab1_indexed_index [EQUALS promote(@c10 AS INT)] -> [id: KEY:[2]]) | MAP (_.id AS id)≥
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -215,7 +214,7 @@ digraph G {
 }É
 n
 arrays-cardinality-index-testsLEXPLAIN SELECT "id" FROM "tab1_indexed" WHERE CARDINALITY("int_arr") IS NULLê
-˘≥¥—c Áñä(0ëœ8&@PCOVERING(tab1_indexed_index [[null],[null]] -> [id: KEY:[2]]) | MAP (_.id AS id)†
+˚£Ï‰e ´˝ä(0µΩ8&@PCOVERING(tab1_indexed_index [[null],[null]] -> [id: KEY:[2]]) | MAP (_.id AS id)†
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -228,7 +227,7 @@ digraph G {
 }Å
 r
 arrays-cardinality-index-testsPEXPLAIN SELECT "id" FROM "tab1_indexed" WHERE CARDINALITY("int_arr") IS NOT NULLä
-˘¥…´c „˘Å(0çÍ8&@JCOVERING(tab1_indexed_index ([null],> -> [id: KEY:[2]]) | MAP (_.id AS id)†
+˚≤Àıe ÏÈò(0ﬁ∂8&@JCOVERING(tab1_indexed_index ([null],> -> [id: KEY:[2]]) | MAP (_.id AS id)†
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -238,10 +237,10 @@ digraph G {
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">tab1_indexed_index</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(INT AS id, ARRAY(INT) AS int_arr)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q52> label="q52" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}å
+}ã
 q
-arrays-cardinality-index-testsOEXPLAIN SELECT "id" FROM "tab1_indexed_nn" WHERE CARDINALITY("int_arr") IS NULLñ
-˘˜í√c ˘ˆâ(0â“8&@SCOVERING(tab1_indexed_nn_index [[null],[null]] -> [id: KEY:[2]]) | MAP (_.id AS id)£
+arrays-cardinality-index-testsOEXPLAIN SELECT "id" FROM "tab1_indexed_nn" WHERE CARDINALITY("int_arr") IS NULLï
+˚µ€üe Ã¸u(0Â≤8&@SCOVERING(tab1_indexed_nn_index [[null],[null]] -> [id: KEY:[2]]) | MAP (_.id AS id)£
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -254,7 +253,7 @@ digraph G {
 }ä
 u
 arrays-cardinality-index-testsSEXPLAIN SELECT "id" FROM "tab1_indexed_nn" WHERE CARDINALITY("int_arr") IS NOT NULLê
-˘⁄•«c Å∏Ü(0ö≥8&@MCOVERING(tab1_indexed_nn_index ([null],> -> [id: KEY:[2]]) | MAP (_.id AS id)£
+˚ÑÇÿe ¿∂í(0ˇ≥8&@MCOVERING(tab1_indexed_nn_index ([null],> -> [id: KEY:[2]]) | MAP (_.id AS id)£
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -267,7 +266,7 @@ digraph G {
 }„
 e
 arrays-cardinality-index-testsCEXPLAIN SELECT "id" FROM "tab1" WHERE CARDINALITY("int_arr") = NULL˘
-⁄ìò¢@ §·F(0À†	8@0SCAN([IS tab1]) | FILTER null | MAP (_.id AS id)™digraph G {
+ﬁ˛ü≥D ÄìM(0¯ﬁ8@0SCAN([IS tab1]) | FILTER null | MAP (_.id AS id)™digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -281,7 +280,7 @@ e
 }Ï
 h
 arrays-cardinality-index-testsFEXPLAIN SELECT "id" FROM "tab1_nn" WHERE CARDINALITY("int_arr") = NULLˇ
-⁄ÊÜô@ •†@(0®Ê8@3SCAN([IS tab1_nn]) | FILTER null | MAP (_.id AS id)≠digraph G {
+ﬁÇÎñD ÍÈ<(0ﬁ∆8@3SCAN([IS tab1_nn]) | FILTER null | MAP (_.id AS id)≠digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -295,7 +294,7 @@ h
 }Ç
 m
 arrays-cardinality-index-testsKEXPLAIN SELECT "id" FROM "tab1_indexed" WHERE CARDINALITY("int_arr") = NULLê
-á·Ëàh µße(!0›≈8*@NCOVERING(tab1_indexed_index [EQUALS NULL] -> [id: KEY:[2]]) | MAP (_.id AS id)£
+ãÿƒ¨l óÇz(!0ô∫8*@NCOVERING(tab1_indexed_index [EQUALS NULL] -> [id: KEY:[2]]) | MAP (_.id AS id)£
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -308,7 +307,7 @@ digraph G {
 }ã
 p
 arrays-cardinality-index-testsNEXPLAIN SELECT "id" FROM "tab1_indexed_nn" WHERE CARDINALITY("int_arr") = NULLñ
-á¥≈Ïh Ï‚U(!0¸˜8*@QCOVERING(tab1_indexed_nn_index [EQUALS NULL] -> [id: KEY:[2]]) | MAP (_.id AS id)¶
+ãé…íl ùÕi(!0»ı8*@QCOVERING(tab1_indexed_nn_index [EQUALS NULL] -> [id: KEY:[2]]) | MAP (_.id AS id)¶
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -321,7 +320,8 @@ digraph G {
 }ö
 ∞
 arrays-cardinality-index-testsçEXPLAIN SELECT CARDINALITY("int_arr") AS "card", "id" FROM "tab1_indexed_nn" WHERE CARDINALITY("int_arr") = 1 ORDER BY CARDINALITY("int_arr")‰
-êπâÃM ∑ÍS(0ÑÚ8@mISCAN(tab1_indexed_nn_index [EQUALS promote(@c17 AS INT)]) | MAP (cardinality(_.int_arr) AS card, _.id AS id)ÿ
+îÑ∫ÂQ ¨Ñ`(0É¥
+8@mISCAN(tab1_indexed_nn_index [EQUALS promote(@c17 AS INT)]) | MAP (cardinality(_.int_arr) AS card, _.id AS id)ÿ
 digraph G {
   fontname=courier;
   rankdir=BT;
@@ -334,7 +334,7 @@ digraph G {
 }∂
 ¿
 arrays-cardinality-index-testsùEXPLAIN SELECT CARDINALITY("struct"."int_arr") AS "card", "id" FROM "tab2" WHERE CARDINALITY("struct"."int_arr") = 1 ORDER BY CARDINALITY("struct"."int_arr")
-ê˚Ú∆M ô¥R(0Ô¿8@iISCAN(tab2_index [EQUALS promote(@c21 AS INT)]) | MAP (cardinality(_.struct.int_arr) AS card, _.id AS id)Ë
+î‰ºÚQ å‹f(0Œß8@iISCAN(tab2_index [EQUALS promote(@c21 AS INT)]) | MAP (cardinality(_.struct.int_arr) AS card, _.id AS id)Ë
 digraph G {
   fontname=courier;
   rankdir=BT;
