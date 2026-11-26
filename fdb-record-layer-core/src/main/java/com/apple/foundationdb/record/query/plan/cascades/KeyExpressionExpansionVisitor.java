@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWit
 import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.common.base.Verify;
@@ -177,18 +178,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 // Note: `Concatenate` and `None` can use the graph expansion logic. Both just access the field directly
                 // via `FieldValue.ofFieldNames()`.
                 value = state.registerValue(FieldValue.ofFieldNames(baseQuantifier.getFlowedObjectValue(), fieldNames));
-                if (state.isSelectStar()) {
-                    if (state.isKey() && !state.isInternalExpansion()) {
-                        return GraphExpansion.ofPlaceholder(value.asPlaceholder(newParameterAlias()));
-                    }
-                    return GraphExpansion.empty();
-                } else {
-                    column = Column.unnamedOf(value);
-                    if (state.isKey() && !state.isInternalExpansion()) {
-                        return GraphExpansion.ofResultColumnAndPlaceholder(column, value.asPlaceholder(newParameterAlias()));
-                    }
-                    return GraphExpansion.ofResultColumn(column);
-                }
+                return expandPosition(state, value);
             default:
                 throw new UnsupportedOperationException();
         }
@@ -467,7 +457,50 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
     @Nonnull
     @Override
     public GraphExpansion visitExpression(@Nonnull final ListKeyExpression listKeyExpression) {
-        throw new UnsupportedOperationException("visitor method for this key expression is not implemented");
+        final ImmutableList.Builder<GraphExpansion> expandedPredicatesBuilder = ImmutableList.builder();
+        final VisitorState state = getCurrentState();
+        int currentOrdinal = state.getCurrentOrdinal();
+        for (KeyExpression child : listKeyExpression.getChildren()) {
+            final VisitorState childState = state.withCurrentOrdinal(currentOrdinal);
+            final GraphExpansion childExpansion = pop(child.expand(push(childState.forFunctionalExpansion())));
+            if (!childExpansion.getQuantifiers().isEmpty()) {
+                throw new UnsupportedOperationException("cannot expand a list whose child introduces quantifiers");
+            }
+            final var childValues = childExpansion.getResultColumns()
+                    .stream()
+                    .map(Column::getValue)
+                    .collect(ImmutableList.toImmutableList());
+            // a list places its child in a nested tuple, so the value of the position is the record of the child's
+            // column values -- a record of one for a single-column child, as that tuple is nested all the same
+            final var value = childState.registerValue(RecordConstructorValue.ofUnnamed(childValues));
+            // the position is then expanded like that of a scalar field, under the list's own state
+            expandedPredicatesBuilder.add(expandPosition(childState, value));
+            currentOrdinal++;
+        }
+        return GraphExpansion.ofOthers(expandedPredicatesBuilder.build());
+    }
+
+    /**
+     * Expands a single position of a key expression whose value has already been registered. A key position outside
+     * an internal expansion is sargable and gets a placeholder, and the value is returned as a result column unless
+     * the expansion is select-star, whose result is the whole base record instead.
+     *
+     * @param state the state the position is visited in
+     * @param value the value of the position
+     * @return the expansion of the position
+     */
+    @Nonnull
+    private static GraphExpansion expandPosition(@Nonnull final VisitorState state, @Nonnull final Value value) {
+        final boolean isSargable = state.isKey() && !state.isInternalExpansion();
+        if (state.isSelectStar()) {
+            return isSargable
+                    ? GraphExpansion.ofPlaceholder(value.asPlaceholder(newParameterAlias()))
+                    : GraphExpansion.empty();
+        }
+        final var column = Column.unnamedOf(value);
+        return isSargable
+                ? GraphExpansion.ofResultColumnAndPlaceholder(column, value.asPlaceholder(newParameterAlias()))
+                : GraphExpansion.ofResultColumn(column);
     }
 
     /**

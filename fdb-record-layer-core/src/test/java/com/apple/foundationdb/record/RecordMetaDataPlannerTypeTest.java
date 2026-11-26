@@ -23,6 +23,9 @@ package com.apple.foundationdb.record;
 import com.apple.foundationdb.record.metadata.JoinedRecordTypeBuilder;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.SyntheticRecordType;
+import com.apple.foundationdb.record.metadata.UnnestedRecordType;
+import com.apple.foundationdb.record.metadata.UnnestedRecordTypeBuilder;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.cascades.typing.PseudoField;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import org.junit.jupiter.api.Test;
@@ -47,6 +50,8 @@ class RecordMetaDataPlannerTypeTest {
     private static final String OTHER = "OtherRecord";
     @Nonnull
     private static final String JOINED = "Joined";
+    @Nonnull
+    private static final String UNNESTED = "Unnested";
 
     @Test
     void getPlannerTypeForRecordTypeDescribesASyntheticType() {
@@ -65,6 +70,27 @@ class RecordMetaDataPlannerTypeTest {
         assertThat(plannerType).isEqualTo(Type.Record.fromDescriptor(type.getDescriptor()));
         assertThat(fieldNames(plannerType)).containsExactly("outer", "other");
         assertThat(metaData.getPlannerTypeForRecordTypes(List.of(type))).isEqualTo(plannerType);
+    }
+
+    @Test
+    void getPlannerTypeForRecordTypeDescribesAnUnnestedType() {
+        final RecordMetaData metaData = metaData(metaDataBuilder -> {
+            final UnnestedRecordTypeBuilder typeBuilder = metaDataBuilder.addUnnestedRecordType(UNNESTED);
+            typeBuilder.addParentConstituent("parent", metaDataBuilder.getRecordType(OUTER));
+            final KeyExpression entries = field("map").nest(field("entry", KeyExpression.FanType.FanOut));
+            typeBuilder.addNestedConstituent("entry_one", TestRecordsNestedMapProto.MapRecord.Entry.getDescriptor(),
+                    "parent", entries);
+            typeBuilder.addNestedConstituent("entry_two", TestRecordsNestedMapProto.MapRecord.Entry.getDescriptor(),
+                    "parent", entries);
+        });
+        final SyntheticRecordType<?> type = metaData.getSyntheticRecordType(UNNESTED);
+
+        // Besides one field per constituent, an unnested type has the positions of its nested constituents.
+        assertThatThrownBy(() -> metaData.getPlannerType(UNNESTED)).isInstanceOf(MetaDataException.class);
+        final Type.Record plannerType = metaData.getPlannerTypeForRecordType(type);
+        assertThat(plannerType).isEqualTo(Type.Record.fromDescriptor(type.getDescriptor()));
+        assertThat(fieldNames(plannerType))
+                .containsExactly("parent", "entry_one", "entry_two", UnnestedRecordType.POSITIONS_FIELD);
     }
 
     @Test
