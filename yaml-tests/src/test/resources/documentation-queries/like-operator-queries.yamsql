@@ -5,6 +5,7 @@ schema_template:
     create index category_idx as select category from products order by category
     create index name_idx as select name from products order by name
     create table files(id bigint, filename string, primary key(id))
+    create table name_patterns(id bigint, pattern string, escape_char string, primary key(id))
 ---
 setup:
   steps:
@@ -20,6 +21,10 @@ setup:
         (1, 'report_2024.pdf'),
         (2, 'data%summary.txt'),
         (3, 'test_file.csv')
+    - query: insert into name_patterns values
+        (1, 'final%', null),
+        (2, '%\_%', '\'),
+        (3, null, null)
 ---
 test_block:
   name: like-operator-tests
@@ -131,4 +136,49 @@ test_block:
          WHERE filename LIKE 'rfrirnrarlr_rrrerprorrrtr.rprdrf' ESCAPE 'r'
       - supported_version: 4.13.1.0
       - error: '22025'
+---
+test_block:
+  name: like-operator-expression-tests
+  preset: single_repetition_ordered
+  options:
+    supported_version: !current_version
+  tests:
+    # Patterns from columns (uses the files inserted by the previous block)
+    -
+      - query:
+         SELECT p.id AS pattern_id, f.filename
+         FROM name_patterns AS p, files AS f
+         WHERE f.filename LIKE p.pattern ESCAPE p.escape_char
+      - unorderedResult: [
+         {pattern_id: 1, filename: "final_report.pdf"},
+         {pattern_id: 1, filename: "final-report.pdf"},
+         {pattern_id: 1, filename: "final\\-report.pdf"},
+         {pattern_id: 2, filename: "report_2024.pdf"},
+         {pattern_id: 2, filename: "test_file.csv"},
+         {pattern_id: 2, filename: "final_report.pdf"},
+        ]
+
+    # NULL pattern
+    -
+      - query:
+         SELECT filename
+         FROM files
+         WHERE filename LIKE NULL
+      - result: []
+    -
+      - query:
+         SELECT filename
+         FROM files
+         WHERE filename NOT LIKE NULL
+      - result: []
+
+    # NULL escape character
+    -
+      - query:
+         SELECT filename
+         FROM files
+         WHERE filename LIKE 'final\_report.pdf' ESCAPE NULL
+      - result: [
+         {"final\\-report.pdf"},
+        ]
 ...
