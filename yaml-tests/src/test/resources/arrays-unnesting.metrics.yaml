@@ -2,10 +2,10 @@ unnamed-3:
 -   query: EXPLAIN SELECT "id", "items" FROM T1
     ref: arrays-unnesting.yamsql:93
     explain: SCAN([IS T1])
-    task_count: 158
-    task_total_time_ms: 4
-    transform_count: 45
-    transform_time_ms: 1
+    task_count: 160
+    task_total_time_ms: 9
+    transform_count: 47
+    transform_time_ms: 4
     transform_yield_count: 15
     insert_time_ms: 0
     insert_new_count: 13
@@ -13,10 +13,10 @@ unnamed-3:
 -   query: EXPLAIN SELECT "id", "items" FROM "T1_indexed"
     ref: arrays-unnesting.yamsql:101
     explain: SCAN([IS T1_indexed])
-    task_count: 162
-    task_total_time_ms: 7
-    transform_count: 47
-    transform_time_ms: 1
+    task_count: 164
+    task_total_time_ms: 8
+    transform_count: 49
+    transform_time_ms: 4
     transform_yield_count: 17
     insert_time_ms: 0
     insert_new_count: 13
@@ -24,10 +24,10 @@ unnamed-3:
 -   query: EXPLAIN SELECT "items" FROM "T1_indexed"
     ref: arrays-unnesting.yamsql:109
     explain: SCAN([IS T1_indexed]) | MAP (_.items AS items)
-    task_count: 148
-    task_total_time_ms: 4
-    transform_count: 42
-    transform_time_ms: 1
+    task_count: 150
+    task_total_time_ms: 12
+    transform_count: 44
+    transform_time_ms: 4
     transform_yield_count: 15
     insert_time_ms: 0
     insert_new_count: 12
@@ -37,10 +37,10 @@ unnamed-3:
     ref: arrays-unnesting.yamsql:131
     explain: SCAN([IS T1_indexed]) | FLATMAP q0 -> { TF explode(q0.items) AS q1 RETURN
         (q0.id AS id, q1._0 AS item) }
-    task_count: 168
-    task_total_time_ms: 13
-    transform_count: 55
-    transform_time_ms: 8
+    task_count: 170
+    task_total_time_ms: 12
+    transform_count: 57
+    transform_time_ms: 6
     transform_yield_count: 18
     insert_time_ms: 0
     insert_new_count: 15
@@ -50,10 +50,10 @@ unnamed-3:
     ref: arrays-unnesting.yamsql:147
     explain: SCAN([IS T1_indexed]) | FLATMAP q0 -> { TF explode(q0.items) AS q1 RETURN
         (q0.id AS id, q1._0 AS item) }
-    task_count: 193
-    task_total_time_ms: 23
-    transform_count: 60
-    transform_time_ms: 13
+    task_count: 198
+    task_total_time_ms: 17
+    transform_count: 65
+    transform_time_ms: 9
     transform_yield_count: 20
     insert_time_ms: 0
     insert_new_count: 20
@@ -63,12 +63,12 @@ unnamed-3:
     ref: arrays-unnesting.yamsql:213
     explain: 'COVERING(T5_index [EQUALS promote(@c20 AS LONG)] -> [id: KEY:[2]]) |
         MAP (_.id AS id)'
-    task_count: 457
-    task_total_time_ms: 83
-    transform_count: 136
-    transform_time_ms: 55
+    task_count: 461
+    task_total_time_ms: 55
+    transform_count: 140
+    transform_time_ms: 35
     transform_yield_count: 34
-    insert_time_ms: 2
+    insert_time_ms: 0
     insert_new_count: 44
     insert_reused_count: 0
 -   query: EXPLAIN SELECT "id" FROM "T5" AS "row" WHERE EXISTS (SELECT 1 FROM "row"."numbers"
@@ -77,12 +77,12 @@ unnamed-3:
     explain: SCAN([IS T5]) | FLATMAP q0 -> { TF explode(q0.numbers) | FILTER _._0
         EQUALS promote(@c22 AS LONG) | MAP (@c10 AS _0) | DEFAULT NULL | FILTER _
         NOT_NULL AS q1 RETURN (q0.id AS id) }
-    task_count: 352
-    task_total_time_ms: 57
-    transform_count: 102
-    transform_time_ms: 32
+    task_count: 356
+    task_total_time_ms: 18
+    transform_count: 106
+    transform_time_ms: 7
     transform_yield_count: 23
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 32
     insert_reused_count: 0
 -   query: EXPLAIN SELECT "id" FROM "T5" AS "row" WHERE EXISTS (SELECT 1 FROM "row"."numbers"
@@ -92,12 +92,12 @@ unnamed-3:
         EQUALS promote(@c22 AS LONG) AND _._1 + 1 EQUALS promote(@c26 AS INT) | MAP
         (@c26 AS _0) | DEFAULT NULL | FILTER _ NOT_NULL AS q1 RETURN (q0.id AS id)
         }
-    task_count: 366
-    task_total_time_ms: 39
-    transform_count: 107
-    transform_time_ms: 15
+    task_count: 372
+    task_total_time_ms: 20
+    transform_count: 113
+    transform_time_ms: 9
     transform_yield_count: 25
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 36
     insert_reused_count: 0
 -   query: EXPLAIN SELECT "id", "number" FROM "T5" AS "row", "row"."numbers" AS "number"
@@ -105,12 +105,12 @@ unnamed-3:
     ref: arrays-unnesting.yamsql:232
     explain: SCAN([IS T5]) | FLATMAP q0 -> { TF explode(q0.numbers) | FILTER _._0
         EQUALS promote(@c17 AS LONG) AS q1 RETURN (q0.id AS id, q1._0 AS number) }
-    task_count: 246
-    task_total_time_ms: 26
-    transform_count: 93
-    transform_time_ms: 16
+    task_count: 248
+    task_total_time_ms: 23
+    transform_count: 95
+    transform_time_ms: 11
     transform_yield_count: 22
-    insert_time_ms: 0
+    insert_time_ms: 1
     insert_new_count: 22
     insert_reused_count: 1
 -   query: EXPLAIN SELECT "id", "at" FROM "T5" AS "row", "row"."numbers" AS "number"
@@ -118,12 +118,12 @@ unnamed-3:
     ref: arrays-unnesting.yamsql:237
     explain: SCAN([IS T5]) | FLATMAP q0 -> { TF explode(q0.numbers) | FILTER _._0
         EQUALS promote(@c19 AS LONG) AS q1 RETURN (q0.id AS id, q1._1 + 1 AS at) }
-    task_count: 236
-    task_total_time_ms: 44
-    transform_count: 78
-    transform_time_ms: 25
+    task_count: 238
+    task_total_time_ms: 14
+    transform_count: 80
+    transform_time_ms: 7
     transform_yield_count: 17
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 22
     insert_reused_count: 1
 -   query: EXPLAIN SELECT COUNT(*) FROM "T5" AS "row", "row"."numbers" AS "number"
@@ -132,11 +132,11 @@ unnamed-3:
     explain: SCAN([IS T5]) | FLATMAP q0 -> { TF explode(q0.numbers) | FILTER _._0
         EQUALS promote(@c18 AS LONG) AS q1 RETURN (q0 AS _0, q1 AS _1) } | AGG (count_star(*)
         AS _0) GROUP BY () | ON EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)
-    task_count: 344
-    task_total_time_ms: 34
-    transform_count: 115
-    transform_time_ms: 16
+    task_count: 348
+    task_total_time_ms: 18
+    transform_count: 119
+    transform_time_ms: 10
     transform_yield_count: 26
-    insert_time_ms: 1
+    insert_time_ms: 0
     insert_new_count: 31
     insert_reused_count: 1
