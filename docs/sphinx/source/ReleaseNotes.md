@@ -8,6 +8,27 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 4.19
 
+{#release-4-19-5-0}
+
+### 4.19.5.0
+
+<h4> New Features </h4>
+
+* Build a match candidate from an index defined on an unnested record type - [PR #4641](https://github.com/FoundationDB/fdb-record-layer/pull/4641)
+
+
+**[Full Changelog (4.19.4.0...4.19.5.0)](https://github.com/FoundationDB/fdb-record-layer/compare/4.19.4.0...4.19.5.0)**
+
+<h4> Mixed Mode Test Results </h4>
+
+Mixed mode testing run against the following previous versions:
+
+❌`4.17.2.0`, ❌`4.18.1.0`, ❌`4.18.3.0`, ✅`4.18.4.0`, ✅`4.18.5.0`, ✅`4.18.7.0`, ✅`4.19.1.0`, ✅`4.19.2.0`, ✅`4.19.3.0`, ✅`4.19.4.0`
+
+[See full test run](https://github.com/FoundationDB/fdb-record-layer/actions/runs/45877860883)
+
+
+
 {#release-4-19-4-0}
 
 ### 4.19.4.0
