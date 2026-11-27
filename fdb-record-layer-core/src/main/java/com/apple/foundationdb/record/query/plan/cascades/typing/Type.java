@@ -567,6 +567,10 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
      * int, string --> undefined
      * record(int as a, int as b), record(int as a, int as b) --> record(int as a, int as b)
      * record(int as a, int as b), record(int as c, int as d) --> record(int, int) (unnamed)
+     * record(int as a, int as b), record(int as _0, int as _1) --> record(int as a, int as b)
+     * record(int as a, int as b) as R1, record(int as a, int as b) as R2 --> record(int as a, int as b) (unnamed record)
+     * record(int as a, int as b) as R1, record(int as a, int as b) as R1 --> record(int as a, int as b) AS R1
+     * record(int as a, int as b) as R1, record(int as c, int as d) as R1 --> record(int, int)
      * record(int, int), record(float, float) --> record(float, float)
      * record(int, float), record(float, int) --> record(float, float)
      * record(int, array(float)), record(int, array(double)) --> record(int, array(double))
@@ -591,6 +595,10 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
         }
         if (t2.isNull() && PromoteValue.isPromotable(t2, t1)) {
             return t1.withNullability(true);
+        }
+
+        if (t1.isNone() && t2.isNone()) {
+            return Type.noneType();
         }
 
         // NONE case: The untyped empty array [] identity-promotes to any ARRAY type; so the maximum type is simply the
@@ -637,14 +645,18 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
 
         switch (t1.getTypeCode()) {
             case RECORD:
-                final var t1Fields = ((Type.Record)t1).getFields();
-                final var t2Fields = ((Type.Record)t2).getFields();
+                final var t1Record = (Type.Record)t1;
+                final var t2Record = (Type.Record)t2;
+
+                final var t1Fields = t1Record.getFields();
+                final var t2Fields = t2Record.getFields();
 
                 if (t1Fields.size() != t2Fields.size()) {
                     return null;
                 }
 
                 final var resultFieldsBuilder = ImmutableList.<Type.Record.Field>builder();
+                var anyCalcualtedFieldTypeUnnamed = false;
                 for (int i = 0; i < t1Fields.size(); i++) {
                     final var t1Field = t1Fields.get(i);
                     final var t2Field = t2Fields.get(i);
@@ -654,17 +666,49 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                         return null;
                     }
 
+                    if (resultFieldType.isRecord()) {
+                        final var t1FieldTypeIsNamed = ((Type.Record)t1Field.getFieldType()).isNamed();
+                        final var t2FieldTypeIsNamed = ((Type.Record)t2Field.getFieldType()).isNamed();
+                        anyCalcualtedFieldTypeUnnamed |= (t1FieldTypeIsNamed || t2FieldTypeIsNamed)
+                                && !((Type.Record)resultFieldType).isNamed();
+                    }
+
                     Optional<String> resultFieldNameOptional = Optional.empty();
-                    if (t1Field.getFieldNameOptional().isEmpty()) {
+                    if (!t1Field.isNamed()) {
                         resultFieldNameOptional = t2Field.getFieldNameOptional();
-                    } else if (t2Field.getFieldNameOptional().isEmpty() || (t1Field.getFieldNameOptional().equals(t2Field.getFieldNameOptional()))) {
+                    } else if (!t2Field.isNamed() || (t1Field.getFieldNameOptional().equals(t2Field.getFieldNameOptional()))) {
                         resultFieldNameOptional = t1Field.getFieldNameOptional();
                     }
 
-                    resultFieldsBuilder.add(Record.Field.of(resultFieldType, resultFieldNameOptional));
+                    Optional<Integer> resultFieldIndexMaybe = Optional.empty();
+                    if (t1Field.getFieldIndexOptional().isEmpty()) {
+                        resultFieldIndexMaybe = t2Field.getFieldIndexOptional();
+                    } else if (t2Field.getFieldIndexOptional().isEmpty() || (t2Field.getFieldIndexOptional().equals(t1Field.getFieldIndexOptional()))) {
+                        resultFieldIndexMaybe = t1Field.getFieldIndexOptional();
+                    }
+                    resultFieldsBuilder.add(Record.Field.of(resultFieldType, resultFieldNameOptional, resultFieldIndexMaybe));
                 }
-                return Type.Record.fromFields(isResultNullable, resultFieldsBuilder.build());
 
+                // Return a new unnamed record type if any of the calculated field maximum types is an unnamed record type
+                // and one of the input field types was named since this means the return type should be different.
+                final var calculatedFields = resultFieldsBuilder.build();
+                final var unnamedRecordType = Type.Record.fromFields(isResultNullable, calculatedFields);
+                if (anyCalcualtedFieldTypeUnnamed) {
+                    return unnamedRecordType;
+                }
+
+                // Return one of the input types as the maximum type if the type to reuse is named and the
+                // other type is unnamed, or they both have the same name. The calculated field types
+                // must also be equal to the fields of the reused input type.
+                if (!t1Record.isNamed() && t2Record.isNamed() && calculatedFields.equals(t2Record.getFields())) {
+                    return t2Record.withNullability(isResultNullable);
+                } else if (t1Record.isNamed()
+                        && (!t2Record.isNamed() || Objects.equals(t1Record.getName(), t2Record.getName()))
+                        && calculatedFields.equals(t1Record.getFields())) {
+                    return t1Record.withNullability(isResultNullable);
+                } else {
+                    return unnamedRecordType;
+                }
             case ARRAY:
                 final var t1ElementType = Verify.verifyNotNull(((Type.Array)t1).getElementType());
                 final var t2ElementType = Verify.verifyNotNull(((Type.Array)t2).getElementType());
@@ -2248,6 +2292,10 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             return storageName;
         }
 
+        public boolean isNamed() {
+            return this.name != null && !ProtoUtils.isUniqueTypeName(this.name);
+        }
+
         /**
          * {@return the list of {@link Record} {@link Field}s}
          */
@@ -2830,6 +2878,22 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             }
 
             @Nonnull
+            public Field withName(Optional<String> fieldNameOptional) {
+                if (fieldNameOptional.equals(this.fieldNameOptional)) {
+                    return this;
+                }
+                return of(fieldType, fieldNameOptional, fieldIndexOptional);
+            }
+
+            @Nonnull
+            public Field withIndex(Optional<Integer> fieldIndexOptional) {
+                if (fieldIndexOptional.equals(this.fieldIndexOptional)) {
+                    return this;
+                }
+                return of(fieldType, fieldNameOptional, fieldIndexOptional);
+            }
+
+            @Nonnull
             public Field withOverriddenTypeIfNullable(boolean shouldBeNullable) {
                 return shouldBeNullable ? withNullability(true) : this;
             }
@@ -2849,6 +2913,10 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
                 return getFieldType().equals(field.getFieldType()) &&
                         getFieldNameOptional().equals(field.getFieldNameOptional()) &&
                         getFieldIndexOptional().equals(field.getFieldIndexOptional());
+            }
+
+            public boolean isNamed() {
+                return this.fieldNameOptional.isPresent() && !isAutoGenerated(this.fieldNameOptional.get());
             }
 
             @Override
@@ -3323,8 +3391,12 @@ public interface Type extends Narrowable<Type>, PlanSerializable {
             }
 
             final var otherType = (Array)obj;
+            if (isErased() != otherType.isErased()) {
+                return false;
+            }
+
             return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable() &&
-                    ((isErased() && otherType.isErased()) || Objects.requireNonNull(elementType).equals(otherType.elementType));
+                    (isErased() || Objects.requireNonNull(elementType).equals(otherType.elementType));
         }
 
         @Nonnull

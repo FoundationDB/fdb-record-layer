@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
@@ -222,6 +223,208 @@ class ValueSimplificationTest {
 
         // (_ as a, 5 as b)#0 => _
         Assertions.assertEquals(someCurrentValue, simplifiedValue);
+    }
+
+    @Test
+    void testFieldValueOverPromoteValueOverRecordConstructorWithSingleFieldName() {
+        // _
+        final var someCurrentValue = ObjectValue.of(ALIAS, someRecordType());
+        // _.a.ab (int)
+        final var abField = FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("a", "ab"));
+        // _.z (string)
+        final var zField = FieldValue.ofFieldName(someCurrentValue, "z");
+
+        // (_.a.ab as p, _.z as q)
+        final ImmutableList<Column<? extends Value>> columns =
+                ImmutableList.of(
+                        Column.of(Optional.of("p"), abField),
+                        Column.of(Optional.of("q"), zField));
+        final var recordConstructor = RecordConstructorValue.ofColumns(columns);
+
+        // promote((_.a.ab as p, _.z as q) as long as p, string as q)
+        final var promotedType = Type.Record.fromFields(ImmutableList.of(
+                Type.Record.Field.of(
+                        Type.primitiveType(Type.TypeCode.LONG),
+                        Optional.of("p")),
+                Type.Record.Field.of(
+                        Type.primitiveType(Type.TypeCode.STRING),
+                        Optional.of("q"))));
+        final var promoteValue = PromoteValue.inject(recordConstructor, promotedType);
+        Assertions.assertInstanceOf(PromoteValue.class, promoteValue);
+
+        // promote((_.a.ab as p, _.z as q) as long as p, string as q)).p
+        final var fieldValue = FieldValue.ofFieldName(promoteValue, "p");
+
+        final var simplifiedValue = defaultSimplify(fieldValue);
+
+        // promote((_.a.ab as p, _.z as q) as long as p, string as q)).p => promote(_.a.ab as long)
+        Assertions.assertEquals(
+                PromoteValue.inject(abField, Type.primitiveType(Type.TypeCode.LONG)),
+                simplifiedValue);
+    }
+
+    @Test
+    void testFieldValueOverPromoteValueOverRecordConstructorWithSingleFieldWithoutPromotion() {
+        // _
+        final var someCurrentValue = ObjectValue.of(ALIAS, someRecordType());
+        // _.a.ab (int)
+        final var abField = FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("a", "ab"));
+        // _.z (string)
+        final var zField = FieldValue.ofFieldName(someCurrentValue, "z");
+
+        // (_.a.ab as p, _.z as q)
+        final ImmutableList<Column<? extends Value>> columns =
+                ImmutableList.of(
+                        Column.of(Optional.of("p"), abField),
+                        Column.of(Optional.of("q"), zField));
+        final var recordConstructor = RecordConstructorValue.ofColumns(columns);
+
+        // promote((_.a.ab as p, _.z as q) as long as p, string as q))
+        final var promotedType = Type.Record.fromFields(ImmutableList.of(
+                Type.Record.Field.of(
+                        Type.primitiveType(Type.TypeCode.LONG),
+                        Optional.of("p")),
+                Type.Record.Field.of(
+                        Type.primitiveType(Type.TypeCode.STRING),
+                        Optional.of("q"))));
+        final var promoteValue = PromoteValue.inject(recordConstructor, promotedType);
+        Assertions.assertInstanceOf(PromoteValue.class, promoteValue);
+
+        // promote((_.a.ab as p, _.z as q) as long as p, string as q)).q
+        final var fieldValue = FieldValue.ofFieldName(promoteValue, "q");
+
+        final var simplifiedValue = defaultSimplify(fieldValue);
+
+        // promote((_.a.ab as p, _.z as q) as long as p, string as q).q => _.z (no promotion needed)
+        Assertions.assertEquals(zField, simplifiedValue);
+    }
+
+    @Test
+    void testFieldValueOverPromoteValueOverRecordConstructorWithMultipleNamesInPath() {
+        // _
+        final var someCurrentValue = ObjectValue.of(ALIAS, someRecordType());
+        // _.a.ab (int)
+        final var abField = FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("a", "ab"));
+        // _.z (string)
+        final var zField = FieldValue.ofFieldName(someCurrentValue, "z");
+
+        // ((_.a.ab as p, _.z as q) as x, _.z as y)
+        final var innerRecordConstructor = RecordConstructorValue.ofColumns(ImmutableList.of(
+                Column.of(Optional.of("p"), abField),
+                Column.of(Optional.of("q"), zField)));
+        final var outerRecordConstructor = RecordConstructorValue.ofColumns(ImmutableList.of(
+                Column.of(Optional.of("x"), innerRecordConstructor),
+                Column.of(Optional.of("y"), zField)));
+
+        // promote(((_.a.ab as p, _.z as q) as x, _.z as y) as (long as p, string as q) as x, string as y)
+        final var promotedType = Type.Record.fromFields(ImmutableList.of(
+                Type.Record.Field.of(
+                        Type.Record.fromFields(ImmutableList.of(
+                                Type.Record.Field.of(
+                                        Type.primitiveType(Type.TypeCode.LONG),
+                                        Optional.of("p")),
+                                Type.Record.Field.of(
+                                        Type.primitiveType(Type.TypeCode.STRING),
+                                        Optional.of("q")))),
+                        Optional.of("x")),
+                Type.Record.Field.of(
+                        Type.primitiveType(Type.TypeCode.STRING),
+                        Optional.of("y"))));
+        final var promoteValue = PromoteValue.inject(outerRecordConstructor, promotedType);
+        Assertions.assertInstanceOf(PromoteValue.class, promoteValue);
+
+        // promote(((_.a.ab as p, _.z as q) as x, _.z as y) as ...).x.p
+        final var fieldValue = FieldValue.ofFieldNames(promoteValue, ImmutableList.of("x", "p"));
+
+        final var simplifiedValue = defaultSimplify(fieldValue);
+
+        // promote(((_.a.ab as p, _.z as q) as x, _.z as y) as ...).x.p => promote(_.a.ab as long)
+        Assertions.assertEquals(
+                PromoteValue.inject(abField, Type.primitiveType(Type.TypeCode.LONG)),
+                simplifiedValue);
+    }
+
+    @Test
+    void testFieldValueOverPromoteValueOverRecordConstructorWithFieldValueReturningRecord() {
+        // _
+        final var someCurrentValue = ObjectValue.of(ALIAS, someRecordType());
+        // _.a.ab (int)
+        final var abField = FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("a", "ab"));
+        // _.z (string)
+        final var zField = FieldValue.ofFieldName(someCurrentValue, "z");
+
+        // ((_.a.ab as p, _.z as q) as x, _.z as y)
+        final var innerRecordConstructor = RecordConstructorValue.ofColumns(ImmutableList.of(
+                Column.of(Optional.of("p"), abField),
+                Column.of(Optional.of("q"), zField)));
+        final var outerRecordConstructor = RecordConstructorValue.ofColumns(ImmutableList.of(
+                Column.of(Optional.of("x"), innerRecordConstructor),
+                Column.of(Optional.of("y"), zField)));
+
+        // promote(((_.a.ab as p, _.z as q) as x, _.z as y) as (long as p, string as q) as x, string as y)
+        final var promotedInnerType = Type.Record.fromFields(ImmutableList.of(
+                Type.Record.Field.of(
+                        Type.primitiveType(Type.TypeCode.LONG),
+                        Optional.of("p")),
+                Type.Record.Field.of(
+                        Type.primitiveType(Type.TypeCode.STRING),
+                        Optional.of("q"))));
+        final var promotedOuterType = Type.Record.fromFields(ImmutableList.of(
+                Type.Record.Field.of(
+                        promotedInnerType,
+                        Optional.of("x")),
+                Type.Record.Field.of(
+                        Type.primitiveType(Type.TypeCode.STRING),
+                        Optional.of("y"))));
+        final var promoteValue = PromoteValue.inject(outerRecordConstructor, promotedOuterType);
+        Assertions.assertInstanceOf(PromoteValue.class, promoteValue);
+
+        // promote(((_.a.ab as p, _.z as q) as x, _.z as y) as ...).x
+        final var fieldValue = FieldValue.ofFieldName(promoteValue, "x");
+
+        final var simplifiedValue = defaultSimplify(fieldValue);
+
+        // promote(((_.a.ab as p, _.z as q) as x, _.z as y) as ...).x
+        //              => promote((_.a.ab as p, _.z as q) as long as p, string as q)
+        Assertions.assertEquals(
+                PromoteValue.inject(innerRecordConstructor, promotedInnerType),
+                simplifiedValue);
+    }
+
+    @Test
+    void testSimpleOrdinalFieldValueOverPromoteValueOverRecordConstructor() {
+        // _
+        final var someCurrentValue = ObjectValue.of(ALIAS, someRecordType());
+        // _.a.ab (int)
+        final var abField = FieldValue.ofFieldNames(someCurrentValue, ImmutableList.of("a", "ab"));
+        // _.z (string)
+        final var zField = FieldValue.ofFieldName(someCurrentValue, "z");
+
+        // (_.a.ab as p, _.z as q)
+        final var recordConstructor = RecordConstructorValue.ofColumns(ImmutableList.of(
+                Column.of(Optional.of("p"), abField),
+                Column.of(Optional.of("q"), zField)));
+
+        // promote((_.a.ab as p, _.z as q) as long as p, string as q)
+        final var promotedType = Type.Record.fromFields(ImmutableList.of(
+                Type.Record.Field.of(
+                        Type.primitiveType(Type.TypeCode.LONG),
+                        Optional.of("p")),
+                Type.Record.Field.of(
+                        Type.primitiveType(Type.TypeCode.STRING),
+                        Optional.of("q"))));
+        final var promoteValue = PromoteValue.inject(recordConstructor, promotedType);
+        Assertions.assertInstanceOf(PromoteValue.class, promoteValue);
+
+        // promote((_.a.ab as p, _.z as q) as long as p, string as q)#0
+        final var fieldValue = FieldValue.ofOrdinalNumber(promoteValue, 0);
+
+        final var simplifiedValue = defaultSimplify(fieldValue);
+
+        // promote((_.a.ab as p, _.z as q) as long as p, string as q)#0 => promote(_.a.ab as long)
+        Assertions.assertEquals(
+                PromoteValue.inject(abField, Type.primitiveType(Type.TypeCode.LONG)),
+                simplifiedValue);
     }
 
     @Test

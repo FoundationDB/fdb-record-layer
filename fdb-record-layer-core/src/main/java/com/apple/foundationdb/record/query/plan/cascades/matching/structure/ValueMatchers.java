@@ -231,6 +231,13 @@ public class ValueMatchers {
     }
 
     @Nonnull
+    public static BindingMatcher<PromoteValue> promoteValue(@Nonnull final CollectionMatcher<? extends Value> downstreamValues) {
+        return typedWithDownstream(PromoteValue.class,
+                Extractor.of(PromoteValue::getChildren, name -> "children(" + name + ")"),
+                downstreamValues);
+    }
+
+    @Nonnull
     public static BindingMatcher<ArithmeticValue> arithmeticValue(@Nonnull final CollectionMatcher<? extends Value> downstreamValues) {
         return typedWithDownstream(ArithmeticValue.class,
                 Extractor.of(ArithmeticValue::getChildren, name -> "children(" + name + ")"),

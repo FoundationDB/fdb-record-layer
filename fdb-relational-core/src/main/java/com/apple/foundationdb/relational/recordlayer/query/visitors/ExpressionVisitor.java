@@ -1036,9 +1036,32 @@ public final class ExpressionVisitor extends DelegatingVisitor<BaseVisitor> {
         final var expressions = parseRecordFieldsUnderReorderings(ctx.expressionWithOptionalName());
         if (ctx.ofTypeClause() != null) {
             final var recordId = visitUid(ctx.ofTypeClause().uid());
-            final var resultValue = RecordConstructorValue.ofColumnsAndName(expressions.underlyingAsColumns(), recordId.getName());
-            return Expression.ofUnnamed(resultValue);
+            final var existingDataType = getDelegate().lookupType(ctx.ofTypeClause().uid(), null,
+                    false, false, getDelegate().getSchemaTemplate()::findTypeByName);
+
+            if (!existingDataType.isResolved()) {
+                return Expression.ofUnnamed(
+                        RecordConstructorValue.ofColumnsAndName(expressions.underlyingAsColumns(), recordId.getName()));
+            }
+
+            Assert.thatUnchecked(existingDataType.getCode() == DataType.Code.STRUCT,
+                    ErrorCode.WRONG_OBJECT_TYPE,
+                    "specified type is not a STRUCT type");
+            Assert.thatUnchecked(getDelegate().getSchemaTemplate()
+                            .findTableByName(((DataType.StructType)existingDataType).getName())
+                            .isEmpty(),
+                    ErrorCode.WRONG_OBJECT_TYPE,
+                    "table types can't be used with STRUCT values");
+
+            final var recordLayerType = (Type.Record)DataTypeUtils.toRecordLayerType(existingDataType);
+            final var anonymousRecord = RecordConstructorValue.ofUnnamed(ImmutableList.copyOf(expressions.underlying()));
+            Assert.thatUnchecked(PromoteValue.isPromotable(anonymousRecord.getResultType(), recordLayerType),
+                    ErrorCode.DATATYPE_MISMATCH,
+                    "STRUCT literal is not compatible with provided type");
+            return Expression.ofUnnamed(
+                    RecordConstructorValue.ofColumnsAndType(expressions.underlyingAsColumns(), recordLayerType));
         }
+
         final var resultValue = RecordConstructorValue.ofColumns(expressions.underlyingAsColumns());
         return Expression.ofUnnamed(resultValue);
     }

@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObject
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.RegularTranslationMap;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.recordlayer.metadata.DataTypeUtils;
 import com.apple.foundationdb.relational.recordlayer.query.Expressions;
 import com.apple.foundationdb.relational.recordlayer.query.Identifier;
@@ -120,6 +121,11 @@ final class UserDefinedMacroFunctionBuilder implements UserDefinedFunctionBuilde
             return new UserDefinedMacroFunction(
                     name, parametersQuantifiedObjectValues, parameters.argumentNames(), parameterDefaults, bodyValue);
         }
+
+        Assert.thatUnchecked(
+                PromoteValue.isPromotable(bodyValue.getResultType(), returnType),
+                ErrorCode.CANNOT_CONVERT_TYPE,
+                "return type incompatible with function body");
         return new UserDefinedMacroFunction(
                 name,
                 parametersQuantifiedObjectValues,

@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.query.plan.cascades.values;
 
 import com.apple.foundationdb.record.TestRecordsTransformProto;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.typing.PseudoField;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
@@ -31,17 +33,23 @@ import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
+import com.google.protobuf.MessageOrBuilder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 /**
  * Tests for {@link MessageHelpers.TransformationTrieNode} and {@link MessageHelpers.CoercionTrieNode} hashing
- * and equality semantics, and for the deep copy of messages between descriptors.
+ * and equality semantics, for the deep copy of messages between descriptors, and for message comparisons.
  */
 public class MessageHelperTests {
 
@@ -324,5 +332,246 @@ public class MessageHelperTests {
         for (final var pseudoField : PseudoField.values()) {
             Assertions.assertFalse(copied.hasField(withPseudoFieldsDescriptor.findFieldByName(pseudoField.getFieldName())));
         }
+    }
+
+    @Nonnull
+    private static Type.Record basicRecordTypeWithNullableFields() {
+        return Type.Record.fromFields(true, ImmutableList.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT, true), Optional.of("f1")),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT, true), Optional.of("f2"))));
+    }
+
+    @Nonnull
+    private static Type.Record basicRecordTypeWithSkippedIndexes() {
+        return Type.Record.fromFields(true, ImmutableList.of(
+                Type.Record.Field.of(
+                        Type.primitiveType(Type.TypeCode.INT, true),
+                        Optional.of("f1"),
+                        Optional.of(2)),
+                Type.Record.Field.of(
+                        Type.primitiveType(Type.TypeCode.INT, true),
+                        Optional.of("f2"),
+                        Optional.of(4))));
+    }
+
+    @Nonnull
+    private static Type.Record complexRecordTypeWithNullableFields() {
+        return Type.Record.fromFields(true, ImmutableList.of(
+                Type.Record.Field.of(basicRecordTypeWithNullableFields(), Optional.of("n1")),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT, true), Optional.of("n2"))));
+    }
+
+    @Nonnull
+    private static MessageOrBuilder buildMessage(Descriptors.Descriptor descriptor, Object... fieldAndValues) {
+        Assertions.assertEquals(0, fieldAndValues.length % 2);
+        final var builder = DynamicMessage.newBuilder(descriptor);
+        for (int i = 0; i < fieldAndValues.length; i += 2) {
+            if (fieldAndValues[i + 1] == null) {
+                continue;
+            }
+            final var fieldName = (String)fieldAndValues[i];
+            final var fieldValue = fieldAndValues[i + 1];
+            builder.setField(descriptor.findFieldByName(fieldName), fieldValue);
+        }
+        return builder.build();
+    }
+
+    @Nonnull
+    static Stream<Arguments> compareMessagesArguments() {
+        final var basicRecordDescriptor = descriptorOf(basicRecordTypeWithNullableFields());
+        final var complexRecordTypeDescriptor = descriptorOf(complexRecordTypeWithNullableFields());
+        final var basicRecordTypesWithSkippedIndexesDescriptor = descriptorOf(basicRecordTypeWithSkippedIndexes());
+
+        return Stream.of(
+                // Equal
+                Arguments.argumentSet("(1, 2) = (1, 2)",
+                        buildMessage(basicRecordDescriptor, "f1", 1, "f2", 2),
+                        buildMessage(basicRecordDescriptor, "f1", 1, "f2", 2),
+                        0),
+                Arguments.argumentSet("(1, 2) = (1, 2) <with skipped indexes>",
+                        buildMessage(basicRecordTypesWithSkippedIndexesDescriptor, "f1", 1, "f2", 2),
+                        buildMessage(basicRecordTypesWithSkippedIndexesDescriptor, "f1", 1, "f2", 2),
+                        0),
+                Arguments.argumentSet("((1, 2), 3) = ((1, 2), 3)",
+                        buildMessage(complexRecordTypeDescriptor,
+                                "n1", buildMessage(basicRecordDescriptor, "f1", 1, "f2", 2), "n2", 3),
+                        buildMessage(complexRecordTypeDescriptor,
+                                "n1", buildMessage(basicRecordDescriptor, "f1", 1, "f2", 2), "n2", 3),
+                        0),
+
+                // Less than
+                Arguments.argumentSet("(1, 2) < (1, 3)",
+                        buildMessage(basicRecordDescriptor, "f1", 1, "f2", 2),
+                        buildMessage(basicRecordDescriptor, "f1", 1, "f2", 3),
+                        -1),
+                Arguments.argumentSet("(1, 2) < (1, 3) <with skipped indexes>",
+                        buildMessage(basicRecordTypesWithSkippedIndexesDescriptor, "f1", 1, "f2", 2),
+                        buildMessage(basicRecordTypesWithSkippedIndexesDescriptor, "f1", 1, "f2", 3),
+                        -1),
+                Arguments.argumentSet("(-1, 3) < (1, 2)",
+                        buildMessage(basicRecordDescriptor, "f1", -1, "f2", 3),
+                        buildMessage(basicRecordDescriptor, "f1", 1, "f2", 2),
+                        -1),
+                Arguments.argumentSet("(-1, null) < (1, 2)",
+                        buildMessage(basicRecordDescriptor, "f1", -1, "f2", null),
+                        buildMessage(basicRecordDescriptor, "f1", 1, "f2", 2),
+                        -1),
+                Arguments.argumentSet("((1, -2), 3) < ((1, 2), 3)",
+                        buildMessage(complexRecordTypeDescriptor,
+                                "n1", buildMessage(basicRecordDescriptor, "f1", 1, "f2", -2), "n2", 3),
+                        buildMessage(complexRecordTypeDescriptor,
+                                "n1", buildMessage(basicRecordDescriptor, "f1", 1, "f2", 2), "n2", 3),
+                        -1),
+                Arguments.argumentSet("((1, 2), -3) < ((1, 2), 3)",
+                        buildMessage(complexRecordTypeDescriptor,
+                                "n1", buildMessage(basicRecordDescriptor, "f1", 1, "f2", 2), "n2", -3),
+                        buildMessage(complexRecordTypeDescriptor,
+                                "n1", buildMessage(basicRecordDescriptor, "f1", 1, "f2", 2), "n2", 3),
+                        -1),
+
+                // Greater than
+                Arguments.argumentSet("(1, 3) > (1, 2)",
+                        buildMessage(basicRecordDescriptor, "f1", 1, "f2", 3),
+                        buildMessage(basicRecordDescriptor, "f1", 1, "f2", 2),
+                        1),
+                Arguments.argumentSet("(1, 3) > (1, 2) <with skipped indexes>",
+                        buildMessage(basicRecordTypesWithSkippedIndexesDescriptor, "f1", 1, "f2", 3),
+                        buildMessage(basicRecordTypesWithSkippedIndexesDescriptor, "f1", 1, "f2", 2),
+                        1),
+                Arguments.argumentSet("(5, 1) > (1, 2)",
+                        buildMessage(basicRecordDescriptor, "f1", 5, "f2", 1),
+                        buildMessage(basicRecordDescriptor, "f1", 1, "f2", 2),
+                        1),
+                Arguments.argumentSet("(5, null) > (1, 2)",
+                        buildMessage(basicRecordDescriptor, "f1", 5, "f2", null),
+                        buildMessage(basicRecordDescriptor, "f1", 1, "f2", 2),
+                        1),
+                Arguments.argumentSet("((5, -1), -3) > ((1, 2), 3)",
+                        buildMessage(complexRecordTypeDescriptor,
+                                "n1", buildMessage(basicRecordDescriptor, "f1", 5, "f2", -1), "n2", -3),
+                        buildMessage(complexRecordTypeDescriptor,
+                                "n1", buildMessage(basicRecordDescriptor, "f1", 1, "f2", 2), "n2", 3),
+                        1),
+                Arguments.argumentSet("((1, 100), null) > ((1, 2), 3)",
+                        buildMessage(complexRecordTypeDescriptor,
+                                "n1", buildMessage(basicRecordDescriptor, "f1", 1, "f2", 100), "n2", null),
+                        buildMessage(complexRecordTypeDescriptor,
+                                "n1", buildMessage(basicRecordDescriptor, "f1", 1, "f2", 2), "n2", 3),
+                        1),
+
+                // The result depends on comparing a null
+                Arguments.argumentSet("(null, 2), (1, 2) is null",
+                        buildMessage(basicRecordDescriptor, "f1", null, "f2", 2),
+                        buildMessage(basicRecordDescriptor, "f1", 1, "f2", 2),
+                        null),
+                Arguments.argumentSet("(1, null), (1, 2) is null",
+                        buildMessage(basicRecordDescriptor, "f1", 1, "f2", null),
+                        buildMessage(basicRecordDescriptor, "f1", 1, "f2", 2),
+                        null),
+                Arguments.argumentSet("(1, null), (1, null) is null",
+                        buildMessage(basicRecordDescriptor, "f1", 1, "f2", null),
+                        buildMessage(basicRecordDescriptor, "f1", 1, "f2", null),
+                        null),
+                Arguments.argumentSet("((1, null), -3), ((1, 2), 3) is null",
+                        buildMessage(complexRecordTypeDescriptor,
+                                "n1", buildMessage(basicRecordDescriptor, "f1", 1, "f2", null), "n2", -3),
+                        buildMessage(complexRecordTypeDescriptor,
+                                "n1", buildMessage(basicRecordDescriptor, "f1", 1, "f2", 2), "n2", 3),
+                        null),
+                Arguments.argumentSet("((null, 10), -3), ((1, 2), 3) is null",
+                        buildMessage(complexRecordTypeDescriptor,
+                                "n1", buildMessage(basicRecordDescriptor, "f1", null, "f2", 10), "n2", -3),
+                        buildMessage(complexRecordTypeDescriptor,
+                                "n1", buildMessage(basicRecordDescriptor, "f1", 1, "f2", 2), "n2", 3),
+                        null),
+                Arguments.argumentSet("(null, -3), ((1, 2), 3) is null",
+                        buildMessage(complexRecordTypeDescriptor, "n1", null, "n2", -3),
+                        buildMessage(complexRecordTypeDescriptor,
+                                "n1", buildMessage(basicRecordDescriptor, "f1", 1, "f2", 2), "n2", 3),
+                        null));
+    }
+
+    @ParameterizedTest
+    @MethodSource("compareMessagesArguments")
+    void testCompareMessages(@Nonnull Message m1, @Nonnull Message m2, @Nullable Integer expected) {
+        Assertions.assertEquals(expected, MessageHelpers.compareMessages(m1, m2));
+    }
+
+    @Nonnull
+    static Stream<Arguments> compareMessageIsNotDistinctFromArguments() {
+        final var basicRecordDescriptor = descriptorOf(basicRecordTypeWithNullableFields());
+        final var complexRecordTypeDescriptor = descriptorOf(complexRecordTypeWithNullableFields());
+        final var basicRecordTypesWithSkippedIndexesDescriptor = descriptorOf(basicRecordTypeWithSkippedIndexes());
+
+        return Stream.of(
+                Arguments.argumentSet("(1, 2) and (1, 2) are not distinct",
+                        buildMessage(basicRecordDescriptor, "f1", 1, "f2", 2),
+                        buildMessage(basicRecordDescriptor, "f1", 1, "f2", 2),
+                        true),
+                Arguments.argumentSet("(1, 2) and (1, 2) are not distinct <with skipped indexes>",
+                        buildMessage(basicRecordTypesWithSkippedIndexesDescriptor, "f1", 1, "f2", 2),
+                        buildMessage(basicRecordTypesWithSkippedIndexesDescriptor, "f1", 1, "f2", 2),
+                        true),
+                Arguments.argumentSet("((1, 2), 3) and ((1, 2), 3) are not distinct",
+                        buildMessage(complexRecordTypeDescriptor,
+                                "n1", buildMessage(basicRecordDescriptor, "f1", 1, "f2", 2), "n2", 3),
+                        buildMessage(complexRecordTypeDescriptor,
+                                "n1", buildMessage(basicRecordDescriptor, "f1", 1, "f2", 2), "n2", 3),
+                        true),
+                Arguments.argumentSet("(null, 2) and (null, 2) are not distinct",
+                        buildMessage(basicRecordDescriptor, "f1", null, "f2", 2),
+                        buildMessage(basicRecordDescriptor, "f1", null, "f2", 2),
+                        true),
+                Arguments.argumentSet("(null, 2) and (null, 2) are not distinct <with skipped indexes>",
+                        buildMessage(basicRecordTypesWithSkippedIndexesDescriptor, "f1", null, "f2", 2),
+                        buildMessage(basicRecordTypesWithSkippedIndexesDescriptor, "f1", null, "f2", 2),
+                        true),
+                Arguments.argumentSet("((1, null), -3), ((1, null), -3) are not distinct",
+                        buildMessage(complexRecordTypeDescriptor,
+                                "n1", buildMessage(basicRecordDescriptor, "f1", 1, "f2", null), "n2", -3),
+                        buildMessage(complexRecordTypeDescriptor,
+                                "n1", buildMessage(basicRecordDescriptor, "f1", 1, "f2", null), "n2", -3),
+                        true),
+                Arguments.argumentSet("(null, 3), (null, 3) are not distinct",
+                        buildMessage(complexRecordTypeDescriptor, "n1", null, "n2", 3),
+                        buildMessage(complexRecordTypeDescriptor, "n1", null, "n2", 3),
+                        true),
+
+                Arguments.argumentSet("((1, 1), 3) and ((1, 2), 3) are distinct",
+                        buildMessage(complexRecordTypeDescriptor,
+                                "n1", buildMessage(basicRecordDescriptor, "f1", 1, "f2", 1), "n2", 3),
+                        buildMessage(complexRecordTypeDescriptor,
+                                "n1", buildMessage(basicRecordDescriptor, "f1", 1, "f2", 2), "n2", 3),
+                        false),
+                Arguments.argumentSet("(null, 2) and (1, 2) are distinct",
+                        buildMessage(basicRecordDescriptor, "f1", null, "f2", 2),
+                        buildMessage(basicRecordDescriptor, "f1", 1, "f2", 2),
+                        false),
+                Arguments.argumentSet("((1, null), 3), ((1, 2), 3) are distinct",
+                        buildMessage(complexRecordTypeDescriptor,
+                                "n1", buildMessage(basicRecordDescriptor, "f1", 1, "f2", null), "n2", 3),
+                        buildMessage(complexRecordTypeDescriptor,
+                                "n1", buildMessage(basicRecordDescriptor, "f1", 1, "f2", 2), "n2", 3),
+                        false));
+    }
+
+
+    @ParameterizedTest
+    @MethodSource("compareMessageIsNotDistinctFromArguments")
+    void testCompareMessageIsNotDistinctFrom(@Nonnull Message m1, @Nonnull Message m2, boolean expected) {
+        Assertions.assertEquals(expected,
+                MessageHelpers.compareMessageEquals(Comparisons.Type.NOT_DISTINCT_FROM, m1, m2));
+    }
+
+    @Test
+    void testCompareMessagesWithIncompatibleFieldNumbers() {
+        final var basicRecordMessage = buildMessage(
+                descriptorOf(basicRecordTypeWithNullableFields()), "f1", 1, "f2", 2);
+        final var basicRecordTypesWithSkippedIndexesMessage1 = buildMessage(
+                descriptorOf(basicRecordTypeWithSkippedIndexes()), "f1", 1, "f2", 2);
+
+        final var exception = Assertions.assertThrows(Query.InvalidExpressionException.class,
+                () -> MessageHelpers.compareMessages(basicRecordMessage, basicRecordTypesWithSkippedIndexesMessage1));
+        Assertions.assertTrue(exception.getMessage().contains("Missing field 1"));
     }
 }

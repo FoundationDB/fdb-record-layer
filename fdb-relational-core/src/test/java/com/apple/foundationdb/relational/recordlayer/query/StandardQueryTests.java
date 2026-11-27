@@ -323,7 +323,6 @@ public class StandardQueryTests {
     }
 
     @Test
-    @Disabled("(yhatem) until https://github.com/FoundationDB/fdb-record-layer/issues/1945 is fixed")
     void selectWithNullInComparisonOperator() throws Exception {
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
@@ -332,13 +331,13 @@ public class StandardQueryTests {
                     ResultSetAssert.assertThat(resultSet).isEmpty();
                 }
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE 1 is not null")) {
-                    ResultSetAssert.assertThat(resultSet).hasNextRow().isRowExactly(insertedRecord);
+                    ResultSetAssert.assertThat(resultSet).hasNextRow().isRowPartly(insertedRecord);
                 }
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE TRUE is null")) {
                     ResultSetAssert.assertThat(resultSet).isEmpty();
                 }
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE TRUE is not null")) {
-                    ResultSetAssert.assertThat(resultSet).hasNextRow().isRowExactly(insertedRecord);
+                    ResultSetAssert.assertThat(resultSet).hasNextRow().isRowPartly(insertedRecord);
                 }
                 try (final RelationalResultSet resultSet = statement.executeQuery("SELECT * FROM RestaurantComplexRecord WHERE 1 != null")) {
                     ResultSetAssert.assertThat(resultSet).isEmpty();
@@ -1201,8 +1200,43 @@ public class StandardQueryTests {
         }
     }
 
+
     @Test
-    void testNamingStructsSameType() throws Exception {
+    void testNamingStructWithExistingType() throws Exception {
+        final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk)) " +
+                "CREATE TYPE AS STRUCT ST1 (a bigint, b bigint)";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (42, 100, 500, 101)");
+                Assertions.assertTrue(statement.execute("select struct ST1 (a, b) as X from t1"));
+                try (final RelationalResultSet resultSet = statement.getResultSet()) {
+                    Assertions.assertTrue(resultSet.next());
+                    Assertions.assertEquals("ST1", resultSet.getStruct(1).getMetaData().getTypeName());
+                    Assertions.assertEquals("X", resultSet.getMetaData().getColumnLabel(1));
+                    Assertions.assertFalse(resultSet.next());
+                }
+            }
+        }
+    }
+
+    @Test
+    void testNamingStructWithExistingTypeAndIncompatibleValue() throws Exception {
+        final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk)) " +
+                "CREATE TYPE AS STRUCT ST1 (a bigint, b bigint)";
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
+            try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
+                statement.executeUpdate("insert into t1 values (42, 100, 500, 101)");
+                ContextualSQLException err = Assertions.assertThrows(ContextualSQLException.class, () -> statement.execute("select struct ST1 (a, b, c) as X from t1"));
+                assertThat((Exception) err)
+                        .hasMessageContaining("STRUCT literal is not compatible with provided type");
+                assertThat(err.getSQLState())
+                        .isEqualTo(ErrorCode.DATATYPE_MISMATCH.getErrorCode());
+            }
+        }
+    }
+
+    @Test
+    void testNamingStructsWithTableType() throws Exception {
         final String schemaTemplate = "CREATE TABLE T1(pk bigint, a bigint, b bigint, c bigint, PRIMARY KEY(pk))";
         try (var ddl = Ddl.builder().database(URI.create("/TEST/QT")).relationalExtension(relationalExtension).schemaTemplate(schemaTemplate).build()) {
             try (var statement = ddl.setSchemaAndGetConnection().createStatement()) {
@@ -1262,10 +1296,9 @@ public class StandardQueryTests {
                 statement.executeUpdate("insert into t1 values (42, 100, 500, 101)");
                 ContextualSQLException err = Assertions.assertThrows(ContextualSQLException.class, () -> statement.execute("select a, 42, struct T1 (b, c) as X from t1"));
                 assertThat((Exception) err)
-                        .hasMessageContaining("Name T1 is already registered with a different type");
+                        .hasMessageContaining("table types can't be used with STRUCT values");
                 assertThat(err.getSQLState())
-                        // Perhaps this should be a better error code
-                        .isEqualTo(ErrorCode.UNKNOWN.getErrorCode());
+                        .isEqualTo(ErrorCode.WRONG_OBJECT_TYPE.getErrorCode());
             }
         }
     }

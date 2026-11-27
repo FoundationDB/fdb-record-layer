@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.query.plan.cascades.predicates.ValuePredica
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Typed;
+import com.apple.foundationdb.record.query.plan.cascades.values.simplification.DefaultValueSimplificationRuleSet;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokens;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence;
 import com.apple.foundationdb.record.query.plan.explain.ExplainTokensWithPrecedence.Precedence;
@@ -58,6 +59,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.protobuf.Descriptors;
@@ -72,8 +74,10 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BinaryOperator;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
+import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
 
 /**
@@ -141,10 +145,15 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
     @Override
     public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository,
                                                      @Nonnull final Set<CorrelationIdentifier> localAliases) {
-        final Iterator<? extends Value> it = children.iterator();
-        int childrenCount = Iterables.size(children);
+        final var simplifiedChildren = Values.simplify(ImmutableList.copyOf(children),
+                DefaultValueSimplificationRuleSet.instance(),
+                EvaluationContext.empty(),
+                AliasMap.emptyMap(),
+                ImmutableSet.of());
+        final Iterator<? extends Value> it = simplifiedChildren.iterator();
+        int childrenCount = Iterables.size(simplifiedChildren);
         if (childrenCount == 1) {
-            Value child = children.iterator().next();
+            Value child = simplifiedChildren.iterator().next();
             if (child.getCorrelatedTo().isEmpty() && typeRepository != null) {
                 // it seems this is a constant expression, try to evaluate it.
                 return tryBoxSelfAsConstantPredicate(typeRepository);
@@ -230,14 +239,17 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         NonnullPair<Value, Value> promotedOperands = promoteOperands(leftChild, rightChild);
         leftChild = promotedOperands.getLeft();
         rightChild = promotedOperands.getRight();
-        final boolean isArrayComparison = leftChild.getResultType().isArray();
-        final boolean isEnumComparison = leftChild.getResultType().isEnum();
-        final boolean rightHasConstantObjectValues = rightChild.hasConstantObjectValues();
 
-        // Note: When arrays are compared, we always use `ValueComparison`. `SimpleComparison` cannot be used because
-        // it would encounter a serialization failure when calling `LiteralKeyExpression.toProtoValue()` to serialize
-        // its comparand; that serializer currently cannot handle a `List` or `Enum`.
-        if (typeRepository != null && !isArrayComparison && !isEnumComparison && !rightHasConstantObjectValues) {
+        final boolean rightHasConstantObjectValues = rightChild.hasConstantObjectValues();
+        // Note: When the following value types are compared, we always use `ValueComparison`. `SimpleComparison` cannot
+        // be used because it would encounter a serialization failure when calling `LiteralKeyExpression.toProtoValue()`
+        // to serialize its comparand; that serializer currently cannot handle a `List`, `Enum` or a `Message`.
+        // Methods in `SimpleComparison` also assume that the `toClassWithRealEquals` supports the provided value.
+        final boolean isComparandSerializable = !leftChild.getResultType().isArray() &&
+                !leftChild.getResultType().isEnum() &&
+                !leftChild.getResultType().isRecord();
+
+        if (typeRepository != null && isComparandSerializable && !rightHasConstantObjectValues) {
             final Object comparand = rightChild.evalWithoutStore(EvaluationContext.forTypeRepository(typeRepository));
             return comparand == null
                     ? Optional.of(new ConstantPredicate(false))
@@ -308,55 +320,99 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
      * Whether the given operand type is permitted in a relational operator.
      */
     private static boolean isSupportedOperandType(final Type type) {
-        return type.isPrimitive() || type.isEnum() || type.isUuid() || type.isArray() || type.isNone();
+        return type.isPrimitive() || type.isEnum() || type.isUuid() || type.isArray() || type.isNone() || type.isRecord();
+    }
+
+    /**
+     * Whether a comparison of type {@code comparisonType} is supported for the provided types.
+     *
+     * @param comparisonType a {@link Comparisons.Type} to check.
+     * @param argumentTypes the types of the argument values that need to be compared.
+     * @return true if this comparison is supported, otherwise false.
+     */
+    public static boolean isComparisonSupported(@Nonnull final Comparisons.Type comparisonType,
+                                                @Nonnull final List<Type> argumentTypes) {
+        if (argumentTypes.size() != 1 && argumentTypes.size() != 2) {
+            return false;
+        }
+        if (!argumentTypes.stream().allMatch(RelOpValue::isSupportedOperandType)) {
+            return false;
+        }
+
+        if (argumentTypes.size() == 1) {
+            final Type argumentType = argumentTypes.get(0);
+            return getUnaryOperatorMap().get(new UnaryComparisonSignature(comparisonType,
+                    argumentType.getTypeCode())) != null;
+        }
+
+        final Type res0 = argumentTypes.get(0);
+        final Type res1 = argumentTypes.get(1);
+
+        final boolean res0IsNoneOrNull = res0.isNone() || res0.isNull();
+        final boolean res1IsNoneOrNull = res1.isNull() || res1.isNone();
+        if (res0IsNoneOrNull && res1IsNoneOrNull) {
+            // These values can't be promoted to a common type, check if they are comparable directly
+            return getBinaryOperatorMap().get(new BinaryComparisonSignature(comparisonType,
+                    res0.getTypeCode(), res1.getTypeCode())) != null;
+        }
+
+        final boolean isRecordComparison = res0.isRecord() && res1.isRecord();
+        if (isRecordComparison) {
+            final var res0Record = (Type.Record)res0;
+            final var res1Record = (Type.Record)res1;
+            if (res0Record.isNamed() && res1Record.isNamed()
+                    && !Objects.equals(res0Record.getName(), res1Record.getName())) {
+                return false;
+            }
+        }
+
+        // Check if the types can be promoted to a common maximum type which has a binary comparison operator
+        final var maxType = Type.maximumType(res0, res1);
+        if (maxType == null || getBinaryOperatorMap().get(new BinaryComparisonSignature(
+                comparisonType, maxType.getTypeCode(), maxType.getTypeCode())) == null) {
+            return false;
+        }
+        final var res0CompatibleWithMaxType = !PromoteValue.isPromotionNeeded(res0, maxType) ||
+                PromoteValue.isPromotable(res0, maxType);
+        final var res1CompatibleWithMaxType = !PromoteValue.isPromotionNeeded(res1, maxType) ||
+                PromoteValue.isPromotable(res1, maxType);
+        return res0CompatibleWithMaxType && res1CompatibleWithMaxType;
     }
 
     @Nonnull
     private static Value encapsulate(@Nonnull final String functionName,
                                      @Nonnull final Comparisons.Type comparisonType,
                                      @Nonnull final List<? extends Typed> arguments) {
-        Verify.verify(arguments.size() == 1 || arguments.size() == 2);
+        SemanticException.check(isComparisonSupported(comparisonType,
+                        arguments.stream().map(Typed::getResultType)
+                                .collect(ImmutableList.toImmutableList())),
+                SemanticException.ErrorCode.COMPARISON_OF_INCOMPATIBLE_TYPES);
+
         if (arguments.size() == 1) {
-            Verify.verify(arguments.get(0) instanceof Value);
             final Value arg0 = (Value)arguments.get(0);
             final Type res0 = arg0.getResultType();
-            SemanticException.check(isSupportedOperandType(res0), SemanticException.ErrorCode.COMPARAND_TO_COMPARISON_IS_OF_COMPLEX_TYPE);
             final UnaryPhysicalOperator physicalOperator =
                     getUnaryOperatorMap().get(new UnaryComparisonSignature(comparisonType, res0.getTypeCode()));
-            SemanticException.check(physicalOperator != null, SemanticException.ErrorCode.COMPARISON_OF_INCOMPATIBLE_TYPES);
+            Verify.verify(physicalOperator != null);
             return new UnaryRelOpValue(functionName,
                     comparisonType,
                     ImmutableList.of(arg0),
                     physicalOperator);
         } else {
-            Verify.verify(arguments.get(0) instanceof Value);
+            Verify.verify(arguments.size() == 2);
             Value arg0 = (Value)arguments.get(0);
             Type res0 = arg0.getResultType();
-            SemanticException.check(isSupportedOperandType(res0), SemanticException.ErrorCode.COMPARAND_TO_COMPARISON_IS_OF_COMPLEX_TYPE);
-
-            Verify.verify(arguments.get(1) instanceof Value);
             Value arg1 = (Value)arguments.get(1);
             Type res1 = arg1.getResultType();
-            SemanticException.check(isSupportedOperandType(res1), SemanticException.ErrorCode.COMPARAND_TO_COMPARISON_IS_OF_COMPLEX_TYPE);
 
-            // When one operand is an ARRAY and the other operand is the untyped NULL or NONE value (`[]` literal),
-            // promote that other operand to a NULL or empty-array value of the proper ARRAY type via `PromoteValue`,
-            // if possible (or if not, this throws a `SemanticException`). This way the usual ARRAY predicates (e.g.,
-            // EQ_ARRAY_ARRAY) are used, and we don’t have to define special overloads for ARRAY+NULL/NONE combinations.
+            final boolean isRecordComparison = res0.isRecord() || res1.isRecord();
             final boolean isArrayComparison = res0.isArray() || res1.isArray();
-            if (isArrayComparison && (res0.isNone() || res1.isNone() || res0.isNull() || res1.isNull())) {
+            if (isRecordComparison || isArrayComparison) {
                 final NonnullPair<Value, Value> promotedOperands = promoteOperands(arg0, arg1);
                 arg0 = promotedOperands.getLeft();
                 res0 = arg0.getResultType();
                 arg1 = promotedOperands.getRight();
                 res1 = arg1.getResultType();
-            }
-
-            // We currently require the ARRAY types to match (modulo nullability). For example, comparing an INTEGER
-            // ARRAY to a BIGINT ARRAY is not allowed, even though INTEGER can be promoted to BIGINT in principle.
-            if (isArrayComparison) {
-                SemanticException.check(res0.withNullability(false).equals(res1.withNullability(false)),
-                        SemanticException.ErrorCode.COMPARISON_OF_INCOMPATIBLE_TYPES);
             }
 
             final BinaryPhysicalOperator physicalOperator =
@@ -402,8 +458,10 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
      */
     @AutoService(BuiltInFunction.class)
     public static class EqualsFn extends BuiltInFunction<Value> {
+        private static final String FUNCTION_NAME = "equals";
+
         public EqualsFn() {
-            super("equals",
+            super(FUNCTION_NAME,
                     List.of(new Type.Any(), new Type.Any()), EqualsFn::encapsulate);
         }
 
@@ -418,8 +476,10 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
      */
     @AutoService(BuiltInFunction.class)
     public static class NotEqualsFn extends BuiltInFunction<Value> {
+        private static final String FUNCTION_NAME = "notEquals";
+
         public NotEqualsFn() {
-            super("notEquals",
+            super(FUNCTION_NAME,
                     List.of(new Type.Any(), new Type.Any()), NotEqualsFn::encapsulate);
         }
 
@@ -434,8 +494,10 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
      */
     @AutoService(BuiltInFunction.class)
     public static class LtFn extends BuiltInFunction<Value> {
+        private static final String FUNCTION_NAME = "lt";
+
         public LtFn() {
-            super("lt",
+            super(FUNCTION_NAME,
                     List.of(new Type.Any(), new Type.Any()), LtFn::encapsulate);
         }
 
@@ -450,8 +512,10 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
      */
     @AutoService(BuiltInFunction.class)
     public static class LteFn extends BuiltInFunction<Value> {
+        private static final String FUNCTION_NAME = "lte";
+
         public LteFn() {
-            super("lte",
+            super(FUNCTION_NAME,
                     List.of(new Type.Any(), new Type.Any()), LteFn::encapsulate);
         }
 
@@ -466,8 +530,10 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
      */
     @AutoService(BuiltInFunction.class)
     public static class GtFn extends BuiltInFunction<Value> {
+        private static final String FUNCTION_NAME = "gt";
+
         public GtFn() {
-            super("gt",
+            super(FUNCTION_NAME,
                     List.of(new Type.Any(), new Type.Any()), GtFn::encapsulate);
         }
 
@@ -482,8 +548,10 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
      */
     @AutoService(BuiltInFunction.class)
     public static class GteFn extends BuiltInFunction<Value> {
+        private static final String FUNCTION_NAME = "gte";
+
         public GteFn() {
-            super("gte",
+            super(FUNCTION_NAME,
                     List.of(new Type.Any(), new Type.Any()), GteFn::encapsulate);
         }
 
@@ -498,8 +566,10 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
      */
     @AutoService(BuiltInFunction.class)
     public static class IsNullFn extends BuiltInFunction<Value> {
+        private static final String FUNCTION_NAME = "isNull";
+
         public IsNullFn() {
-            super("isNull",
+            super(FUNCTION_NAME,
                     List.of(new Type.Any()), IsNullFn::encapsulate);
         }
 
@@ -514,8 +584,10 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
      */
     @AutoService(BuiltInFunction.class)
     public static class NotNullFn extends BuiltInFunction<Value> {
+        private static final String FUNCTION_NAME = "notNull";
+
         public NotNullFn() {
-            super("notNull",
+            super(FUNCTION_NAME,
                     List.of(new Type.Any()), NotNullFn::encapsulate);
         }
 
@@ -530,8 +602,10 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
      */
     @AutoService(BuiltInFunction.class)
     public static class IsDistinctFromFn extends BuiltInFunction<Value> {
+        private static final String FUNCTION_NAME = "isDistinctFrom";
+
         public IsDistinctFromFn() {
-            super("isDistinctFrom",
+            super(FUNCTION_NAME,
                     List.of(new Type.Any(), new Type.Any()), IsDistinctFromFn::encapsulate);
         }
 
@@ -546,8 +620,10 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
      */
     @AutoService(BuiltInFunction.class)
     public static class NotDistinctFromFn extends BuiltInFunction<Value> {
+        private static final String FUNCTION_NAME = "notDistinctFrom";
+
         public NotDistinctFromFn() {
-            super("notDistinctFrom",
+            super(FUNCTION_NAME,
                     List.of(new Type.Any(), new Type.Any()), NotDistinctFromFn::encapsulate);
         }
 
@@ -1166,6 +1242,46 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         NOT_DISTINCT_FROM_NULL_NONE(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.NULL, Type.TypeCode.NONE, (l, r) -> false),
         NOT_DISTINCT_FROM_NONE_NULL(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.NONE, Type.TypeCode.NULL, (l, r) -> false),
         NOT_DISTINCT_FROM_NONE_NONE(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.NONE, Type.TypeCode.NONE, Objects::equals),
+
+        LT_REC_REC(Comparisons.Type.LESS_THAN, Type.TypeCode.RECORD, Type.TypeCode.RECORD,
+                (l, r) -> Comparisons.evalComparison(Comparisons.Type.LESS_THAN, l, r),
+                Values::deconstructRecordRecursively,
+                DeconstructedValuesComparator.LEXICOGRAPHIC),
+
+        LTE_REC_REC(Comparisons.Type.LESS_THAN_OR_EQUALS, Type.TypeCode.RECORD, Type.TypeCode.RECORD,
+                (l, r) -> Comparisons.evalComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, l, r),
+                Values::deconstructRecordRecursively,
+                DeconstructedValuesComparator.LEXICOGRAPHIC),
+
+        GT_REC_REC(Comparisons.Type.GREATER_THAN, Type.TypeCode.RECORD, Type.TypeCode.RECORD,
+                (l, r) -> Comparisons.evalComparison(Comparisons.Type.GREATER_THAN, l, r),
+                Values::deconstructRecordRecursively,
+                DeconstructedValuesComparator.LEXICOGRAPHIC),
+
+        GTE_REC_REC(Comparisons.Type.GREATER_THAN_OR_EQUALS, Type.TypeCode.RECORD, Type.TypeCode.RECORD,
+                (l, r) -> Comparisons.evalComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, l, r),
+                Values::deconstructRecordRecursively,
+                DeconstructedValuesComparator.LEXICOGRAPHIC),
+
+        EQ_REC_REC(Comparisons.Type.EQUALS, Type.TypeCode.RECORD, Type.TypeCode.RECORD,
+                (l, r) -> Comparisons.evalComparison(Comparisons.Type.EQUALS, l, r),
+                Values::deconstructRecordRecursively,
+                DeconstructedValuesComparator.AND),
+
+        NEQ_REC_REC(Comparisons.Type.NOT_EQUALS, Type.TypeCode.RECORD, Type.TypeCode.RECORD,
+                (l, r) -> Comparisons.evalComparison(Comparisons.Type.NOT_EQUALS, l, r),
+                Values::deconstructRecordRecursively,
+                DeconstructedValuesComparator.OR),
+
+        IS_DISTINCT_FROM_REC_REC(Comparisons.Type.IS_DISTINCT_FROM, Type.TypeCode.RECORD, Type.TypeCode.RECORD,
+                (l, r) -> Comparisons.evalComparison(Comparisons.Type.IS_DISTINCT_FROM, l, r),
+                Values::deconstructRecordRecursively,
+                DeconstructedValuesComparator.OR),
+
+        NOT_DISTINCT_FROM_REC_REC(Comparisons.Type.NOT_DISTINCT_FROM, Type.TypeCode.RECORD, Type.TypeCode.RECORD,
+                (l, r) -> Comparisons.evalComparison(Comparisons.Type.NOT_DISTINCT_FROM, l, r),
+                Values::deconstructRecordRecursively,
+                DeconstructedValuesComparator.AND)
         ;
 
         @Nonnull
@@ -1185,14 +1301,36 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         @Nonnull
         private final BinaryOperator<Object> evaluateFunction;
 
+        /**
+         * A function to use to deconstruct the operands to a list of values that can be compared using
+         * {@code deconstructedValuesComparator} to produce predicates that are easier to match to
+         * {@link com.apple.foundationdb.record.query.plan.cascades.MatchCandidate}.
+         */
+        @Nullable
+        private final Function<Value, List<Value>> valueDeconstructionForQueryPredicateFunction;
+
+        @Nullable
+        private final DeconstructedValuesComparator deconstructedValuesComparator;
+
         BinaryPhysicalOperator(@Nonnull Comparisons.Type type,
                                @Nonnull Type.TypeCode leftArgType,
                                @Nonnull Type.TypeCode rightArgType,
                                @Nonnull BinaryOperator<Object> evaluateFunction) {
+            this(type, leftArgType, rightArgType, evaluateFunction, null, null);
+        }
+
+        BinaryPhysicalOperator(@Nonnull Comparisons.Type type,
+                               @Nonnull Type.TypeCode leftArgType,
+                               @Nonnull Type.TypeCode rightArgType,
+                               @Nonnull BinaryOperator<Object> evaluateFunction,
+                               @Nullable Function<Value, List<Value>> valueDeconstructionForQueryPredicateFunction,
+                               @Nullable DeconstructedValuesComparator deconstructedValuesComparator) {
             this.type = type;
             this.leftArgType = leftArgType;
             this.rightArgType = rightArgType;
             this.evaluateFunction = evaluateFunction;
+            this.valueDeconstructionForQueryPredicateFunction = valueDeconstructionForQueryPredicateFunction;
+            this.deconstructedValuesComparator = deconstructedValuesComparator;
         }
 
         @Nullable
@@ -1287,7 +1425,10 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         // These are odd special cases, but we define them nevertheless for "syntactic" completeness, as otherwise
         // you could write  `[1] IS NULL` but not `[] IS NULL`.
         IS_NULL_NONE(Comparisons.Type.IS_NULL, Type.TypeCode.NONE, Objects::isNull),
-        IS_NOT_NULL_NONE(Comparisons.Type.NOT_NULL, Type.TypeCode.NONE, Objects::nonNull);
+        IS_NOT_NULL_NONE(Comparisons.Type.NOT_NULL, Type.TypeCode.NONE, Objects::nonNull),
+
+        IS_NULL_RECORD(Comparisons.Type.IS_NULL,  Type.TypeCode.RECORD, Objects::isNull),
+        IS_NOT_NULL_RECORD(Comparisons.Type.NOT_NULL, Type.TypeCode.RECORD, Objects::nonNull);
 
         @Nonnull
         private static final Supplier<BiMap<UnaryPhysicalOperator, PUnaryPhysicalOperator>> protoEnumBiMapSupplier =
@@ -1303,7 +1444,9 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         @Nonnull
         private final UnaryOperator<Object> evaluateFunction;
 
-        UnaryPhysicalOperator(@Nonnull Comparisons.Type type, @Nonnull Type.TypeCode argType, @Nonnull UnaryOperator<Object> evaluateFunction) {
+        UnaryPhysicalOperator(@Nonnull Comparisons.Type type,
+                              @Nonnull Type.TypeCode argType,
+                              @Nonnull UnaryOperator<Object> evaluateFunction) {
             this.type = type;
             this.argType = argType;
             this.evaluateFunction = evaluateFunction;
@@ -1377,6 +1520,25 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         @Override
         public int hashCodeWithoutChildren() {
             return PlanHashable.objectsPlanHash(PlanHashable.CURRENT_FOR_CONTINUATION, BASE_HASH, getComparisonType(), operator);
+        }
+
+        @Override
+        @Nonnull
+        public Optional<QueryPredicate> toQueryPredicate(@Nullable final TypeRepository typeRepository,
+                                                         @Nonnull final Set<CorrelationIdentifier> localAliases) {
+            if (operator.valueDeconstructionForQueryPredicateFunction == null || operator.deconstructedValuesComparator == null) {
+                return super.toQueryPredicate(typeRepository, localAliases);
+            }
+
+            final var children = ImmutableList.copyOf(this.getChildren());
+            final var leftDeconstructedValues = operator.valueDeconstructionForQueryPredicateFunction.apply(children.get(0));
+            final var rightDeconstructedValues = operator.valueDeconstructionForQueryPredicateFunction.apply(children.get(1));
+            Verify.verify(!leftDeconstructedValues.isEmpty());
+            Verify.verify(leftDeconstructedValues.size() == rightDeconstructedValues.size());
+            return operator.deconstructedValuesComparator
+                    .compare(operator.getType(), leftDeconstructedValues, rightDeconstructedValues)
+                    .map(booleanValue -> booleanValue.toQueryPredicate(typeRepository, localAliases))
+                    .orElse(super.toQueryPredicate(typeRepository, localAliases));
         }
 
         @Override
@@ -1648,6 +1810,126 @@ public abstract class RelOpValue extends AbstractValue implements BooleanValue {
         @Override
         public String toString() {
             return comparisonType + "(" + leftType + ", " + rightType + ")";
+        }
+    }
+
+    /**
+     * A comparator for deconstructed values that is used by {@link BinaryRelOpValue#toQueryPredicate(TypeRepository, Set)}
+     * and {@link UnaryRelOpValue#toQueryPredicate(TypeRepository, Set)}.
+     *
+     * <p>This comparator produces a {@link BooleanValue} that can be converted to a {@link QueryPredicate} that is
+     * easier to match with a {@link com.apple.foundationdb.record.query.plan.cascades.MatchCandidate}.
+     */
+    private enum DeconstructedValuesComparator {
+        AND {
+            @Override
+            @Nonnull
+            protected Optional<BooleanValue> compareInternal(@Nonnull Comparisons.Type type,
+                                                             @Nonnull List<Value> leftValues,
+                                                             @Nonnull List<Value> rightValues) {
+                return compareFieldWise(type, leftValues, rightValues, DeconstructedValuesComparator::and);
+            }
+        },
+
+        OR {
+            @Override
+            @Nonnull
+            protected Optional<BooleanValue> compareInternal(@Nonnull Comparisons.Type type,
+                                                             @Nonnull List<Value> leftValues,
+                                                             @Nonnull List<Value> rightValues) {
+                return compareFieldWise(type, leftValues, rightValues, DeconstructedValuesComparator::or);
+            }
+        },
+
+        LEXICOGRAPHIC {
+            @Override
+            @Nonnull
+            protected Optional<BooleanValue> compareInternal(@Nonnull Comparisons.Type type,
+                                                             @Nonnull List<Value> leftValues,
+                                                             @Nonnull List<Value> rightValues) {
+                final var strictType = getStrictComparisonType(type);
+                BooleanValue accumulated = encapsulateComparison(type, ImmutableList.of(
+                        leftValues.get(leftValues.size() - 1),
+                        rightValues.get(rightValues.size() - 1)));
+                for (int i = leftValues.size() - 2; i >= 0; i--) {
+                    final var currentComparison = encapsulateComparison(strictType,
+                            ImmutableList.of(leftValues.get(i), rightValues.get(i)));
+                    final var currentEquals = encapsulateComparison(Comparisons.Type.EQUALS,
+                            ImmutableList.of(leftValues.get(i), rightValues.get(i)));
+                    accumulated = or(currentComparison, and(currentEquals, accumulated));
+                }
+                return Optional.of(accumulated);
+            }
+
+            @Nonnull
+            private static Comparisons.Type getStrictComparisonType(@Nonnull final Comparisons.Type type) {
+                return switch (type) {
+                    case GREATER_THAN_OR_EQUALS, GREATER_THAN -> Comparisons.Type.GREATER_THAN;
+                    case LESS_THAN_OR_EQUALS, LESS_THAN -> Comparisons.Type.LESS_THAN;
+                    default -> throw new IllegalArgumentException("unsupported comparison type " + type);
+                };
+            }
+        };
+
+        // Set a limit for the maximum number of fields to compare to avoid creating predicates that are too complex.
+        private static final int MAX_SUPPORTED_FIELDS = 4;
+
+        @Nonnull
+        Optional<BooleanValue> compare(@Nonnull Comparisons.Type type,
+                                       @Nonnull List<Value> leftValues,
+                                       @Nonnull List<Value> rightValues) {
+            Verify.verify(!leftValues.isEmpty() && leftValues.size() == rightValues.size());
+            if (leftValues.size() > MAX_SUPPORTED_FIELDS) {
+                return Optional.empty();
+            }
+            return compareInternal(type, leftValues, rightValues);
+        }
+
+        @Nonnull
+        protected abstract Optional<BooleanValue> compareInternal(@Nonnull Comparisons.Type type,
+                                                                  @Nonnull List<Value> leftValues,
+                                                                  @Nullable List<Value> rightValuesMaybe);
+
+        @Nonnull
+        private static Optional<BooleanValue> compareFieldWise(@Nonnull Comparisons.Type type,
+                                                               @Nonnull List<Value> leftValues,
+                                                               @Nonnull List<Value> rightValues,
+                                                               @Nonnull BinaryOperator<BooleanValue> reducer) {
+            Verify.verify(!leftValues.isEmpty());
+            return IntStream.range(0, leftValues.size())
+                    .mapToObj(i -> encapsulateComparison(type,
+                            ImmutableList.of(leftValues.get(i), rightValues.get(i))))
+                    .reduce(reducer);
+        }
+
+        @Nonnull
+        private static BooleanValue encapsulateComparison(@Nonnull final Comparisons.Type type,
+                                                          @Nonnull final List<Value> operands) {
+            return (BooleanValue) switch (type) {
+                case EQUALS -> RelOpValue.encapsulate(EqualsFn.FUNCTION_NAME, type, operands);
+                case NOT_EQUALS -> RelOpValue.encapsulate(NotEqualsFn.FUNCTION_NAME, type, operands);
+                case LESS_THAN -> RelOpValue.encapsulate(LtFn.FUNCTION_NAME, type, operands);
+                case LESS_THAN_OR_EQUALS -> RelOpValue.encapsulate(LteFn.FUNCTION_NAME, type, operands);
+                case GREATER_THAN -> RelOpValue.encapsulate(GtFn.FUNCTION_NAME, type, operands);
+                case GREATER_THAN_OR_EQUALS -> RelOpValue.encapsulate(GteFn.FUNCTION_NAME, type, operands);
+                case IS_DISTINCT_FROM -> RelOpValue.encapsulate(IsDistinctFromFn.FUNCTION_NAME, type, operands);
+                case NOT_DISTINCT_FROM -> RelOpValue.encapsulate(NotDistinctFromFn.FUNCTION_NAME, type, operands);
+                case IS_NULL -> RelOpValue.encapsulate(IsNullFn.FUNCTION_NAME, type, operands);
+                case NOT_NULL -> RelOpValue.encapsulate(NotNullFn.FUNCTION_NAME, type, operands);
+                default -> throw new IllegalArgumentException("unsupported comparison type " + type);
+            };
+        }
+
+        @Nonnull
+        private static BooleanValue and(@Nonnull final BooleanValue left, @Nonnull final BooleanValue right) {
+            return (BooleanValue)new AndOrValue.AndFn()
+                    .encapsulate(CallSiteArguments.ofPositional(left, right));
+        }
+
+        @Nonnull
+        private static BooleanValue or(@Nonnull final BooleanValue left, @Nonnull final BooleanValue right) {
+            return (BooleanValue)new AndOrValue.OrFn()
+                    .encapsulate(CallSiteArguments.ofPositional(left, right));
         }
     }
 }

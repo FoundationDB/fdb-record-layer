@@ -1,0 +1,629 @@
+¸
+J
+ struct-comparisons-in-predicates&EXPLAIN select id from t1 where a2 = a≠
+Óôﬂ√Ü ¥Ø«()0´…†86@aISCAN(I3 <,>) | FILTER _.A2.STRA EQUALS _.A.STRA AND _.A2.INTA EQUALS _.A.INTA | MAP (_.ID AS ID)™digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q53.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.A2.STRA EQUALS q2.A.STRA AND q2.A2.INTA EQUALS q2.A.INTA</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q53> label="q53" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}æ
+`
+ struct-comparisons-in-predicates<EXPLAIN select t1.id from t1 where a2 is not distinct from aŸ
+Ó€ÏóÜ ó·Á()0–œ≤86@wISCAN(I3 <,>) | FILTER _.A2.STRA NOT_DISTINCT_FROM _.A.STRA AND _.A2.INTA NOT_DISTINCT_FROM _.A.INTA | MAP (_.ID AS ID)¿digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q53.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.A2.STRA NOT_DISTINCT_FROM q2.A.STRA AND q2.A2.INTA NOT_DISTINCT_FROM q2.A.INTA</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q53> label="q53" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}⁄,
+T
+ struct-comparisons-in-predicates0EXPLAIN select t1.id from t1 where a != ('a', 1)Å,
+˘Ùï≈dË îÓ»!(o0ïŒÜ8€@ÆCOVERING(I1 <,> -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) | FILTER _.A.STRA NOT_EQUALS promote(@c11 AS STRING) ‚à™ COVERING(I1 <,> -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) | FILTER _.A.INTA NOT_EQUALS promote(@c13 AS LONG) COMPARE BY (_.A.STRA, _.A.INTA, _.ID) | MAP (_.ID AS ID)Ø)digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q226.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Union Distinct</td></tr><tr><td align="left">COMPARE BY (_.A.STRA, _.A.INTA, _.ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q123.A.STRA NOT_EQUALS promote(@c11 AS STRING)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q84.A.INTA NOT_EQUALS promote(@c13 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ label=<&nbsp;q216> label="q216" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q218> label="q218" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ label=<&nbsp;q123> label="q123" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q84> label="q84" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q226> label="q226" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}‰
+g
+ struct-comparisons-in-predicatesCEXPLAIN select t1.id from t1 where a2 = ('c', CAST(null AS bigint))¯
+∞∆∑‚%• Ûíª(10ﬁ∞…8N@HISCAN(I3 <,>) | FILTER null AND _.A2.STRA EQUALS @c10 | MAP (_.ID AS ID)édigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q54.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE null AND q2.A2.STRA EQUALS @c10</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q54> label="q54" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ì
+z
+ struct-comparisons-in-predicatesVEXPLAIN select t1.id from t1 where a2 is not distinct from ('c', CAST(null AS bigint))Ó
+¸™Ó‹!ã è†µ(+0ƒ∂8:@ÇISCAN(I3 <,>) | FILTER _.A2.STRA NOT_DISTINCT_FROM promote(@c13 AS STRING) AND _.A2.INTA NOT_DISTINCT_FROM NULL | MAP (_.ID AS ID)…digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q54.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.A2.STRA NOT_DISTINCT_FROM promote(@c13 AS STRING) AND q2.A2.INTA NOT_DISTINCT_FROM NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q54> label="q54" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Ä-
+b
+ struct-comparisons-in-predicates>EXPLAIN select t1.id from t1 where a is distinct from ('a', 1)ô,
+˘⁄Ö˙fË Ø®¯"(o0€´Ç8€@∫COVERING(I1 <,> -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) | FILTER _.A.STRA IS_DISTINCT_FROM promote(@c12 AS STRING) ‚à™ COVERING(I1 <,> -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) | FILTER _.A.INTA IS_DISTINCT_FROM promote(@c14 AS LONG) COMPARE BY (_.A.STRA, _.A.INTA, _.ID) | MAP (_.ID AS ID)ª)digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q226.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Union Distinct</td></tr><tr><td align="left">COMPARE BY (_.A.STRA, _.A.INTA, _.ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q123.A.STRA IS_DISTINCT_FROM promote(@c12 AS STRING)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q84.A.INTA IS_DISTINCT_FROM promote(@c14 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ label=<&nbsp;q216> label="q216" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q218> label="q218" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ label=<&nbsp;q123> label="q123" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ label=<&nbsp;q84> label="q84" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 6 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q226> label="q226" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}í
+]
+ struct-comparisons-in-predicates9EXPLAIN select id from t1 where a = struct TypeA ('a', 1)∞
+‘Ãñ˘Gñ  ˛≈$(10”“Á8C@íCOVERING(I1 [EQUALS promote(@c10 AS STRING), EQUALS promote(@c12 AS LONG)] -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) | MAP (_.ID AS ID)˚digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q87.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c10 AS STRING), EQUALS promote(@c12 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q87> label="q87" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}∏
+y
+ struct-comparisons-in-predicatesUEXPLAIN select t1.id from t1 where a is not distinct from ('c', CAST(null AS bigint))∫
+‘ªõÒFñ €ìº$(10Ú ”8C@óCOVERING(I1 [NOT_DISTINCT_FROM promote(@c13 AS STRING), NOT_DISTINCT_FROM NULL] -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) | MAP (_.ID AS ID)Ädigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q87.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [NOT_DISTINCT_FROM promote(@c13 AS STRING), NOT_DISTINCT_FROM NULL]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q87> label="q87" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}∆
+Ü
+ struct-comparisons-in-predicatesbEXPLAIN select t1.id from t1 where a is not distinct from STRUCT TypeA ('c', CAST(null AS bigint))∫
+‘ˇœå#ñ ˇâ«(10Ã‘√8C@óCOVERING(I1 [NOT_DISTINCT_FROM promote(@c15 AS STRING), NOT_DISTINCT_FROM NULL] -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) | MAP (_.ID AS ID)Ädigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q87.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [NOT_DISTINCT_FROM promote(@c15 AS STRING), NOT_DISTINCT_FROM NULL]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q87> label="q87" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}÷
+É
+ struct-comparisons-in-predicates_EXPLAIN select id from t1, (select STRUCT TypeA (strB, intB) as a from t2) sq where t1.a = sq.aÕ
+ü©ä∏Pı ‡®ˇ (S0õÛ‰8à@gISCAN(I2 <,>) | FLATMAP q0 -> { ISCAN(I1 [EQUALS q0.STRB, EQUALS q0.INTB]) AS q1 RETURN (q1.ID AS ID) }√digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS STRB, STRING AS STRC, LONG AS INTB)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I2</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS STRB, STRING AS STRC, LONG AS INTB)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q6.STRB, EQUALS q6.INTB]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    4 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    2 -> 4 [ color="red" style="invis" ];
+  }
+}Å
+P
+ struct-comparisons-in-predicates,EXPLAIN select id from t1 where ('a', 1) = a¨
+‘ê¥ö!ñ ¸›…
+(10ºﬁπ8C@êCOVERING(I1 [EQUALS promote(@c6 AS STRING), EQUALS promote(@c8 AS LONG)] -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) | MAP (_.ID AS ID)˘digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q87.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c6 AS STRING), EQUALS promote(@c8 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q87> label="q87" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}É
+P
+ struct-comparisons-in-predicates,EXPLAIN select id from t1 where a = ('b', 2)Æ
+‘•Óã'ñ ÅÎË(10óÄ≈8C@ëCOVERING(I1 [EQUALS promote(@c8 AS STRING), EQUALS promote(@c10 AS LONG)] -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) | MAP (_.ID AS ID)˙digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q87.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c8 AS STRING), EQUALS promote(@c10 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q87> label="q87" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}É
+f
+ struct-comparisons-in-predicatesBEXPLAIN select id from range(1, 2) where ('aab', 5) = ('aab', 5.0)ò
+}û‰˙ ∆ˇ»(0ÌÌ8
+@ íTF range(promote(@c5 AS LONG), promote(@c7 AS LONG), STEP 1l) | FILTER @c11 EQUALS @c11 AND @c19 EQUALS promote(@c13 AS DOUBLE) | MAP (_.ID AS ID)Ê
+digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q9.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE @c11 EQUALS @c11 AND @c19 EQUALS promote(@c13 AS DOUBLE)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(promote(@c5 AS LONG), promote(@c7 AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  3 -> 2 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q9> label="q9" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}∂
+p
+ struct-comparisons-in-predicatesLEXPLAIN select id from range(1, 2) where (('aab', 5.0), 0) = (('aab', 5), 0)¡
+}Õ‚è û¶[(0√˝8
+@ ßTF range(promote(@c5 AS LONG), promote(@c7 AS LONG), STEP 1l) | FILTER @c12 EQUALS @c12 AND promote(@c24 AS DOUBLE) EQUALS @c14 AND @c17 EQUALS @c17 | MAP (_.ID AS ID)˚
+digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q9.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE @c12 EQUALS @c12 AND promote(@c24 AS DOUBLE) EQUALS @c14 AND @c17 EQUALS @c17</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC range(promote(@c5 AS LONG), promote(@c7 AS LONG), STEP 1l)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  3 -> 2 [ label=<&nbsp;q0> label="q0" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q9> label="q9" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Œ
+|
+ struct-comparisons-in-predicatesXEXPLAIN select t1.id from t1 where d = STRUCT TypeD (('a', 1), [STRUCT TypeA ('a', 1l)])Õ
+∏‡¸ì ˇ…˚	(.0≤Æ†8@@˜ISCAN(I3 [EQUALS promote(@c13 AS STRING)]) | FILTER _.D.A.INTA EQUALS promote(@c15 AS LONG) AND _.D.B EQUALS promote(array((promote(@c13 AS STRING) AS STRA, promote(@c24 AS LONG) AS INTA)) AS ARRAY(STRING AS STRA, LONG AS INTA)) | MAP (_.ID AS ID)≥digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.D.A.INTA EQUALS promote(@c15 AS LONG) AND q2.D.B EQUALS promote(array((promote(@c13 AS STRING) AS STRA, promote(@c24 AS LONG) AS INTA)) AS ARRAY(STRING AS STRA, LONG AS INTA))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c13 AS STRING)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}‡"
+W
+ struct-comparisons-in-predicates3EXPLAIN select t1.id from t1 INNER JOIN t3 USING(d)Ñ"
+›„æëeÕ Ç¥õ:(@0ˆﬁ÷8a@öSCAN([IS T3]) | FLATMAP q0 -> { ISCAN(I3 [EQUALS q0.D.A.STRA]) | FILTER _.D.A.INTA EQUALS q0.D.A.INTA AND _.D.B EQUALS q0.D.B AS q1 RETURN (q1.ID AS ID) }« digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS T3]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [T1, T2, T3]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.D.A.INTA EQUALS q6.D.A.INTA AND q2.D.B EQUALS q6.D.B</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q6.D.A.STRA]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    4 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    2 -> 4 [ color="red" style="invis" ];
+  }
+}‚
+n
+ struct-comparisons-in-predicatesJEXPLAIN select t1.id from t1, t1.d.b AS unnested WHERE ('a', 1) = unnestedÔ
+∆£ùØ9d °¸˝(0Ç§È8*@ ¨ISCAN(I3 <,>) | FLATMAP q0 -> { TF explode(q0.D.B) | FILTER _._0.STRA EQUALS promote(@c16 AS STRING) AND _._0.INTA EQUALS promote(@c18 AS LONG) AS q1 RETURN (q0.ID AS ID) }°digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q4._0.STRA EQUALS promote(@c16 AS STRING) AND q4._0.INTA EQUALS promote(@c18 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS STRA, LONG AS INTA AS _0, INT AS _1)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC explode(q2.D.B)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(STRING AS STRA, LONG AS INTA AS _0, INT AS _1)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q4> label="q4" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 1 [ label=<&nbsp;q4> label="q4" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    5 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    4 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    2 -> 4 [ color="red" style="invis" ];
+  }
+}ﬁ
+q
+ struct-comparisons-in-predicatesMEXPLAIN select t1.id from t1 where a is not null and a2 is distinct from nullË
+ÓØË’á ∞˜¯()0¸˝´86@ISCAN(I1 <,>) | FILTER (_.A2.STRA IS_DISTINCT_FROM NULL OR _.A2.INTA IS_DISTINCT_FROM NULL) AND _.A NOT_NULL | MAP (_.ID AS ID)«digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q56.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE (q2.A2.STRA IS_DISTINCT_FROM NULL OR q2.A2.INTA IS_DISTINCT_FROM NULL) AND q2.A NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q56> label="q56" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}¶
+P
+ struct-comparisons-in-predicates,EXPLAIN select t1.id from t1 where a is null—
+Ó è±Ü ùÿ´()0€Óo86@5ISCAN(I1 <,>) | FILTER _.A IS_NULL | MAP (_.ID AS ID)˚digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q56.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.A IS_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q56> label="q56" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}≠
+T
+ struct-comparisons-in-predicates0EXPLAIN select t1.id from t1 where a is not null‘
+Ó‰ÅØKÜ ¡ÃÎ0()0à¢≥86@6ISCAN(I1 <,>) | FILTER _.A NOT_NULL | MAP (_.ID AS ID)¸digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q56.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.A NOT_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q56> label="q56" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}…
+v
+ struct-comparisons-in-predicatesREXPLAIN select t1.id from t1 where a.strA is null and a2 is not distinct from nullŒ
+™©ˇ é ≤∆÷(,0ñ©U8<@{ISCAN(I1 [[null],[null]]) | FILTER _.A2.STRA NOT_DISTINCT_FROM NULL AND _.A2.INTA NOT_DISTINCT_FROM NULL | MAP (_.ID AS ID)≤digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.A2.STRA NOT_DISTINCT_FROM NULL AND q2.A2.INTA NOT_DISTINCT_FROM NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: [(null), (null)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}…
+d
+ struct-comparisons-in-predicates@EXPLAIN select t1.id from t1 where a.intA is not distinct from 1‡
+—˘Çéï üﬁ¯	(.0Ó é8C@ëCOVERING(I1 <,> -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) | FILTER _.A.INTA NOT_DISTINCT_FROM promote(@c14 AS LONG) | MAP (_.ID AS ID)¨digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q62.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q58.A.INTA NOT_DISTINCT_FROM promote(@c14 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ label=<&nbsp;q58> label="q58" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q62> label="q62" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ä"
+U
+ struct-comparisons-in-predicates1EXPLAIN select t1.id from t1 where a >= ('a', 1l)∞!
+›0¡∆Ô∫˙ ¡äﬂ\(‡0ˆì£8≤@P∏COVERING(I1 [[GREATER_THAN promote(@c11 AS STRING)]] -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) ‚à™ COVERING(I1 [EQUALS promote(@c11 AS STRING), [GREATER_THAN_OR_EQUALS promote(@c13 AS LONG)]] -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) COMPARE BY (_.A.STRA, _.A.INTA, _.ID) | MAP (_.ID AS ID)“digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q748.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Union Distinct</td></tr><tr><td align="left">COMPARE BY (_.A.STRA, _.A.INTA, _.ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN promote(@c11 AS STRING)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c11 AS STRING), [GREATER_THAN_OR_EQUALS promote(@c13 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ label=<&nbsp;q732> label="q732" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q734> label="q734" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q748> label="q748" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ó"
+b
+ struct-comparisons-in-predicates>EXPLAIN select t1.id from t1 where a >= STRUCT TypeA ('a', 1l)∞!
+›0ëû•È˙ ò¢ÛH(‡0…ÛŸ8≤@P∏COVERING(I1 [[GREATER_THAN promote(@c13 AS STRING)]] -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) ‚à™ COVERING(I1 [EQUALS promote(@c13 AS STRING), [GREATER_THAN_OR_EQUALS promote(@c15 AS LONG)]] -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) COMPARE BY (_.A.STRA, _.A.INTA, _.ID) | MAP (_.ID AS ID)“digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q748.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Union Distinct</td></tr><tr><td align="left">COMPARE BY (_.A.STRA, _.A.INTA, _.ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN promote(@c13 AS STRING)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c13 AS STRING), [GREATER_THAN_OR_EQUALS promote(@c15 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ label=<&nbsp;q732> label="q732" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q734> label="q734" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q748> label="q748" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}˙!
+g
+ struct-comparisons-in-predicatesCEXPLAIN select t1.id from t1 where a >= ('a', CAST(null AS bigint))é!
+›0±Ü–™˙ ¿ˇÑ>(‡0Œô¥8≤@PßCOVERING(I1 [[GREATER_THAN promote(@c11 AS STRING)]] -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) ‚à™ COVERING(I1 [EQUALS promote(@c11 AS STRING), [GREATER_THAN_OR_EQUALS NULL]] -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) COMPARE BY (_.A.STRA, _.A.INTA, _.ID) | MAP (_.ID AS ID)¡digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q748.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Union Distinct</td></tr><tr><td align="left">COMPARE BY (_.A.STRA, _.A.INTA, _.ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c11 AS STRING), [GREATER_THAN_OR_EQUALS NULL]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN promote(@c11 AS STRING)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ label=<&nbsp;q734> label="q734" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q732> label="q732" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q748> label="q748" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Â
+e
+ struct-comparisons-in-predicatesAEXPLAIN select t1.id from t1 where a2 > (CAST(null AS string), 1)˚
+¬˜¥®#© –âú
+(50’ó˜8T@[COVERING(I3 <,> -> [ID: KEY:[2], D: [A: [STRA: KEY:[0]]]]) | FILTER null | MAP (_.ID AS ID)˛digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q69.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE null</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ label=<&nbsp;q65> label="q65" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q69> label="q69" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}â
+T
+ struct-comparisons-in-predicates0EXPLAIN select t1.id from t1 where a2 < ('b', 4)∞
+±ëŸ£:È ‹Ñµ(@0ˆ…†8a@	‚ISCAN(I3 <,>) | FILTER (_.A2.STRA LESS_THAN promote(@c10 AS STRING) OR _.A2.STRA EQUALS promote(@c10 AS STRING)) AND (_.A2.STRA LESS_THAN promote(@c10 AS STRING) OR _.A2.INTA LESS_THAN promote(@c12 AS LONG)) | MAP (_.ID AS ID)´digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q66.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE (q2.A2.STRA LESS_THAN promote(@c10 AS STRING) OR q2.A2.STRA EQUALS promote(@c10 AS STRING)) AND (q2.A2.STRA LESS_THAN promote(@c10 AS STRING) OR q2.A2.INTA LESS_THAN promote(@c12 AS LONG))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q66> label="q66" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}´
+X
+ struct-comparisons-in-predicates4EXPLAIN select t1.id from t1 where c > ('a', 'b', 1)Œ
+±ÀÃÛ0Ì Ã›î(@0 ÔÔ8a@	ØISCAN(I3 <,>) | FILTER (_.C.STRC1 GREATER_THAN promote(@c10 AS STRING) OR _.C.STRC1 EQUALS promote(@c10 AS STRING)) AND (_.C.STRC1 GREATER_THAN promote(@c10 AS STRING) OR _.C.STRC2 GREATER_THAN promote(@c12 AS STRING) OR _.C.STRC2 EQUALS promote(@c12 AS STRING)) AND (_.C.STRC1 GREATER_THAN promote(@c10 AS STRING) OR _.C.STRC2 GREATER_THAN promote(@c12 AS STRING) OR _.C.INTC GREATER_THAN promote(@c14 AS LONG)) | MAP (_.ID AS ID)¸digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q66.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE (q2.C.STRC1 GREATER_THAN promote(@c10 AS STRING) OR q2.C.STRC1 EQUALS promote(@c10 AS STRING)) AND (q2.C.STRC1 GREATER_THAN promote(@c10 AS STRING) OR q2.C.STRC2 GREATER_THAN promote(@c12 AS STRING) OR q2.C.STRC2 EQUALS promote(@c12 AS STRING)) AND (q2.C.STRC1 GREATER_THAN promote(@c10 AS STRING) OR q2.C.STRC2 GREATER_THAN promote(@c12 AS STRING) OR q2.C.INTC GREATER_THAN promote(@c14 AS LONG))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q66> label="q66" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}¿
+Y
+ struct-comparisons-in-predicates5EXPLAIN select t1.id from t1 where c >= ('a', 'b', 1)‚
+±™¥ú=Ì §û(@0äﬁ°8a@	πISCAN(I3 <,>) | FILTER (_.C.STRC1 GREATER_THAN promote(@c11 AS STRING) OR _.C.STRC1 EQUALS promote(@c11 AS STRING)) AND (_.C.STRC1 GREATER_THAN promote(@c11 AS STRING) OR _.C.STRC2 GREATER_THAN promote(@c13 AS STRING) OR _.C.STRC2 EQUALS promote(@c13 AS STRING)) AND (_.C.STRC1 GREATER_THAN promote(@c11 AS STRING) OR _.C.STRC2 GREATER_THAN promote(@c13 AS STRING) OR _.C.INTC GREATER_THAN_OR_EQUALS promote(@c15 AS LONG)) | MAP (_.ID AS ID)Üdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q66.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE (q2.C.STRC1 GREATER_THAN promote(@c11 AS STRING) OR q2.C.STRC1 EQUALS promote(@c11 AS STRING)) AND (q2.C.STRC1 GREATER_THAN promote(@c11 AS STRING) OR q2.C.STRC2 GREATER_THAN promote(@c13 AS STRING) OR q2.C.STRC2 EQUALS promote(@c13 AS STRING)) AND (q2.C.STRC1 GREATER_THAN promote(@c11 AS STRING) OR q2.C.STRC2 GREATER_THAN promote(@c13 AS STRING) OR q2.C.INTC GREATER_THAN_OR_EQUALS promote(@c15 AS LONG))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q66> label="q66" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}’Q
+k
+ struct-comparisons-in-predicatesGEXPLAIN select t1.id from t1 where (t1.a, t1.b) >= (('a', 1), ('b', 2))ÂP
+!«Ô∆πå∆Ö, ”ˆûÖ(Û0◊±Ì+8÷#@ªòCOVERING(I1 [[GREATER_THAN promote(@c20 AS STRING)]] -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) ‚à™ COVERING(I1 [EQUALS promote(@c20 AS STRING), [GREATER_THAN promote(@c22 AS LONG)]] -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) COMPARE BY (_.A.STRA, _.A.INTA, _.ID) | FETCH ‚à™ ISCAN(I1 [EQUALS promote(@c20 AS STRING), EQUALS promote(@c22 AS LONG)]) | FILTER _.B.STRB GREATER_THAN promote(@c26 AS STRING) ‚à™ ISCAN(I1 [EQUALS promote(@c20 AS STRING), EQUALS promote(@c22 AS LONG)]) | FILTER _.B.STRB EQUALS promote(@c26 AS STRING) AND _.B.INTB GREATER_THAN_OR_EQUALS promote(@c28 AS LONG) COMPARE BY (_.A.STRA, _.A.INTA, _.ID) | MAP (_.ID AS ID)§Kdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Union Distinct</td></tr><tr><td align="left">COMPARE BY (_.A.STRA, _.A.INTA, _.ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Fetch Records</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B.STRB EQUALS promote(@c26 AS STRING) AND q2.B.INTB GREATER_THAN_OR_EQUALS promote(@c28 AS LONG)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.B.STRB GREATER_THAN promote(@c26 AS STRING)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Union Distinct</td></tr><tr><td align="left">COMPARE BY (_.A.STRA, _.A.INTA, _.ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  7 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c20 AS STRING), EQUALS promote(@c22 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  8 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c20 AS STRING), EQUALS promote(@c22 AS LONG)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  9 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN promote(@c20 AS STRING)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  10 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c20 AS STRING), [GREATER_THAN promote(@c22 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  11 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  12 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  13 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  14 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ label=<&nbsp;q4403> label="q4403" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q4407> label="q4407" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 2 [ label=<&nbsp;q4405> label="q4405" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 3 [ label=<&nbsp;q4401> label="q4401" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  7 -> 4 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  8 -> 5 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  9 -> 6 [ label=<&nbsp;q4397> label="q4397" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  10 -> 6 [ label=<&nbsp;q4399> label="q4399" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  11 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  12 -> 8 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  13 -> 9 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  14 -> 10 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}õ
+}
+ struct-comparisons-in-predicatesYEXPLAIN select t1.id from t1 where (t1.a, t1.b, t1.d.a.strA) >= (('a', 1), ('b', 2), 'a')ô
+Óï∑ˆGÜ µç›.()0∂ Ó86@óISCAN(I3 <,>) | FILTER (_.A AS A, _.B AS B, _.D.A.STRA AS STRA) GREATER_THAN_OR_EQUALS promote(((@c28 AS _0, @c30 AS _1) AS _0, (@c34 AS _0, @c36 AS _1) AS _1, @c28 AS _2) AS STRING AS STRA, LONG AS INTA AS A, STRING AS STRB, LONG AS INTB AS B, STRING AS STRA) | MAP (_.ID AS ID)ﬂdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q53.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE (q2.A AS A, q2.B AS B, q2.D.A.STRA AS STRA) GREATER_THAN_OR_EQUALS promote(((@c28 AS _0, @c30 AS _1) AS _0, (@c34 AS _0, @c36 AS _1) AS _1, @c28 AS _2) AS STRING AS STRA, LONG AS INTA AS A, STRING AS STRB, LONG AS INTB AS B, STRING AS STRA)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q53> label="q53" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}à"
+U
+ struct-comparisons-in-predicates1EXPLAIN select t1.id from t1 where d.a > ('a', 0)Æ!
+›0Ó≥ÚÂ˙ ûÓ™C(‡0ÄÄ8≤@PºCOVERING(I3 [[GREATER_THAN promote(@c12 AS STRING)]] -> [ID: KEY:[3], D: [A: [INTA: KEY:[1], STRA: KEY:[0]]]]) ‚à™ COVERING(I3 [EQUALS promote(@c12 AS STRING), [GREATER_THAN promote(@c14 AS LONG)]] -> [ID: KEY:[3], D: [A: [INTA: KEY:[1], STRA: KEY:[0]]]]) COMPARE BY (_.D.A.STRA, _.D.A.INTA, _.ID) | MAP (_.ID AS ID)Ãdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q748.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Union Distinct</td></tr><tr><td align="left">COMPARE BY (_.D.A.STRA, _.D.A.INTA, _.ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [[GREATER_THAN promote(@c12 AS STRING)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS promote(@c12 AS STRING), [GREATER_THAN promote(@c14 AS LONG)]]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ label=<&nbsp;q732> label="q732" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 2 [ label=<&nbsp;q734> label="q734" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q748> label="q748" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}¨
+R
+ struct-comparisons-in-predicates.EXPLAIN select t1.id from t1 where d.a is null’
+Ó±º∞Ü ¢£Æ()0Ä¡v86@7ISCAN(I1 <,>) | FILTER _.D.A IS_NULL | MAP (_.ID AS ID)˝digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q56.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.D.A IS_NULL</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q56> label="q56" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}˝
+m
+ struct-comparisons-in-projectionIEXPLAIN select t1.id, d = (('a', 1), [('a', 1l)]) AS d_comparison from t1ã
+ñ†ﬂÎE ⁄ïï(!0∫‰G8 @⁄ISCAN(I3 <,>) | MAP (_.ID AS ID, _.D equals promote(((@c9 AS _0, @c11 AS _1) AS _0, array((@c9 AS _0, @c18 AS _1)) AS _1) AS STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B) AS D_COMPARISON)êdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2.ID AS ID, q2.D equals promote(((@c9 AS _0, @c11 AS _1) AS _0, array((@c9 AS _0, @c18 AS _1)) AS _1) AS STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B) AS D_COMPARISON)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BOOLEAN AS D_COMPARISON)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Æ
+_
+ struct-comparisons-in-projection;EXPLAIN select t1.id, a >= ('a', 1) AS a_comparison from t1 
+ñùì‘E †§£(!0÷ÉM8 @zISCAN(I3 <,>) | MAP (_.ID AS ID, _.A gte promote((@c9 AS _0, @c11 AS _1) AS STRING AS STRA, LONG AS INTA) AS A_COMPARISON)∞digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2.ID AS ID, q2.A gte promote((@c9 AS _0, @c11 AS _1) AS STRING AS STRA, LONG AS INTA) AS A_COMPARISON)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BOOLEAN AS A_COMPARISON)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}Æ
+_
+ struct-comparisons-in-projection;EXPLAIN select t1.id, a <= ('a', 1) AS a_comparison from t1 
+ñºªìE “”‹(!0⁄∑E8 @zISCAN(I3 <,>) | MAP (_.ID AS ID, _.A lte promote((@c9 AS _0, @c11 AS _1) AS STRING AS STRA, LONG AS INTA) AS A_COMPARISON)∞digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2.ID AS ID, q2.A lte promote((@c9 AS _0, @c11 AS _1) AS STRING AS STRA, LONG AS INTA) AS A_COMPARISON)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BOOLEAN AS A_COMPARISON)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}¯
+À
+ struct-comparisons-in-projection¶EXPLAIN select t1.id, d is not distinct from STRUCT TypeD (STRUCT TypeA (CAST(null AS string), 2), [STRUCT TypeA ('b', CAST(null AS bigint))]) AS d_comparison from t1ß
+ñö≠§E Ω£ª(!0∑ëC8 @ËISCAN(I3 <,>) | MAP (_.ID AS ID, _.D notDistinctFrom promote((promote((NULL AS STRA, promote(@c23 AS LONG) AS INTA) AS STRING AS STRA, LONG AS INTA) AS A, promote(array((promote(@c30 AS STRING) AS STRA, NULL AS INTA)) AS ARRAY(STRING AS STRA, LONG AS INTA)) AS B) AS STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B) AS D_COMPARISON)ûdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2.ID AS ID, q2.D notDistinctFrom promote((promote((NULL AS STRA, promote(@c23 AS LONG) AS INTA) AS STRING AS STRA, LONG AS INTA) AS A, promote(array((promote(@c30 AS STRING) AS STRA, NULL AS INTA)) AS ARRAY(STRING AS STRA, LONG AS INTA)) AS B) AS STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B) AS D_COMPARISON)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BOOLEAN AS D_COMPARISON)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}¨
+[
+ struct-comparisons-in-projection7EXPLAIN select t1.id, d is null AS d_comparison from t1Ã
+ñ£≈ÎE «ﬂ¨(!0ó≈,8 @;ISCAN(I3 <,>) | MAP (_.ID AS ID, isNull_.D AS D_COMPARISON)Òdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2.ID AS ID, isNullq2.D AS D_COMPARISON)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BOOLEAN AS D_COMPARISON)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}≤
+_
+ struct-comparisons-in-projection;EXPLAIN select t1.id, d is not null AS d_comparison from t1Œ
+ñ§ÔÌE ‡∂≤(!0Ä˘+8 @<ISCAN(I3 <,>) | MAP (_.ID AS ID, notNull_.D AS D_COMPARISON)Údigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2.ID AS ID, notNullq2.D AS D_COMPARISON)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BOOLEAN AS D_COMPARISON)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}÷
+i
+ struct-comparisons-in-projectionEEXPLAIN select t1.id, d is distinct from null AS d_comparison from t1Ë
+ñ¢¨ÀE ”¿¶(!0ÎÉK8 @IISCAN(I3 <,>) | MAP (_.ID AS ID, _.D isDistinctFrom NULL AS D_COMPARISON)ˇdigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q2.ID AS ID, q2.D isDistinctFrom NULL AS D_COMPARISON)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BOOLEAN AS D_COMPARISON)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">I3</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS STRA, LONG AS INTA AS A, STRING AS STRA, LONG AS INTA AS A2, STRING AS STRB, LONG AS INTB AS B, STRING AS STRC1, STRING AS STRC2, LONG AS INTC AS C, STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B AS D)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}

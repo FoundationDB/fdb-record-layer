@@ -1,0 +1,535 @@
+struct-comparisons-in-predicates:
+-   query: EXPLAIN select id from t1 where a2 = a
+    ref: struct-operators.yamsql:52
+    explain: ISCAN(I3 <,>) | FILTER _.A2.STRA EQUALS _.A.STRA AND _.A2.INTA EQUALS
+        _.A.INTA | MAP (_.ID AS ID)
+    task_count: 494
+    task_total_time_ms: 61
+    transform_count: 134
+    transform_time_ms: 24
+    transform_yield_count: 41
+    insert_time_ms: 2
+    insert_new_count: 54
+    insert_reused_count: 6
+-   query: EXPLAIN select t1.id from t1 where a2 is not distinct from a
+    ref: struct-operators.yamsql:56
+    explain: ISCAN(I3 <,>) | FILTER _.A2.STRA NOT_DISTINCT_FROM _.A.STRA AND _.A2.INTA
+        NOT_DISTINCT_FROM _.A.INTA | MAP (_.ID AS ID)
+    task_count: 494
+    task_total_time_ms: 61
+    transform_count: 134
+    transform_time_ms: 24
+    transform_yield_count: 41
+    insert_time_ms: 2
+    insert_new_count: 54
+    insert_reused_count: 6
+-   query: EXPLAIN select t1.id from t1 where a != ('a', 1)
+    ref: struct-operators.yamsql:60
+    explain: 'COVERING(I1 <,> -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]])
+        | FILTER _.A.STRA NOT_EQUALS promote(@c11 AS STRING) ∪ COVERING(I1 <,> ->
+        [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) | FILTER _.A.INTA NOT_EQUALS
+        promote(@c13 AS LONG) COMPARE BY (_.A.STRA, _.A.INTA, _.ID) | MAP (_.ID AS
+        ID)'
+    task_count: 1657
+    task_total_time_ms: 210
+    transform_count: 360
+    transform_time_ms: 70
+    transform_yield_count: 111
+    insert_time_ms: 10
+    insert_new_count: 219
+    insert_reused_count: 29
+-   query: EXPLAIN select t1.id from t1 where a2 = ('c', CAST(null AS bigint))
+    ref: struct-operators.yamsql:64
+    explain: ISCAN(I3 <,>) | FILTER null AND _.A2.STRA EQUALS @c10 | MAP (_.ID AS
+        ID)
+    task_count: 688
+    task_total_time_ms: 79
+    transform_count: 165
+    transform_time_ms: 24
+    transform_yield_count: 49
+    insert_time_ms: 3
+    insert_new_count: 78
+    insert_reused_count: 4
+-   query: EXPLAIN select t1.id from t1 where a2 is not distinct from ('c', CAST(null
+        AS bigint))
+    ref: struct-operators.yamsql:68
+    explain: ISCAN(I3 <,>) | FILTER _.A2.STRA NOT_DISTINCT_FROM promote(@c13 AS STRING)
+        AND _.A2.INTA NOT_DISTINCT_FROM NULL | MAP (_.ID AS ID)
+    task_count: 508
+    task_total_time_ms: 70
+    transform_count: 139
+    transform_time_ms: 26
+    transform_yield_count: 43
+    insert_time_ms: 2
+    insert_new_count: 58
+    insert_reused_count: 6
+-   query: EXPLAIN select t1.id from t1 where a is distinct from ('a', 1)
+    ref: struct-operators.yamsql:72
+    explain: 'COVERING(I1 <,> -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]])
+        | FILTER _.A.STRA IS_DISTINCT_FROM promote(@c12 AS STRING) ∪ COVERING(I1 <,>
+        -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) | FILTER _.A.INTA IS_DISTINCT_FROM
+        promote(@c14 AS LONG) COMPARE BY (_.A.STRA, _.A.INTA, _.ID) | MAP (_.ID AS
+        ID)'
+    task_count: 1657
+    task_total_time_ms: 215
+    transform_count: 360
+    transform_time_ms: 73
+    transform_yield_count: 111
+    insert_time_ms: 10
+    insert_new_count: 219
+    insert_reused_count: 29
+-   query: EXPLAIN select id from t1 where a = struct TypeA ('a', 1)
+    ref: struct-operators.yamsql:76
+    explain: 'COVERING(I1 [EQUALS promote(@c10 AS STRING), EQUALS promote(@c12 AS
+        LONG)] -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) | MAP (_.ID AS
+        ID)'
+    task_count: 596
+    task_total_time_ms: 150
+    transform_count: 150
+    transform_time_ms: 76
+    transform_yield_count: 49
+    insert_time_ms: 7
+    insert_new_count: 67
+    insert_reused_count: 6
+-   query: EXPLAIN select t1.id from t1 where a is not distinct from ('c', CAST(null
+        AS bigint))
+    ref: struct-operators.yamsql:80
+    explain: 'COVERING(I1 [NOT_DISTINCT_FROM promote(@c13 AS STRING), NOT_DISTINCT_FROM
+        NULL] -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) | MAP (_.ID AS
+        ID)'
+    task_count: 596
+    task_total_time_ms: 148
+    transform_count: 150
+    transform_time_ms: 76
+    transform_yield_count: 49
+    insert_time_ms: 7
+    insert_new_count: 67
+    insert_reused_count: 6
+-   query: EXPLAIN select t1.id from t1 where a is not distinct from STRUCT TypeA
+        ('c', CAST(null AS bigint))
+    ref: struct-operators.yamsql:85
+    explain: 'COVERING(I1 [NOT_DISTINCT_FROM promote(@c15 AS STRING), NOT_DISTINCT_FROM
+        NULL] -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) | MAP (_.ID AS
+        ID)'
+    task_count: 596
+    task_total_time_ms: 73
+    transform_count: 150
+    transform_time_ms: 24
+    transform_yield_count: 49
+    insert_time_ms: 3
+    insert_new_count: 67
+    insert_reused_count: 6
+-   query: EXPLAIN select id from t1, (select STRUCT TypeA (strB, intB) as a from
+        t2) sq where t1.a = sq.a
+    ref: struct-operators.yamsql:89
+    explain: ISCAN(I2 <,>) | FLATMAP q0 -> { ISCAN(I1 [EQUALS q0.STRB, EQUALS q0.INTB])
+        AS q1 RETURN (q1.ID AS ID) }
+    task_count: 927
+    task_total_time_ms: 168
+    transform_count: 245
+    transform_time_ms: 69
+    transform_yield_count: 83
+    insert_time_ms: 5
+    insert_new_count: 136
+    insert_reused_count: 7
+-   query: EXPLAIN select id from t1 where ('a', 1) = a
+    ref: struct-operators.yamsql:93
+    explain: 'COVERING(I1 [EQUALS promote(@c6 AS STRING), EQUALS promote(@c8 AS LONG)]
+        -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) | MAP (_.ID AS ID)'
+    task_count: 596
+    task_total_time_ms: 69
+    transform_count: 150
+    transform_time_ms: 22
+    transform_yield_count: 49
+    insert_time_ms: 3
+    insert_new_count: 67
+    insert_reused_count: 6
+-   query: EXPLAIN select id from t1 where a = ('b', 2)
+    ref: struct-operators.yamsql:97
+    explain: 'COVERING(I1 [EQUALS promote(@c8 AS STRING), EQUALS promote(@c10 AS LONG)]
+        -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) | MAP (_.ID AS ID)'
+    task_count: 596
+    task_total_time_ms: 81
+    transform_count: 150
+    transform_time_ms: 26
+    transform_yield_count: 49
+    insert_time_ms: 3
+    insert_new_count: 67
+    insert_reused_count: 6
+-   query: EXPLAIN select id from range(1, 2) where ('aab', 5) = ('aab', 5.0)
+    ref: struct-operators.yamsql:101
+    explain: TF range(promote(@c5 AS LONG), promote(@c7 AS LONG), STEP 1l) | FILTER
+        @c11 EQUALS @c11 AND @c19 EQUALS promote(@c13 AS DOUBLE) | MAP (_.ID AS ID)
+    task_count: 125
+    task_total_time_ms: 10
+    transform_count: 29
+    transform_time_ms: 3
+    transform_yield_count: 6
+    insert_time_ms: 0
+    insert_new_count: 10
+    insert_reused_count: 0
+-   query: EXPLAIN select id from range(1, 2) where (('aab', 5.0), 0) = (('aab', 5),
+        0)
+    ref: struct-operators.yamsql:105
+    explain: TF range(promote(@c5 AS LONG), promote(@c7 AS LONG), STEP 1l) | FILTER
+        @c12 EQUALS @c12 AND promote(@c24 AS DOUBLE) EQUALS @c14 AND @c17 EQUALS @c17
+        | MAP (_.ID AS ID)
+    task_count: 125
+    task_total_time_ms: 6
+    transform_count: 29
+    transform_time_ms: 1
+    transform_yield_count: 6
+    insert_time_ms: 0
+    insert_new_count: 10
+    insert_reused_count: 0
+-   query: EXPLAIN select t1.id from t1 where d = STRUCT TypeD (('a', 1), [STRUCT
+        TypeA ('a', 1l)])
+    ref: struct-operators.yamsql:109
+    explain: ISCAN(I3 [EQUALS promote(@c13 AS STRING)]) | FILTER _.D.A.INTA EQUALS
+        promote(@c15 AS LONG) AND _.D.B EQUALS promote(array((promote(@c13 AS STRING)
+        AS STRA, promote(@c24 AS LONG) AS INTA)) AS ARRAY(STRING AS STRA, LONG AS
+        INTA)) | MAP (_.ID AS ID)
+    task_count: 568
+    task_total_time_ms: 60
+    transform_count: 147
+    transform_time_ms: 20
+    transform_yield_count: 46
+    insert_time_ms: 2
+    insert_new_count: 64
+    insert_reused_count: 5
+-   query: EXPLAIN select t1.id from t1 INNER JOIN t3 USING(d)
+    ref: struct-operators.yamsql:113
+    explain: SCAN([IS T3]) | FLATMAP q0 -> { ISCAN(I3 [EQUALS q0.D.A.STRA]) | FILTER
+        _.D.A.INTA EQUALS q0.D.A.INTA AND _.D.B EQUALS q0.D.B AS q1 RETURN (q1.ID
+        AS ID) }
+    task_count: 733
+    task_total_time_ms: 212
+    transform_count: 205
+    transform_time_ms: 122
+    transform_yield_count: 64
+    insert_time_ms: 9
+    insert_new_count: 97
+    insert_reused_count: 6
+-   query: EXPLAIN select t1.id from t1, t1.d.b AS unnested WHERE ('a', 1) = unnested
+    ref: struct-operators.yamsql:117
+    explain: ISCAN(I3 <,>) | FLATMAP q0 -> { TF explode(q0.D.B) | FILTER _._0.STRA
+        EQUALS promote(@c16 AS STRING) AND _._0.INTA EQUALS promote(@c18 AS LONG)
+        AS q1 RETURN (q0.ID AS ID) }
+    task_count: 326
+    task_total_time_ms: 120
+    transform_count: 100
+    transform_time_ms: 64
+    transform_yield_count: 30
+    insert_time_ms: 3
+    insert_new_count: 42
+    insert_reused_count: 0
+-   query: EXPLAIN select t1.id from t1 where a is not null and a2 is distinct from
+        null
+    ref: struct-operators.yamsql:121
+    explain: ISCAN(I1 <,>) | FILTER (_.A2.STRA IS_DISTINCT_FROM NULL OR _.A2.INTA
+        IS_DISTINCT_FROM NULL) AND _.A NOT_NULL | MAP (_.ID AS ID)
+    task_count: 494
+    task_total_time_ms: 64
+    transform_count: 135
+    transform_time_ms: 25
+    transform_yield_count: 41
+    insert_time_ms: 2
+    insert_new_count: 54
+    insert_reused_count: 6
+-   query: EXPLAIN select t1.id from t1 where a is null
+    ref: struct-operators.yamsql:125
+    explain: ISCAN(I1 <,>) | FILTER _.A IS_NULL | MAP (_.ID AS ID)
+    task_count: 494
+    task_total_time_ms: 38
+    transform_count: 134
+    transform_time_ms: 15
+    transform_yield_count: 41
+    insert_time_ms: 1
+    insert_new_count: 54
+    insert_reused_count: 6
+-   query: EXPLAIN select t1.id from t1 where a is not null
+    ref: struct-operators.yamsql:129
+    explain: ISCAN(I1 <,>) | FILTER _.A NOT_NULL | MAP (_.ID AS ID)
+    task_count: 494
+    task_total_time_ms: 158
+    transform_count: 134
+    transform_time_ms: 102
+    transform_yield_count: 41
+    insert_time_ms: 5
+    insert_new_count: 54
+    insert_reused_count: 6
+-   query: EXPLAIN select t1.id from t1 where a.strA is null and a2 is not distinct
+        from null
+    ref: struct-operators.yamsql:133
+    explain: ISCAN(I1 [[null],[null]]) | FILTER _.A2.STRA NOT_DISTINCT_FROM NULL AND
+        _.A2.INTA NOT_DISTINCT_FROM NULL | MAP (_.ID AS ID)
+    task_count: 554
+    task_total_time_ms: 32
+    transform_count: 142
+    transform_time_ms: 11
+    transform_yield_count: 44
+    insert_time_ms: 1
+    insert_new_count: 60
+    insert_reused_count: 5
+-   query: EXPLAIN select t1.id from t1 where a.intA is not distinct from 1
+    ref: struct-operators.yamsql:137
+    explain: 'COVERING(I1 <,> -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]])
+        | FILTER _.A.INTA NOT_DISTINCT_FROM promote(@c14 AS LONG) | MAP (_.ID AS ID)'
+    task_count: 593
+    task_total_time_ms: 65
+    transform_count: 149
+    transform_time_ms: 20
+    transform_yield_count: 46
+    insert_time_ms: 6
+    insert_new_count: 67
+    insert_reused_count: 7
+-   query: EXPLAIN select t1.id from t1 where a >= ('a', 1l)
+    ref: struct-operators.yamsql:141
+    explain: 'COVERING(I1 [[GREATER_THAN promote(@c11 AS STRING)]] -> [ID: KEY:[3],
+        A: [INTA: KEY:[1], STRA: KEY:[0]]]) ∪ COVERING(I1 [EQUALS promote(@c11 AS
+        STRING), [GREATER_THAN_OR_EQUALS promote(@c13 AS LONG)]] -> [ID: KEY:[3],
+        A: [INTA: KEY:[1], STRA: KEY:[0]]]) COMPARE BY (_.A.STRA, _.A.INTA, _.ID)
+        | MAP (_.ID AS ID)'
+    task_count: 6237
+    task_total_time_ms: 660
+    transform_count: 1146
+    transform_time_ms: 194
+    transform_yield_count: 352
+    insert_time_ms: 46
+    insert_new_count: 818
+    insert_reused_count: 80
+-   query: EXPLAIN select t1.id from t1 where a >= STRUCT TypeA ('a', 1l)
+    ref: struct-operators.yamsql:145
+    explain: 'COVERING(I1 [[GREATER_THAN promote(@c13 AS STRING)]] -> [ID: KEY:[3],
+        A: [INTA: KEY:[1], STRA: KEY:[0]]]) ∪ COVERING(I1 [EQUALS promote(@c13 AS
+        STRING), [GREATER_THAN_OR_EQUALS promote(@c15 AS LONG)]] -> [ID: KEY:[3],
+        A: [INTA: KEY:[1], STRA: KEY:[0]]]) COMPARE BY (_.A.STRA, _.A.INTA, _.ID)
+        | MAP (_.ID AS ID)'
+    task_count: 6237
+    task_total_time_ms: 489
+    transform_count: 1146
+    transform_time_ms: 152
+    transform_yield_count: 352
+    insert_time_ms: 32
+    insert_new_count: 818
+    insert_reused_count: 80
+-   query: EXPLAIN select t1.id from t1 where a >= ('a', CAST(null AS bigint))
+    ref: struct-operators.yamsql:151
+    explain: 'COVERING(I1 [[GREATER_THAN promote(@c11 AS STRING)]] -> [ID: KEY:[3],
+        A: [INTA: KEY:[1], STRA: KEY:[0]]]) ∪ COVERING(I1 [EQUALS promote(@c11 AS
+        STRING), [GREATER_THAN_OR_EQUALS NULL]] -> [ID: KEY:[3], A: [INTA: KEY:[1],
+        STRA: KEY:[0]]]) COMPARE BY (_.A.STRA, _.A.INTA, _.ID) | MAP (_.ID AS ID)'
+    task_count: 6237
+    task_total_time_ms: 357
+    transform_count: 1146
+    transform_time_ms: 130
+    transform_yield_count: 352
+    insert_time_ms: 30
+    insert_new_count: 818
+    insert_reused_count: 80
+-   query: EXPLAIN select t1.id from t1 where a2 > (CAST(null AS string), 1)
+    ref: struct-operators.yamsql:156
+    explain: 'COVERING(I3 <,> -> [ID: KEY:[2], D: [A: [STRA: KEY:[0]]]]) | FILTER
+        null | MAP (_.ID AS ID)'
+    task_count: 706
+    task_total_time_ms: 74
+    transform_count: 169
+    transform_time_ms: 21
+    transform_yield_count: 53
+    insert_time_ms: 4
+    insert_new_count: 84
+    insert_reused_count: 8
+-   query: EXPLAIN select t1.id from t1 where a2 < ('b', 4)
+    ref: struct-operators.yamsql:160
+    explain: ISCAN(I3 <,>) | FILTER (_.A2.STRA LESS_THAN promote(@c10 AS STRING) OR
+        _.A2.STRA EQUALS promote(@c10 AS STRING)) AND (_.A2.STRA LESS_THAN promote(@c10
+        AS STRING) OR _.A2.INTA LESS_THAN promote(@c12 AS LONG)) | MAP (_.ID AS ID)
+    task_count: 817
+    task_total_time_ms: 122
+    transform_count: 233
+    transform_time_ms: 47
+    transform_yield_count: 64
+    insert_time_ms: 6
+    insert_new_count: 97
+    insert_reused_count: 9
+-   query: EXPLAIN select t1.id from t1 where c > ('a', 'b', 1)
+    ref: struct-operators.yamsql:164
+    explain: ISCAN(I3 <,>) | FILTER (_.C.STRC1 GREATER_THAN promote(@c10 AS STRING)
+        OR _.C.STRC1 EQUALS promote(@c10 AS STRING)) AND (_.C.STRC1 GREATER_THAN promote(@c10
+        AS STRING) OR _.C.STRC2 GREATER_THAN promote(@c12 AS STRING) OR _.C.STRC2
+        EQUALS promote(@c12 AS STRING)) AND (_.C.STRC1 GREATER_THAN promote(@c10 AS
+        STRING) OR _.C.STRC2 GREATER_THAN promote(@c12 AS STRING) OR _.C.INTC GREATER_THAN
+        promote(@c14 AS LONG)) | MAP (_.ID AS ID)
+    task_count: 817
+    task_total_time_ms: 102
+    transform_count: 237
+    transform_time_ms: 48
+    transform_yield_count: 64
+    insert_time_ms: 6
+    insert_new_count: 97
+    insert_reused_count: 9
+-   query: EXPLAIN select t1.id from t1 where c >= ('a', 'b', 1)
+    ref: struct-operators.yamsql:168
+    explain: ISCAN(I3 <,>) | FILTER (_.C.STRC1 GREATER_THAN promote(@c11 AS STRING)
+        OR _.C.STRC1 EQUALS promote(@c11 AS STRING)) AND (_.C.STRC1 GREATER_THAN promote(@c11
+        AS STRING) OR _.C.STRC2 GREATER_THAN promote(@c13 AS STRING) OR _.C.STRC2
+        EQUALS promote(@c13 AS STRING)) AND (_.C.STRC1 GREATER_THAN promote(@c11 AS
+        STRING) OR _.C.STRC2 GREATER_THAN promote(@c13 AS STRING) OR _.C.INTC GREATER_THAN_OR_EQUALS
+        promote(@c15 AS LONG)) | MAP (_.ID AS ID)
+    task_count: 817
+    task_total_time_ms: 128
+    transform_count: 237
+    transform_time_ms: 56
+    transform_yield_count: 64
+    insert_time_ms: 6
+    insert_new_count: 97
+    insert_reused_count: 9
+-   query: EXPLAIN select t1.id from t1 where (t1.a, t1.b) >= (('a', 1), ('b', 2))
+    ref: struct-operators.yamsql:172
+    explain: 'COVERING(I1 [[GREATER_THAN promote(@c20 AS STRING)]] -> [ID: KEY:[3],
+        A: [INTA: KEY:[1], STRA: KEY:[0]]]) ∪ COVERING(I1 [EQUALS promote(@c20 AS
+        STRING), [GREATER_THAN promote(@c22 AS LONG)]] -> [ID: KEY:[3], A: [INTA:
+        KEY:[1], STRA: KEY:[0]]]) COMPARE BY (_.A.STRA, _.A.INTA, _.ID) | FETCH ∪
+        ISCAN(I1 [EQUALS promote(@c20 AS STRING), EQUALS promote(@c22 AS LONG)]) |
+        FILTER _.B.STRB GREATER_THAN promote(@c26 AS STRING) ∪ ISCAN(I1 [EQUALS promote(@c20
+        AS STRING), EQUALS promote(@c22 AS LONG)]) | FILTER _.B.STRB EQUALS promote(@c26
+        AS STRING) AND _.B.INTB GREATER_THAN_OR_EQUALS promote(@c28 AS LONG) COMPARE
+        BY (_.A.STRA, _.A.INTA, _.ID) | MAP (_.ID AS ID)'
+    task_count: 30663
+    task_total_time_ms: 3099
+    transform_count: 5637
+    transform_time_ms: 2158
+    transform_yield_count: 1779
+    insert_time_ms: 91
+    insert_new_count: 4566
+    insert_reused_count: 571
+-   query: EXPLAIN select t1.id from t1 where (t1.a, t1.b, t1.d.a.strA) >= (('a',
+        1), ('b', 2), 'a')
+    ref: struct-operators.yamsql:177
+    explain: ISCAN(I3 <,>) | FILTER (_.A AS A, _.B AS B, _.D.A.STRA AS STRA) GREATER_THAN_OR_EQUALS
+        promote(((@c28 AS _0, @c30 AS _1) AS _0, (@c34 AS _0, @c36 AS _1) AS _1, @c28
+        AS _2) AS STRING AS STRA, LONG AS INTA AS A, STRING AS STRB, LONG AS INTB
+        AS B, STRING AS STRA) | MAP (_.ID AS ID)
+    task_count: 494
+    task_total_time_ms: 150
+    transform_count: 134
+    transform_time_ms: 97
+    transform_yield_count: 41
+    insert_time_ms: 3
+    insert_new_count: 54
+    insert_reused_count: 6
+-   query: EXPLAIN select t1.id from t1 where d.a > ('a', 0)
+    ref: struct-operators.yamsql:181
+    explain: 'COVERING(I3 [[GREATER_THAN promote(@c12 AS STRING)]] -> [ID: KEY:[3],
+        D: [A: [INTA: KEY:[1], STRA: KEY:[0]]]]) ∪ COVERING(I3 [EQUALS promote(@c12
+        AS STRING), [GREATER_THAN promote(@c14 AS LONG)]] -> [ID: KEY:[3], D: [A:
+        [INTA: KEY:[1], STRA: KEY:[0]]]]) COMPARE BY (_.D.A.STRA, _.D.A.INTA, _.ID)
+        | MAP (_.ID AS ID)'
+    task_count: 6237
+    task_total_time_ms: 482
+    transform_count: 1146
+    transform_time_ms: 141
+    transform_yield_count: 352
+    insert_time_ms: 33
+    insert_new_count: 818
+    insert_reused_count: 80
+-   query: EXPLAIN select t1.id from t1 where d.a is null
+    ref: struct-operators.yamsql:185
+    explain: ISCAN(I1 <,>) | FILTER _.D.A IS_NULL | MAP (_.ID AS ID)
+    task_count: 494
+    task_total_time_ms: 42
+    transform_count: 134
+    transform_time_ms: 15
+    transform_yield_count: 41
+    insert_time_ms: 1
+    insert_new_count: 54
+    insert_reused_count: 6
+struct-comparisons-in-projection:
+-   query: EXPLAIN select t1.id, d = (('a', 1), [('a', 1l)]) AS d_comparison from
+        t1
+    ref: struct-operators.yamsql:193
+    explain: ISCAN(I3 <,>) | MAP (_.ID AS ID, _.D equals promote(((@c9 AS _0, @c11
+        AS _1) AS _0, array((@c9 AS _0, @c18 AS _1)) AS _1) AS STRING AS STRA, LONG
+        AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B) AS D_COMPARISON)
+    task_count: 278
+    task_total_time_ms: 29
+    transform_count: 69
+    transform_time_ms: 12
+    transform_yield_count: 33
+    insert_time_ms: 1
+    insert_new_count: 32
+    insert_reused_count: 6
+-   query: EXPLAIN select t1.id, a >= ('a', 1) AS a_comparison from t1
+    ref: struct-operators.yamsql:201
+    explain: ISCAN(I3 <,>) | MAP (_.ID AS ID, _.A gte promote((@c9 AS _0, @c11 AS
+        _1) AS STRING AS STRA, LONG AS INTA) AS A_COMPARISON)
+    task_count: 278
+    task_total_time_ms: 26
+    transform_count: 69
+    transform_time_ms: 11
+    transform_yield_count: 33
+    insert_time_ms: 1
+    insert_new_count: 32
+    insert_reused_count: 6
+-   query: EXPLAIN select t1.id, a <= ('a', 1) AS a_comparison from t1
+    ref: struct-operators.yamsql:209
+    explain: ISCAN(I3 <,>) | MAP (_.ID AS ID, _.A lte promote((@c9 AS _0, @c11 AS
+        _1) AS STRING AS STRA, LONG AS INTA) AS A_COMPARISON)
+    task_count: 278
+    task_total_time_ms: 27
+    transform_count: 69
+    transform_time_ms: 12
+    transform_yield_count: 33
+    insert_time_ms: 1
+    insert_new_count: 32
+    insert_reused_count: 6
+-   query: EXPLAIN select t1.id, d is not distinct from STRUCT TypeD (STRUCT TypeA
+        (CAST(null AS string), 2), [STRUCT TypeA ('b', CAST(null AS bigint))]) AS
+        d_comparison from t1
+    ref: struct-operators.yamsql:217
+    explain: ISCAN(I3 <,>) | MAP (_.ID AS ID, _.D notDistinctFrom promote((promote((NULL
+        AS STRA, promote(@c23 AS LONG) AS INTA) AS STRING AS STRA, LONG AS INTA) AS
+        A, promote(array((promote(@c30 AS STRING) AS STRA, NULL AS INTA)) AS ARRAY(STRING
+        AS STRA, LONG AS INTA)) AS B) AS STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING
+        AS STRA, LONG AS INTA) AS B) AS D_COMPARISON)
+    task_count: 278
+    task_total_time_ms: 27
+    transform_count: 69
+    transform_time_ms: 11
+    transform_yield_count: 33
+    insert_time_ms: 1
+    insert_new_count: 32
+    insert_reused_count: 6
+-   query: EXPLAIN select t1.id, d is null AS d_comparison from t1
+    ref: struct-operators.yamsql:225
+    explain: ISCAN(I3 <,>) | MAP (_.ID AS ID, isNull_.D AS D_COMPARISON)
+    task_count: 278
+    task_total_time_ms: 14
+    transform_count: 69
+    transform_time_ms: 7
+    transform_yield_count: 33
+    insert_time_ms: 0
+    insert_new_count: 32
+    insert_reused_count: 6
+-   query: EXPLAIN select t1.id, d is not null AS d_comparison from t1
+    ref: struct-operators.yamsql:233
+    explain: ISCAN(I3 <,>) | MAP (_.ID AS ID, notNull_.D AS D_COMPARISON)
+    task_count: 278
+    task_total_time_ms: 14
+    transform_count: 69
+    transform_time_ms: 7
+    transform_yield_count: 33
+    insert_time_ms: 0
+    insert_new_count: 32
+    insert_reused_count: 6
+-   query: EXPLAIN select t1.id, d is distinct from null AS d_comparison from t1
+    ref: struct-operators.yamsql:241
+    explain: ISCAN(I3 <,>) | MAP (_.ID AS ID, _.D isDistinctFrom NULL AS D_COMPARISON)
+    task_count: 278
+    task_total_time_ms: 26
+    transform_count: 69
+    transform_time_ms: 11
+    transform_yield_count: 33
+    insert_time_ms: 1
+    insert_new_count: 32
+    insert_reused_count: 6

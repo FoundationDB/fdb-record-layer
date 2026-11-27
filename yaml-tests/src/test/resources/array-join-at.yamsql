@@ -320,7 +320,7 @@ test_block:
       - query: SELECT "id", "val", "at"
                  FROM T1, T1."arr1_nn" AS "val" AT "at"
                 WHERE "at" IN (1, 2)
-      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { TF explode(q0.arr1_nn) | FILTER _._1 + 1 IN @c19 AS q1 RETURN (q0.id AS id, q1._0 AS val, q1._1 + 1 AS at) }"
+      - explain: "SCAN([IS T1]) | FLATMAP q0 -> { TF explode(q0.arr1_nn) | FILTER _._1 + 1 IN promote(@c19 AS ARRAY(INT)) AS q1 RETURN (q0.id AS id, q1._0 AS val, q1._1 + 1 AS at) }"
       - resultMetadata: [{id: BIGINT}, {val: INTEGER}, {at: INTEGER}]
       - unorderedResult: [
           {id: 1, val: 101, at: 1},

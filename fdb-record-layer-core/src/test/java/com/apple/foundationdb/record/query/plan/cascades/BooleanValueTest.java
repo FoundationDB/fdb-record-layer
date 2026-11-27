@@ -41,10 +41,13 @@ import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.InOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.NotValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ThrowsValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.apple.foundationdb.record.query.plan.serialization.DefaultPlanSerializationRegistry;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
@@ -61,8 +64,10 @@ import org.junit.jupiter.params.support.ParameterDeclarations;
 import javax.annotation.Nonnull;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 /**
@@ -82,9 +87,6 @@ class BooleanValueTest {
             Type.Enum.EnumValue.from("DIAMONDS", 2),
             Type.Enum.EnumValue.from("CLUBS", 3)
     ));
-
-    private static final TypeRepository.Builder typeRepositoryBuilder = TypeRepository.newBuilder().setName("foo").setPackage("a.b.c")
-            .addTypeIfNeeded(ENUM_TYPE_FOR_TEST);
 
     private static final FieldValue F = FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), Type.Record.fromFields(true, ImmutableList.of(Type.Record.Field.of(Type.primitiveType(Type.TypeCode.INT), Optional.of("f"))))), "f");
     private static final FieldValue F_ENUM_1 = FieldValue.ofFieldName(QuantifiedObjectValue.of(Quantifier.current(), Type.Record.fromFields(true, ImmutableList.of(Type.Record.Field.of(ENUM_TYPE_FOR_TEST, Optional.of("f_enum_1"))))), "f_enum_1");
@@ -120,6 +122,32 @@ class BooleanValueTest {
     private static final LiteralValue<UUID> UUID_2 = new LiteralValue<>(Type.uuidType(false), UUID.fromString(UUID_STRING_2.getLiteralValue()));
     private static final LiteralValue<UUID> UUID_NULL = new LiteralValue<>(Type.uuidType(true), null);
 
+    private static final List<LiteralValue<?>> UNNAMED_RECORD_1_VALUES = ImmutableList.of(STRING_1, LONG_1);
+    private static final RecordConstructorValue UNNAMED_RECORD_1 = RecordConstructorValue.ofUnnamed(UNNAMED_RECORD_1_VALUES);
+    private static final RecordConstructorValue NAMED_RECORD_1 = RecordConstructorValue.ofColumnsAndName(UNNAMED_RECORD_1.getColumns(), "TypeName");
+
+    private static final NullValue UNNAMED_RECORD_1_NULL = new NullValue(UNNAMED_RECORD_1.getResultType());
+    private static final NullValue NAMED_RECORD_1_NULL = new NullValue(NAMED_RECORD_1.getResultType());
+    private static final QuantifiedObjectValue QOV_UNNAMED_RECORD_1 = QuantifiedObjectValue.of(
+            Quantifier.current(), UNNAMED_RECORD_1.getResultType().withNullability(true));
+
+    private static final List<LiteralValue<?>> UNNAMED_RECORD_2_VALUES = ImmutableList.of(STRING_1, INT_1);
+    private static final RecordConstructorValue UNNAMED_RECORD_2 = RecordConstructorValue.ofUnnamed(UNNAMED_RECORD_2_VALUES);
+
+    private static final List<LiteralValue<?>> UNNAMED_RECORD_3_VALUES = ImmutableList.of(LONG_1, INT_1);
+    private static final RecordConstructorValue UNNAMED_RECORD_3 = RecordConstructorValue.ofUnnamed(UNNAMED_RECORD_3_VALUES);
+    private static final RecordConstructorValue NAMED_RECORD_3 = RecordConstructorValue.ofColumnsAndName(UNNAMED_RECORD_3.getColumns(), "DifferentTypeName");
+
+    private static final List<LiteralValue<?>> UNNAMED_RECORD_WITH_6_FIELDS_VALUES = ImmutableList.of(LONG_1, INT_1, LONG_1, LONG_1, LONG_1, INT_1);
+    private static final RecordConstructorValue UNNAMED_RECORD_WITH_6_FIELDS = RecordConstructorValue.ofUnnamed(UNNAMED_RECORD_WITH_6_FIELDS_VALUES);
+    private static final QuantifiedObjectValue QOV_UNNAMED_RECORD_WITH_6_FIELDS = QuantifiedObjectValue.of(
+            Quantifier.current(), UNNAMED_RECORD_WITH_6_FIELDS.getResultType());
+
+    private static final QuantifiedObjectValue QOV_UNNAMED_NESTED_RECORD = QuantifiedObjectValue.of(
+            Quantifier.current(), Type.Record.fromFields(true, ImmutableList.of(
+                    Type.Record.Field.unnamedOf(UNNAMED_RECORD_1.getResultType()),
+                    Type.Record.Field.unnamedOf(UNNAMED_RECORD_2.getResultType()))));
+
     private static final LiteralValue<byte[]> BYTES_1 = new LiteralValue<>("foo".getBytes(StandardCharsets.UTF_8));
     private static final LiteralValue<byte[]> BYTES_2 = new LiteralValue<>("bar".getBytes(StandardCharsets.UTF_8));
     private static final LiteralValue<byte[]> BYTES_3 = new LiteralValue<>("baz".getBytes(StandardCharsets.UTF_8));
@@ -131,6 +159,17 @@ class BooleanValueTest {
     private static final ArithmeticValue ADD_DOUBLE_1_2 = (ArithmeticValue) new ArithmeticValue.AddFn().encapsulate(CallSiteArguments.ofPositional(DOUBLE_1, DOUBLE_2));
 
     private static final LiteralValue<Void> NULL = new LiteralValue<>(Type.primitiveType(Type.TypeCode.NULL), null);
+
+    private static final TypeRepository.Builder typeRepositoryBuilder = TypeRepository.newBuilder().setName("foo").setPackage("a.b.c")
+            .addTypeIfNeeded(ENUM_TYPE_FOR_TEST)
+            .addTypeIfNeeded(UNNAMED_RECORD_1.getResultType())
+            .addTypeIfNeeded(UNNAMED_RECORD_2.getResultType())
+            .addTypeIfNeeded(UNNAMED_RECORD_3.getResultType())
+            .addTypeIfNeeded(UNNAMED_RECORD_WITH_6_FIELDS.getResultType())
+            .addTypeIfNeeded(NAMED_RECORD_1.getResultType())
+            .addTypeIfNeeded(NAMED_RECORD_3.getResultType())
+            .addTypeIfNeeded(QOV_UNNAMED_RECORD_1.getResultType())
+            .addTypeIfNeeded(QOV_UNNAMED_RECORD_WITH_6_FIELDS.getResultType());
 
     static class BinaryPredicateTestProvider implements ArgumentsProvider {
         @Override
@@ -525,6 +564,10 @@ class BooleanValueTest {
                     Arguments.of(List.of(NULL, BOOL_FALSE), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(NULL, BOOL_TRUE), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(NULL, BOOL_NULL), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UNNAMED_RECORD_1), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, NAMED_RECORD_1), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UNNAMED_RECORD_1_NULL), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, NAMED_RECORD_1_NULL), new RelOpValue.EqualsFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(NULL, LONG_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(NULL, LONG_NULL), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(NULL, INT_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
@@ -540,6 +583,10 @@ class BooleanValueTest {
                     Arguments.of(List.of(NULL, BOOL_FALSE), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(NULL, BOOL_TRUE), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(NULL, BOOL_NULL), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UNNAMED_RECORD_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, NAMED_RECORD_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UNNAMED_RECORD_1_NULL), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, NAMED_RECORD_1_NULL), new RelOpValue.NotEqualsFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(NULL, LONG_1), new RelOpValue.LtFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(NULL, LONG_NULL), new RelOpValue.LtFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(NULL, INT_1), new RelOpValue.LtFn(), ConstantPredicate.NULL),
@@ -552,6 +599,10 @@ class BooleanValueTest {
                     Arguments.of(List.of(NULL, STRING_NULL), new RelOpValue.LtFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(NULL, UUID_1), new RelOpValue.LtFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(NULL, UUID_NULL), new RelOpValue.LtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UNNAMED_RECORD_1), new RelOpValue.LtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, NAMED_RECORD_1), new RelOpValue.LtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UNNAMED_RECORD_1_NULL), new RelOpValue.LtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, NAMED_RECORD_1_NULL), new RelOpValue.LtFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(NULL, LONG_1), new RelOpValue.GtFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(NULL, LONG_NULL), new RelOpValue.GtFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(NULL, INT_1), new RelOpValue.GtFn(), ConstantPredicate.NULL),
@@ -564,6 +615,10 @@ class BooleanValueTest {
                     Arguments.of(List.of(NULL, STRING_NULL), new RelOpValue.GtFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(NULL, UUID_1), new RelOpValue.GtFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(NULL, UUID_NULL), new RelOpValue.GtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UNNAMED_RECORD_1), new RelOpValue.GtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, NAMED_RECORD_1), new RelOpValue.GtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UNNAMED_RECORD_1_NULL), new RelOpValue.GtFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, NAMED_RECORD_1_NULL), new RelOpValue.GtFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(NULL, LONG_1), new RelOpValue.LteFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(NULL, LONG_NULL), new RelOpValue.LteFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(NULL, INT_1), new RelOpValue.LteFn(), ConstantPredicate.NULL),
@@ -576,6 +631,10 @@ class BooleanValueTest {
                     Arguments.of(List.of(NULL, STRING_NULL), new RelOpValue.LteFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(NULL, UUID_1), new RelOpValue.LteFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(NULL, UUID_NULL), new RelOpValue.LteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UNNAMED_RECORD_1), new RelOpValue.LteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, NAMED_RECORD_1), new RelOpValue.LteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UNNAMED_RECORD_1_NULL), new RelOpValue.LteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, NAMED_RECORD_1_NULL), new RelOpValue.LteFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(NULL, LONG_1), new RelOpValue.GteFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(NULL, LONG_NULL), new RelOpValue.GteFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(NULL, INT_1), new RelOpValue.GteFn(), ConstantPredicate.NULL),
@@ -588,6 +647,10 @@ class BooleanValueTest {
                     Arguments.of(List.of(NULL, STRING_NULL), new RelOpValue.GteFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(NULL, UUID_1), new RelOpValue.GteFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(NULL, UUID_NULL), new RelOpValue.GteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UNNAMED_RECORD_1), new RelOpValue.GteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, NAMED_RECORD_1), new RelOpValue.GteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, UNNAMED_RECORD_1_NULL), new RelOpValue.GteFn(), ConstantPredicate.NULL),
+                    Arguments.of(List.of(NULL, NAMED_RECORD_1_NULL), new RelOpValue.GteFn(), ConstantPredicate.NULL),
                     Arguments.of(List.of(NULL, LONG_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(NULL, LONG_NULL), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(NULL, INT_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
@@ -603,6 +666,10 @@ class BooleanValueTest {
                     Arguments.of(List.of(NULL, BOOL_FALSE), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(NULL, BOOL_TRUE), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(NULL, BOOL_NULL), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(NULL, UNNAMED_RECORD_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(NULL, NAMED_RECORD_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(NULL, UNNAMED_RECORD_1_NULL), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(NULL, NAMED_RECORD_1_NULL), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(NULL, LONG_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(NULL, LONG_NULL), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(NULL, INT_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
@@ -618,6 +685,10 @@ class BooleanValueTest {
                     Arguments.of(List.of(NULL, BOOL_FALSE), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(NULL, BOOL_TRUE), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(NULL, BOOL_NULL), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(NULL, UNNAMED_RECORD_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(NULL, NAMED_RECORD_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(NULL, UNNAMED_RECORD_1_NULL), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(NULL, NAMED_RECORD_1_NULL), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
 
                     Arguments.of(List.of(F_ENUM_1, F_ENUM_2), new RelOpValue.EqualsFn(), new ValuePredicate(F_ENUM_1, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, F_ENUM_2))),
 
@@ -654,6 +725,31 @@ class BooleanValueTest {
                     Arguments.of(List.of(UUID_2, UUID_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(UUID_2, UUID_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.TRUE),
 
+                    Arguments.of(List.of(UNNAMED_RECORD_1, NAMED_RECORD_1), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(UNNAMED_RECORD_3, NAMED_RECORD_3), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(UNNAMED_RECORD_1, UNNAMED_RECORD_2), new RelOpValue.EqualsFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(UNNAMED_RECORD_1, NAMED_RECORD_1), new RelOpValue.NotEqualsFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(UNNAMED_RECORD_3, NAMED_RECORD_3), new RelOpValue.NotEqualsFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(UNNAMED_RECORD_1, UNNAMED_RECORD_2), new RelOpValue.NotEqualsFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(UNNAMED_RECORD_1, NAMED_RECORD_1), new RelOpValue.LtFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(UNNAMED_RECORD_3, NAMED_RECORD_3), new RelOpValue.LtFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(UNNAMED_RECORD_1, UNNAMED_RECORD_2), new RelOpValue.LtFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(UNNAMED_RECORD_1, NAMED_RECORD_1), new RelOpValue.GtFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(UNNAMED_RECORD_3, NAMED_RECORD_3), new RelOpValue.GtFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(UNNAMED_RECORD_1, UNNAMED_RECORD_2), new RelOpValue.GtFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(UNNAMED_RECORD_1, NAMED_RECORD_1), new RelOpValue.LteFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(UNNAMED_RECORD_3, NAMED_RECORD_3), new RelOpValue.LteFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(UNNAMED_RECORD_1, UNNAMED_RECORD_2), new RelOpValue.LteFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(UNNAMED_RECORD_1, NAMED_RECORD_1), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(UNNAMED_RECORD_3, NAMED_RECORD_3), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(UNNAMED_RECORD_1, UNNAMED_RECORD_2), new RelOpValue.GteFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(UNNAMED_RECORD_1, NAMED_RECORD_1), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(UNNAMED_RECORD_3, NAMED_RECORD_3), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(UNNAMED_RECORD_1, UNNAMED_RECORD_2), new RelOpValue.NotDistinctFromFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(UNNAMED_RECORD_1, NAMED_RECORD_1), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(UNNAMED_RECORD_3, NAMED_RECORD_3), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(UNNAMED_RECORD_1, UNNAMED_RECORD_2), new RelOpValue.IsDistinctFromFn(), ConstantPredicate.FALSE),
+
                     /* translation of predicates involving a field value, make sure field value is always LHS */
                     Arguments.of(List.of(F, INT_1), new RelOpValue.EqualsFn(), new ValuePredicate(F, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1))),
                     Arguments.of(List.of(INT_1, F), new RelOpValue.EqualsFn(), new ValuePredicate(F, new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1))),
@@ -672,6 +768,33 @@ class BooleanValueTest {
                     Arguments.of(List.of(F, INT_1), new RelOpValue.IsDistinctFromFn(), new ValuePredicate(F, new Comparisons.SimpleComparison(Comparisons.Type.IS_DISTINCT_FROM, 1))),
                     Arguments.of(List.of(INT_1, F), new RelOpValue.IsDistinctFromFn(), new ValuePredicate(F, new Comparisons.SimpleComparison(Comparisons.Type.IS_DISTINCT_FROM, 1))),
 
+                    // translation of predicates involving quantified object values, make sure the qov is always LHS
+                    // and the predicate is field-wise
+                    Arguments.of(List.of(QOV_UNNAMED_RECORD_1, UNNAMED_RECORD_1), new RelOpValue.EqualsFn(), AndPredicate.and(predicatesForRecord(Comparisons.Type.EQUALS, QOV_UNNAMED_RECORD_1, UNNAMED_RECORD_1_VALUES))),
+                    Arguments.of(List.of(UNNAMED_RECORD_1, QOV_UNNAMED_RECORD_1), new RelOpValue.EqualsFn(), AndPredicate.and(predicatesForRecord(Comparisons.Type.EQUALS, QOV_UNNAMED_RECORD_1, UNNAMED_RECORD_1_VALUES))),
+                    Arguments.of(List.of(QOV_UNNAMED_RECORD_1, UNNAMED_RECORD_1), new RelOpValue.NotEqualsFn(), OrPredicate.or(predicatesForRecord(Comparisons.Type.NOT_EQUALS, QOV_UNNAMED_RECORD_1, UNNAMED_RECORD_1_VALUES))),
+                    Arguments.of(List.of(UNNAMED_RECORD_1, QOV_UNNAMED_RECORD_1), new RelOpValue.NotEqualsFn(), OrPredicate.or(predicatesForRecord(Comparisons.Type.NOT_EQUALS, QOV_UNNAMED_RECORD_1, UNNAMED_RECORD_1_VALUES))),
+                    Arguments.of(List.of(QOV_UNNAMED_RECORD_1, UNNAMED_RECORD_1), new RelOpValue.LtFn(), lexicographicPredicateForRecord(Comparisons.Type.LESS_THAN, QOV_UNNAMED_RECORD_1, UNNAMED_RECORD_1_VALUES)),
+                    Arguments.of(List.of(UNNAMED_RECORD_1, QOV_UNNAMED_RECORD_1), new RelOpValue.LtFn(), lexicographicPredicateForRecord(Comparisons.Type.GREATER_THAN, QOV_UNNAMED_RECORD_1, UNNAMED_RECORD_1_VALUES)),
+                    Arguments.of(List.of(QOV_UNNAMED_RECORD_1, UNNAMED_RECORD_1), new RelOpValue.GtFn(), lexicographicPredicateForRecord(Comparisons.Type.GREATER_THAN, QOV_UNNAMED_RECORD_1, UNNAMED_RECORD_1_VALUES)),
+                    Arguments.of(List.of(UNNAMED_RECORD_1, QOV_UNNAMED_RECORD_1), new RelOpValue.GtFn(), lexicographicPredicateForRecord(Comparisons.Type.LESS_THAN, QOV_UNNAMED_RECORD_1, UNNAMED_RECORD_1_VALUES)),
+                    Arguments.of(List.of(QOV_UNNAMED_RECORD_1, UNNAMED_RECORD_1), new RelOpValue.LteFn(), lexicographicPredicateForRecord(Comparisons.Type.LESS_THAN_OR_EQUALS, QOV_UNNAMED_RECORD_1, UNNAMED_RECORD_1_VALUES)),
+                    Arguments.of(List.of(UNNAMED_RECORD_1, QOV_UNNAMED_RECORD_1), new RelOpValue.LteFn(), lexicographicPredicateForRecord(Comparisons.Type.GREATER_THAN_OR_EQUALS, QOV_UNNAMED_RECORD_1, UNNAMED_RECORD_1_VALUES)),
+                    Arguments.of(List.of(QOV_UNNAMED_RECORD_1, UNNAMED_RECORD_1), new RelOpValue.GteFn(), lexicographicPredicateForRecord(Comparisons.Type.GREATER_THAN_OR_EQUALS, QOV_UNNAMED_RECORD_1, UNNAMED_RECORD_1_VALUES)),
+                    Arguments.of(List.of(UNNAMED_RECORD_1, QOV_UNNAMED_RECORD_1), new RelOpValue.GteFn(), lexicographicPredicateForRecord(Comparisons.Type.LESS_THAN_OR_EQUALS, QOV_UNNAMED_RECORD_1, UNNAMED_RECORD_1_VALUES)),
+                    Arguments.of(List.of(QOV_UNNAMED_RECORD_1, UNNAMED_RECORD_1), new RelOpValue.NotDistinctFromFn(), AndPredicate.and(predicatesForRecord(Comparisons.Type.NOT_DISTINCT_FROM, QOV_UNNAMED_RECORD_1, UNNAMED_RECORD_1_VALUES))),
+                    Arguments.of(List.of(UNNAMED_RECORD_1, QOV_UNNAMED_RECORD_1), new RelOpValue.NotDistinctFromFn(), AndPredicate.and(predicatesForRecord(Comparisons.Type.NOT_DISTINCT_FROM, QOV_UNNAMED_RECORD_1, UNNAMED_RECORD_1_VALUES))),
+                    Arguments.of(List.of(QOV_UNNAMED_RECORD_1, UNNAMED_RECORD_1), new RelOpValue.IsDistinctFromFn(), OrPredicate.or(predicatesForRecord(Comparisons.Type.IS_DISTINCT_FROM, QOV_UNNAMED_RECORD_1, UNNAMED_RECORD_1_VALUES))),
+                    Arguments.of(List.of(UNNAMED_RECORD_1, QOV_UNNAMED_RECORD_1), new RelOpValue.IsDistinctFromFn(), OrPredicate.or(predicatesForRecord(Comparisons.Type.IS_DISTINCT_FROM, QOV_UNNAMED_RECORD_1, UNNAMED_RECORD_1_VALUES))),
+
+                    Arguments.of(List.of(UNNAMED_RECORD_WITH_6_FIELDS, QOV_UNNAMED_RECORD_WITH_6_FIELDS), new RelOpValue.EqualsFn(), new ValuePredicate(QOV_UNNAMED_RECORD_WITH_6_FIELDS, new Comparisons.ValueComparison(Comparisons.Type.EQUALS, UNNAMED_RECORD_WITH_6_FIELDS))),
+                    Arguments.of(List.of(UNNAMED_RECORD_WITH_6_FIELDS, QOV_UNNAMED_RECORD_WITH_6_FIELDS), new RelOpValue.NotEqualsFn(), new ValuePredicate(QOV_UNNAMED_RECORD_WITH_6_FIELDS, new Comparisons.ValueComparison(Comparisons.Type.NOT_EQUALS, UNNAMED_RECORD_WITH_6_FIELDS))),
+                    Arguments.of(List.of(UNNAMED_RECORD_WITH_6_FIELDS, QOV_UNNAMED_RECORD_WITH_6_FIELDS), new RelOpValue.LtFn(), new ValuePredicate(QOV_UNNAMED_RECORD_WITH_6_FIELDS, new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN, UNNAMED_RECORD_WITH_6_FIELDS))),
+                    Arguments.of(List.of(UNNAMED_RECORD_WITH_6_FIELDS, QOV_UNNAMED_RECORD_WITH_6_FIELDS), new RelOpValue.GtFn(), new ValuePredicate(QOV_UNNAMED_RECORD_WITH_6_FIELDS, new Comparisons.ValueComparison(Comparisons.Type.LESS_THAN, UNNAMED_RECORD_WITH_6_FIELDS))),
+                    Arguments.of(List.of(UNNAMED_RECORD_WITH_6_FIELDS, QOV_UNNAMED_RECORD_WITH_6_FIELDS), new RelOpValue.LteFn(), new ValuePredicate(QOV_UNNAMED_RECORD_WITH_6_FIELDS, new Comparisons.ValueComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, UNNAMED_RECORD_WITH_6_FIELDS))),
+                    Arguments.of(List.of(UNNAMED_RECORD_WITH_6_FIELDS, QOV_UNNAMED_RECORD_WITH_6_FIELDS), new RelOpValue.GteFn(), new ValuePredicate(QOV_UNNAMED_RECORD_WITH_6_FIELDS, new Comparisons.ValueComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, UNNAMED_RECORD_WITH_6_FIELDS))),
+                    Arguments.of(List.of(UNNAMED_RECORD_WITH_6_FIELDS, QOV_UNNAMED_RECORD_WITH_6_FIELDS), new RelOpValue.NotDistinctFromFn(), new ValuePredicate(QOV_UNNAMED_RECORD_WITH_6_FIELDS, new Comparisons.ValueComparison(Comparisons.Type.NOT_DISTINCT_FROM, UNNAMED_RECORD_WITH_6_FIELDS))),
+                    Arguments.of(List.of(UNNAMED_RECORD_WITH_6_FIELDS, QOV_UNNAMED_RECORD_WITH_6_FIELDS), new RelOpValue.IsDistinctFromFn(), new ValuePredicate(QOV_UNNAMED_RECORD_WITH_6_FIELDS, new Comparisons.ValueComparison(Comparisons.Type.IS_DISTINCT_FROM, UNNAMED_RECORD_WITH_6_FIELDS))),
 
                     Arguments.of(List.of(INT_1), new RelOpValue.IsNullFn(), ConstantPredicate.FALSE),
                     Arguments.of(List.of(INT_1), new RelOpValue.NotNullFn(), ConstantPredicate.TRUE),
@@ -700,6 +823,14 @@ class BooleanValueTest {
                     Arguments.of(List.of(UUID_NULL), new RelOpValue.IsNullFn(), ConstantPredicate.TRUE),
                     Arguments.of(List.of(UUID_NULL), new RelOpValue.NotNullFn(), ConstantPredicate.FALSE),
 
+                    Arguments.of(List.of(NAMED_RECORD_1_NULL), new RelOpValue.IsNullFn(), ConstantPredicate.TRUE),
+                    Arguments.of(List.of(UNNAMED_RECORD_1_NULL), new RelOpValue.NotNullFn(), ConstantPredicate.FALSE),
+                    Arguments.of(List.of(QOV_UNNAMED_RECORD_1), new RelOpValue.IsNullFn(), new ValuePredicate(QOV_UNNAMED_RECORD_1, new Comparisons.NullComparison(Comparisons.Type.IS_NULL))),
+                    Arguments.of(List.of(QOV_UNNAMED_RECORD_1), new RelOpValue.NotNullFn(), new ValuePredicate(QOV_UNNAMED_RECORD_1, new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))),
+                    Arguments.of(List.of(QOV_UNNAMED_NESTED_RECORD), new RelOpValue.IsNullFn(), new ValuePredicate(QOV_UNNAMED_NESTED_RECORD, new Comparisons.NullComparison(Comparisons.Type.IS_NULL))),
+                    Arguments.of(List.of(QOV_UNNAMED_NESTED_RECORD), new RelOpValue.NotNullFn(), new ValuePredicate(QOV_UNNAMED_NESTED_RECORD, new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))),
+                    Arguments.of(List.of(QOV_UNNAMED_RECORD_WITH_6_FIELDS), new RelOpValue.IsNullFn(), new ValuePredicate(QOV_UNNAMED_RECORD_WITH_6_FIELDS, new Comparisons.NullComparison(Comparisons.Type.IS_NULL))),
+                    Arguments.of(List.of(QOV_UNNAMED_RECORD_WITH_6_FIELDS), new RelOpValue.NotNullFn(), new ValuePredicate(QOV_UNNAMED_RECORD_WITH_6_FIELDS, new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))),
 
                     Arguments.of(List.of(F), new RelOpValue.IsNullFn(), new ValuePredicate(F, new Comparisons.NullComparison(Comparisons.Type.IS_NULL))),
                     Arguments.of(List.of(F), new RelOpValue.NotNullFn(), new ValuePredicate(F, new Comparisons.NullComparison(Comparisons.Type.NOT_NULL))),
@@ -963,6 +1094,52 @@ class BooleanValueTest {
             Assertions.assertTrue(e instanceof VerifyException);
             Assertions.assertTrue(e.getMessage().contains("unexpected negative parameter index"));
         }
+    }
+
+    private static List<QueryPredicate> predicatesForRecord(@Nonnull final Comparisons.Type type,
+                                                            @Nonnull final Value left,
+                                                            @Nonnull final List<LiteralValue<?>> rightLiteralValues) {
+
+        final var leftValues = Values.deconstructRecordRecursively(left);
+        Assertions.assertEquals(leftValues.size(), rightLiteralValues.size());
+
+        return IntStream.range(0, leftValues.size())
+                .mapToObj(i -> new ValuePredicate(leftValues.get(i),
+                        new Comparisons.SimpleComparison(type,
+                                Objects.requireNonNull(rightLiteralValues.get(i).getLiteralValue()))))
+                .collect(ImmutableList.toImmutableList());
+    }
+
+    @Nonnull
+    private static QueryPredicate lexicographicPredicateForRecord(@Nonnull final Comparisons.Type type,
+                                                                  @Nonnull final Value left,
+                                                                  @Nonnull final List<LiteralValue<?>> rightLiteralValues) {
+        final Comparisons.Type strictComparisonType = switch (type) {
+            case LESS_THAN, LESS_THAN_OR_EQUALS -> Comparisons.Type.LESS_THAN;
+            case GREATER_THAN, GREATER_THAN_OR_EQUALS -> Comparisons.Type.GREATER_THAN;
+            default -> Assertions.fail("unsupported comparison type " + type + " for lexicographic record comparison");
+        };
+
+        // Only support records with two fields to avoid having a test-specific implementation
+        final var leftValues = Values.deconstructRecordRecursively(left);
+        Assertions.assertEquals(2, leftValues.size());
+        Assertions.assertEquals(2, rightLiteralValues.size());
+
+        // f1 <strictComparisonType> f1` OR (f1 = f1` AND f2 <type> f2`)
+        final var firstCompares = new ValuePredicate(
+                leftValues.get(0),
+                new Comparisons.SimpleComparison(strictComparisonType,
+                        Objects.requireNonNull(rightLiteralValues.get(0).getLiteralValue())));
+        final var firstEqualsAndSecondCompares = AndPredicate.and(
+                new ValuePredicate(
+                        leftValues.get(0),
+                        new Comparisons.SimpleComparison(Comparisons.Type.EQUALS,
+                                Objects.requireNonNull(rightLiteralValues.get(0).getLiteralValue()))),
+                new ValuePredicate(
+                        leftValues.get(1),
+                        new Comparisons.SimpleComparison(type,
+                                Objects.requireNonNull(rightLiteralValues.get(1).getLiteralValue()))));
+        return OrPredicate.or(firstCompares, firstEqualsAndSecondCompares);
     }
 
     @Nonnull

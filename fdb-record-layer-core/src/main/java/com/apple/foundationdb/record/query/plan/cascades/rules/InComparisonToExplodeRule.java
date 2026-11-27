@@ -41,15 +41,14 @@ import com.apple.foundationdb.record.query.plan.cascades.values.BooleanValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RelOpValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
-import com.apple.foundationdb.record.query.plan.cascades.values.Values;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
@@ -165,12 +164,8 @@ public class InComparisonToExplodeRule extends AbstractCascadesRule<SelectExpres
                 final Quantifier.ForEach newQuantifier =
                         Quantifier.forEach(call.memoizeExploratoryExpression(new TableFunctionExpression(explodeValue)));
                 final Value element = ExplodeValue.elementValue(newQuantifier.getFlowedObjectValue());
-                if (element.getResultType().isRecord()) {
-                    transformedPredicates.addAll(createSimpleEqualitiesForRecordTypeValue(value, element));
-                } else {
-                    transformedPredicates.add(new ValuePredicate(value,
-                            new Comparisons.ValueComparison(Comparisons.Type.EQUALS, element)));
-                }
+                transformedPredicates.add(equalityPredicateForValues(value, element,
+                        bindings.getAll(innerQuantifierMatcher)));
                 transformedQuantifiers.add(newQuantifier);
             } else {
                 transformedPredicates.add(predicate);
@@ -183,25 +178,19 @@ public class InComparisonToExplodeRule extends AbstractCascadesRule<SelectExpres
                 transformedPredicates.build()));
     }
 
-    /**
-     * This method creates an equality predicate for all constituent parts of a tuple.
-     */
     @Nonnull
-    private static List<QueryPredicate> createSimpleEqualitiesForRecordTypeValue(@Nonnull final Value value,
-                                                                                 @Nonnull final Value element) {
-        Verify.verify(value.getResultType().isRecord(), "value should be of type record and not %s", value.getResultType());
-        final List<Value> fieldValues = Values.deconstructRecord(value);
+    private static QueryPredicate equalityPredicateForValues(@Nonnull final Value value,
+                                                             @Nonnull final Value element,
+                                                             @Nonnull final List<Quantifier.ForEach> existingQuantifiers) {
+        final var localAliases = existingQuantifiers.stream()
+                .map(Quantifier::getAlias)
+                .collect(ImmutableSet.toImmutableSet());
 
-        final List<Value> comparandValueChildren = Values.deconstructRecord(element);
-        Verify.verify(fieldValues.size() == comparandValueChildren.size(), "record type value and comparand should have matching number of fields");
-        final var resultsBuilder = ImmutableList.<QueryPredicate>builder();
-        for (int i = 0; i < fieldValues.size(); i++) {
-            final Value fieldValue = fieldValues.get(i);
-            BooleanValue currentVal = (BooleanValue) new RelOpValue.EqualsFn().encapsulate(CallSiteArguments.ofPositional(fieldValue, comparandValueChildren.get(i)));
-            Optional<QueryPredicate> currentQueryPredicate = currentVal.toQueryPredicate(null, Quantifier.current());
-            Verify.verify(currentQueryPredicate.isPresent());
-            resultsBuilder.add(currentQueryPredicate.get());
-        }
-        return resultsBuilder.build();
+        final BooleanValue equalsRelOpValue = (BooleanValue)new RelOpValue.EqualsFn()
+                .encapsulate(CallSiteArguments.ofPositional(value, element));
+
+        final var queryPredicate = equalsRelOpValue.toQueryPredicate(null, localAliases);
+        Verify.verify(queryPredicate.isPresent());
+        return queryPredicate.get();
     }
 }

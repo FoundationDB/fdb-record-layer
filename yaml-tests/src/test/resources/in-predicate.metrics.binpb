@@ -465,6 +465,54 @@ b
     rankDir=LR;
     2 -> 3 [ color="red" style="invis" ];
   }
+}¡
+D
+	unnamed-27EXPLAIN select a, g from ta where g in ('RED', 'GREEN')¯
+∫∫Ÿø+¢ º◊…(D0òïï8w@±ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(promote(@c9 AS ARRAY(ENUM<RED(0), GREEN(1), BLUE(2)>)))) | FILTER _._0 EQUALS q0.G AS q1 RETURN (q0.A AS A, q0.G AS G) }§digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.A AS A, q2.G AS G)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, ENUM&lt;RED(0), GREEN(1), BLUE(2)&gt; AS G)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F, ENUM&lt;RED(0), GREEN(1), BLUE(2)&gt; AS G, UUID AS H)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">F1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F, ENUM&lt;RED(0), GREEN(1), BLUE(2)&gt; AS G, UUID AS H)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q42._0 EQUALS q2.G</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ENUM&lt;RED(0), GREEN(1), BLUE(2)&gt; AS _0, INT AS _1)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC explode(arrayDistinct(promote(@c9 AS ARRAY(ENUM&lt;RED(0), GREEN(1), BLUE(2)&gt;))))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(ENUM&lt;RED(0), GREEN(1), BLUE(2)&gt; AS _0, INT AS _1)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 1 [ label=<&nbsp;q42> label="q42" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    4 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    2 -> 4 [ color="red" style="invis" ];
+  }
+}„
+Ñ
+	unnamed-2wEXPLAIN select a, h from ta where h in ('0920df1c-be81-4ec1-8a06-2180226f051d', '2e60b129-ad99-499a-9cef-a27977640e93')Ÿ
+∫–¡•¢ ’†ø(D0ªö†8w@ñISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(promote(@c9 AS ARRAY(UUID)))) | FILTER _._0 EQUALS q0.H AS q1 RETURN (q0.A AS A, q0.H AS H) }†digraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr><tr><td align="left">FLATMAP (q2.A AS A, q2.H AS H)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, UUID AS H)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-‚àû, ‚àû&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F, ENUM&lt;RED(0), GREEN(1), BLUE(2)&gt; AS G, UUID AS H)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">F1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS A, LONG AS B, DOUBLE AS C, BOOLEAN AS D, STRING AS E, LONG AS SA, LONG AS SB AS F, ENUM&lt;RED(0), GREEN(1), BLUE(2)&gt; AS G, UUID AS H)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q42._0 EQUALS q2.H</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(UUID AS _0, INT AS _1)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">TFUNC explode(arrayDistinct(promote(@c9 AS ARRAY(UUID))))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(UUID AS _0, INT AS _1)" ];
+  3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q42> label="q42" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 1 [ label=<&nbsp;q42> label="q42" color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  {
+    4 -> 1 [ color="blue" style="dotted" arrowhead="none" tailport="nw" headport="s" constraint="false" ];
+  }
+  {
+    rank=same;
+    rankDir=LR;
+    2 -> 4 [ color="red" style="invis" ];
+  }
 }˜
 b
 	unnamed-2UEXPLAIN select e, a from ta where e not in ('foo' , 'bar', 'doe', 'arc', 'something')ê

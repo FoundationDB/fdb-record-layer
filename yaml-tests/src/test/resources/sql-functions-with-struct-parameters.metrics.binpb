@@ -1,31 +1,31 @@
-˘
+‡
 N
-$sql-functions-with-struct-parameters&EXPLAIN select * from f1((10, '100'));¶
-“ìˇˇ9Y Ÿüú&(0¸È8/@’SCAN([IS NESTED]) | FILTER _.R.V.Y EQUALS promote((@c6 AS _0, @c8 AS _1) AS LONG AS Y, STRING AS Z).Y AND _.R.V.Z EQUALS promote((@c6 AS _0, @c8 AS _1) AS LONG AS Y, STRING AS Z).Z | MAP (_.ID AS ID, _.R.V.Y AS Y)Ødigraph G {
+$sql-functions-with-struct-parameters&EXPLAIN select * from f1((10, '100'));ç
+‡ﬂÍ°^ ïΩË(0èß$83@âSCAN([IS NESTED]) | FILTER _.R.V.Y EQUALS promote(@c6 AS LONG) AND _.R.V.Z EQUALS promote(@c8 AS STRING) | MAP (_.ID AS ID, _.R.V.Y AS Y)„digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q49.ID AS ID, q49.R.V.Y AS Y)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS Y)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q12.R.V.Y EQUALS promote((@c6 AS _0, @c8 AS _1) AS LONG AS Y, STRING AS Z).Y AND q12.R.V.Z EQUALS promote((@c6 AS _0, @c8 AS _1) AS LONG AS Y, STRING AS Z).Z</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, STRING AS Z AS V AS R)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q50.ID AS ID, q50.R.V.Y AS Y)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS Y)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q12.R.V.Y EQUALS promote(@c6 AS LONG) AND q12.R.V.Z EQUALS promote(@c8 AS STRING)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, STRING AS Z AS V AS R)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS NESTED]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, STRING AS Z AS V AS R)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [COLORFUL, NESTED]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, STRING AS Z AS V AS R)" ];
   3 -> 2 [ label=<&nbsp;q12> label="q12" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q49> label="q49" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}è
+  2 -> 1 [ label=<&nbsp;q50> label="q50" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}ˆ
 „
-$sql-functions-with-struct-parameters+EXPLAIN select * from temp_f1((10, '100'));çcreate temporary function temp_f1 ( in a type st1 ) on commit drop function as select id, r.v.y from nested where r.v.y = a.y and r.v.z = a.z¶
-“∏Ä÷Y Ê∫¶(0ÏÉá8/@’SCAN([IS NESTED]) | FILTER _.R.V.Y EQUALS promote((@c6 AS _0, @c8 AS _1) AS LONG AS Y, STRING AS Z).Y AND _.R.V.Z EQUALS promote((@c6 AS _0, @c8 AS _1) AS LONG AS Y, STRING AS Z).Z | MAP (_.ID AS ID, _.R.V.Y AS Y)Ødigraph G {
+$sql-functions-with-struct-parameters+EXPLAIN select * from temp_f1((10, '100'));çcreate temporary function temp_f1 ( in a type st1 ) on commit drop function as select id, r.v.y from nested where r.v.y = a.y and r.v.z = a.zç
+‡ˇ≠“^ œ∆¯(0–≠%83@âSCAN([IS NESTED]) | FILTER _.R.V.Y EQUALS promote(@c6 AS LONG) AND _.R.V.Z EQUALS promote(@c8 AS STRING) | MAP (_.ID AS ID, _.R.V.Y AS Y)„digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
-  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q49.ID AS ID, q49.R.V.Y AS Y)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS Y)" ];
-  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q12.R.V.Y EQUALS promote((@c6 AS _0, @c8 AS _1) AS LONG AS Y, STRING AS Z).Y AND q12.R.V.Z EQUALS promote((@c6 AS _0, @c8 AS _1) AS LONG AS Y, STRING AS Z).Z</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, STRING AS Z AS V AS R)" ];
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q50.ID AS ID, q50.R.V.Y AS Y)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS Y)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q12.R.V.Y EQUALS promote(@c6 AS LONG) AND q12.R.V.Z EQUALS promote(@c8 AS STRING)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, STRING AS Z AS V AS R)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Scan</td></tr><tr><td align="left">comparisons: [IS NESTED]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, STRING AS Z AS V AS R)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Primary Storage</td></tr><tr><td align="left">record types: [COLORFUL, NESTED]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS W, LONG AS X AS U, LONG AS Y, STRING AS Z AS V AS R)" ];
   3 -> 2 [ label=<&nbsp;q12> label="q12" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  2 -> 1 [ label=<&nbsp;q49> label="q49" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q50> label="q50" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
 }Å	
 G
 $sql-functions-with-struct-parametersEXPLAIN select * from f2('red')µ

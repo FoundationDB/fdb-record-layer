@@ -1,6 +1,6 @@
 unnamed-2:
 -   query: EXPLAIN select a, b from ta where b in (1, 3, 5, 7)
-    ref: in-predicate.yamsql:72
+    ref: in-predicate.yamsql:73
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(promote(@c9
         AS ARRAY(LONG)))) | FILTER _._0 EQUALS q0.B AS q1 RETURN (q0.A AS A, q0.B
         AS B) }
@@ -13,7 +13,7 @@ unnamed-2:
     insert_new_count: 119
     insert_reused_count: 7
 -   query: EXPLAIN select a, b from ta where b in (6)
-    ref: in-predicate.yamsql:77
+    ref: in-predicate.yamsql:78
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(promote(@c9
         AS ARRAY(LONG)))) | FILTER _._0 EQUALS q0.B AS q1 RETURN (q0.A AS A, q0.B
         AS B) }
@@ -26,7 +26,7 @@ unnamed-2:
     insert_new_count: 119
     insert_reused_count: 7
 -   query: EXPLAIN select a, b from ta where b in (10, 33, 66)
-    ref: in-predicate.yamsql:86
+    ref: in-predicate.yamsql:87
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(promote(@c9
         AS ARRAY(LONG)))) | FILTER _._0 EQUALS q0.B AS q1 RETURN (q0.A AS A, q0.B
         AS B) }
@@ -39,7 +39,7 @@ unnamed-2:
     insert_new_count: 119
     insert_reused_count: 7
 -   query: EXPLAIN select a, b from ta where b in (1 + 0, 3 + 0, 5, 7)
-    ref: in-predicate.yamsql:91
+    ref: in-predicate.yamsql:92
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(promote(array(@c10
         + @c12, @c14 + @c12, @c18, @c20) AS ARRAY(LONG)))) | FILTER _._0 EQUALS q0.B
         AS q1 RETURN (q0.A AS A, q0.B AS B) }
@@ -52,7 +52,7 @@ unnamed-2:
     insert_new_count: 119
     insert_reused_count: 7
 -   query: EXPLAIN select a, b from ta where b in (1, 1, 1, 1)
-    ref: in-predicate.yamsql:96
+    ref: in-predicate.yamsql:97
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(promote(@c9
         AS ARRAY(LONG)))) | FILTER _._0 EQUALS q0.B AS q1 RETURN (q0.A AS A, q0.B
         AS B) }
@@ -65,7 +65,7 @@ unnamed-2:
     insert_new_count: 119
     insert_reused_count: 7
 -   query: EXPLAIN select a, b from ta where b in (1, 2, 1, 3)
-    ref: in-predicate.yamsql:105
+    ref: in-predicate.yamsql:106
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(promote(@c9
         AS ARRAY(LONG)))) | FILTER _._0 EQUALS q0.B AS q1 RETURN (q0.A AS A, q0.B
         AS B) }
@@ -78,7 +78,7 @@ unnamed-2:
     insert_new_count: 119
     insert_reused_count: 7
 -   query: EXPLAIN select a, b from ta where b in (1 + 0, 1 + 0, 1 + 0, 1 + 0)
-    ref: in-predicate.yamsql:114
+    ref: in-predicate.yamsql:115
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(promote(array(@c10
         + @c12, @c10 + @c12, @c10 + @c12, @c10 + @c12) AS ARRAY(LONG)))) | FILTER
         _._0 EQUALS q0.B AS q1 RETURN (q0.A AS A, q0.B AS B) }
@@ -91,7 +91,7 @@ unnamed-2:
     insert_new_count: 119
     insert_reused_count: 7
 -   query: EXPLAIN select a, b from ta where b in (1 + 0, 0 + 1)
-    ref: in-predicate.yamsql:123
+    ref: in-predicate.yamsql:124
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(promote(array(@c10
         + @c12, @c12 + @c10) AS ARRAY(LONG)))) | FILTER _._0 EQUALS q0.B AS q1 RETURN
         (q0.A AS A, q0.B AS B) }
@@ -104,7 +104,7 @@ unnamed-2:
     insert_new_count: 119
     insert_reused_count: 7
 -   query: EXPLAIN select a, c from ta where c in (4.56, 3.45, 2.34)
-    ref: in-predicate.yamsql:168
+    ref: in-predicate.yamsql:169
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(@c9)) | FILTER
         _._0 EQUALS q0.C AS q1 RETURN (q0.A AS A, q0.C AS C) }
     task_count: 954
@@ -116,7 +116,7 @@ unnamed-2:
     insert_new_count: 119
     insert_reused_count: 7
 -   query: EXPLAIN select a, c from ta where c in (9.01)
-    ref: in-predicate.yamsql:173
+    ref: in-predicate.yamsql:174
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(@c9)) | FILTER
         _._0 EQUALS q0.C AS q1 RETURN (q0.A AS A, q0.C AS C) }
     task_count: 954
@@ -128,7 +128,7 @@ unnamed-2:
     insert_new_count: 119
     insert_reused_count: 7
 -   query: EXPLAIN select a, c from ta where c in (3.01 + 6)
-    ref: in-predicate.yamsql:178
+    ref: in-predicate.yamsql:180
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(array(@c10 +
         @c12))) | FILTER _._0 EQUALS q0.C AS q1 RETURN (q0.A AS A, q0.C AS C) }
     task_count: 954
@@ -140,7 +140,7 @@ unnamed-2:
     insert_new_count: 119
     insert_reused_count: 7
 -   query: EXPLAIN select a, d from ta where d in (true, false)
-    ref: in-predicate.yamsql:183
+    ref: in-predicate.yamsql:185
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(@c9)) | FILTER
         _._0 EQUALS q0.D AS q1 RETURN (q0.A AS A, q0.D AS D) }
     task_count: 954
@@ -152,7 +152,7 @@ unnamed-2:
     insert_new_count: 119
     insert_reused_count: 7
 -   query: EXPLAIN select a, d from ta where d in (true)
-    ref: in-predicate.yamsql:189
+    ref: in-predicate.yamsql:192
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(@c9)) | FILTER
         _._0 EQUALS q0.D AS q1 RETURN (q0.A AS A, q0.D AS D) }
     task_count: 954
@@ -164,7 +164,7 @@ unnamed-2:
     insert_new_count: 119
     insert_reused_count: 7
 -   query: EXPLAIN select a, d from ta where d in (3 < 4)
-    ref: in-predicate.yamsql:194
+    ref: in-predicate.yamsql:197
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(array(@c10 lt
         @c12))) | FILTER _._0 EQUALS q0.D AS q1 RETURN (q0.A AS A, q0.D AS D) }
     task_count: 954
@@ -176,7 +176,7 @@ unnamed-2:
     insert_new_count: 119
     insert_reused_count: 7
 -   query: EXPLAIN select a, e from ta where e in ('bar', 'doe')
-    ref: in-predicate.yamsql:199
+    ref: in-predicate.yamsql:202
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(@c9)) | FILTER
         _._0 EQUALS q0.E AS q1 RETURN (q0.A AS A, q0.E AS E) }
     task_count: 954
@@ -188,7 +188,7 @@ unnamed-2:
     insert_new_count: 119
     insert_reused_count: 7
 -   query: EXPLAIN select a, e from ta where e in ('foo')
-    ref: in-predicate.yamsql:204
+    ref: in-predicate.yamsql:207
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(@c9)) | FILTER
         _._0 EQUALS q0.E AS q1 RETURN (q0.A AS A, q0.E AS E) }
     task_count: 954
@@ -200,7 +200,7 @@ unnamed-2:
     insert_new_count: 119
     insert_reused_count: 7
 -   query: EXPLAIN select a, e from ta where e in ('b' + 'a' + 'r', 'doe')
-    ref: in-predicate.yamsql:209
+    ref: in-predicate.yamsql:212
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(array(@c10 +
         @c12 + @c14, @c16))) | FILTER _._0 EQUALS q0.E AS q1 RETURN (q0.A AS A, q0.E
         AS E) }
@@ -213,7 +213,7 @@ unnamed-2:
     insert_new_count: 119
     insert_reused_count: 7
 -   query: EXPLAIN select a, b from ta where (a, b) in ((0L, 9L), (1L, 8L))
-    ref: in-predicate.yamsql:214
+    ref: in-predicate.yamsql:217
     explain: ISCAN(F1 <,>) | FILTER (_.A AS A, _.B AS B) IN array((@c15 AS _0, @c17
         AS _1), (@c21 AS _0, @c23 AS _1)) | MAP (_.A AS A, _.B AS B)
     task_count: 1135
@@ -225,7 +225,7 @@ unnamed-2:
     insert_new_count: 145
     insert_reused_count: 5
 -   query: EXPLAIN select a, b from ta where f in ((90L, 9L), (81L, 18L))
-    ref: in-predicate.yamsql:219
+    ref: in-predicate.yamsql:222
     explain: TF explode(arrayDistinct(array((@c11 AS _0, @c13 AS _1), (@c17 AS _0,
         @c19 AS _1)))) | FLATMAP q0 -> { ISCAN(F1 [EQUALS promote(q0._0._0 AS LONG),
         EQUALS promote(q0._0._1 AS LONG)]) AS q1 RETURN (q1.A AS A, q1.B AS B) }
@@ -239,7 +239,7 @@ unnamed-2:
     insert_reused_count: 8
 -   query: EXPLAIN select a, b from ta where f in ((90L, 9L), (81L, 18L), (81L, 18L),
         (90L, 9L))
-    ref: in-predicate.yamsql:224
+    ref: in-predicate.yamsql:227
     explain: TF explode(arrayDistinct(array((@c11 AS _0, @c13 AS _1), (@c17 AS _0,
         @c19 AS _1), (@c17 AS _0, @c19 AS _1), (@c11 AS _0, @c13 AS _1)))) | FLATMAP
         q0 -> { ISCAN(F1 [EQUALS promote(q0._0._0 AS LONG), EQUALS promote(q0._0._1
@@ -252,9 +252,36 @@ unnamed-2:
     insert_time_ms: 3
     insert_new_count: 127
     insert_reused_count: 8
+-   query: EXPLAIN select a, g from ta where g in ('RED', 'GREEN')
+    ref: in-predicate.yamsql:237
+    explain: ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(promote(@c9
+        AS ARRAY(ENUM<RED(0), GREEN(1), BLUE(2)>)))) | FILTER _._0 EQUALS q0.G AS
+        q1 RETURN (q0.A AS A, q0.G AS G) }
+    task_count: 954
+    task_total_time_ms: 91
+    transform_count: 290
+    transform_time_ms: 30
+    transform_yield_count: 68
+    insert_time_ms: 2
+    insert_new_count: 119
+    insert_reused_count: 7
+-   query: EXPLAIN select a, h from ta where h in ('0920df1c-be81-4ec1-8a06-2180226f051d',
+        '2e60b129-ad99-499a-9cef-a27977640e93')
+    ref: in-predicate.yamsql:246
+    explain: ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(promote(@c9
+        AS ARRAY(UUID)))) | FILTER _._0 EQUALS q0.H AS q1 RETURN (q0.A AS A, q0.H
+        AS H) }
+    task_count: 954
+    task_total_time_ms: 57
+    transform_count: 290
+    transform_time_ms: 24
+    transform_yield_count: 68
+    insert_time_ms: 2
+    insert_new_count: 119
+    insert_reused_count: 7
 -   query: EXPLAIN select e, a from ta where e not in ('foo' , 'bar', 'doe', 'arc',
         'something')
-    ref: in-predicate.yamsql:234
+    ref: in-predicate.yamsql:253
     explain: ISCAN(F1 <,>) | FILTER NOT _.E IN @c10 | MAP (_.E AS E, _.A AS A)
     task_count: 349
     task_total_time_ms: 24
@@ -265,7 +292,7 @@ unnamed-2:
     insert_new_count: 36
     insert_reused_count: 4
 -   query: EXPLAIN select a, e from ta where 1 in (2, 3)
-    ref: in-predicate.yamsql:250
+    ref: in-predicate.yamsql:269
     explain: ISCAN(F1 <,>) | FLATMAP q0 -> { TF explode(arrayDistinct(@c9)) | FILTER
         _._0 EQUALS @c7 AS q1 RETURN (q0.A AS A, q0.E AS E) }
     task_count: 967
@@ -277,7 +304,7 @@ unnamed-2:
     insert_new_count: 120
     insert_reused_count: 6
 -   query: EXPLAIN select a from ta where 1 in (1, 2, 3)
-    ref: in-predicate.yamsql:255
+    ref: in-predicate.yamsql:274
     explain: 'COVERING(F1 <,> -> [A: KEY:[3], F: [SA: KEY:[0], SB: KEY:[1]]]) | FILTER
         @c5 IN @c7 | MAP (_.A AS A)'
     task_count: 1019
@@ -290,7 +317,7 @@ unnamed-2:
     insert_reused_count: 9
 -   query: EXPLAIN select id from array_table where exists (select 1 from array_table.fruits
         f where f = 'apple')
-    ref: in-predicate.yamsql:261
+    ref: in-predicate.yamsql:280
     explain: 'COVERING(FRUITS [EQUALS @c17] -> [ID: KEY:[2]]) | MAP (_.ID AS ID)'
     task_count: 457
     task_total_time_ms: 25
@@ -301,7 +328,7 @@ unnamed-2:
     insert_new_count: 44
     insert_reused_count: 0
 -   query: EXPLAIN select id from array_table where 'apple' in fruits
-    ref: in-predicate.yamsql:269
+    ref: in-predicate.yamsql:288
     explain: SCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { TF explode(arrayDistinct(q0.FRUITS))
         | FILTER _._0 EQUALS @c5 AS q1 RETURN (q0.ID AS ID) }
     task_count: 363
@@ -313,7 +340,7 @@ unnamed-2:
     insert_new_count: 34
     insert_reused_count: 2
 -   query: EXPLAIN select id from array_table where 'banana' in fruits
-    ref: in-predicate.yamsql:275
+    ref: in-predicate.yamsql:294
     explain: SCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { TF explode(arrayDistinct(q0.FRUITS))
         | FILTER _._0 EQUALS @c5 AS q1 RETURN (q0.ID AS ID) }
     task_count: 363
@@ -325,7 +352,7 @@ unnamed-2:
     insert_new_count: 34
     insert_reused_count: 2
 -   query: EXPLAIN select id from array_table where 'pineapple' in fruits
-    ref: in-predicate.yamsql:281
+    ref: in-predicate.yamsql:300
     explain: SCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { TF explode(arrayDistinct(q0.FRUITS))
         | FILTER _._0 EQUALS @c5 AS q1 RETURN (q0.ID AS ID) }
     task_count: 363
@@ -338,7 +365,7 @@ unnamed-2:
     insert_reused_count: 2
 -   query: EXPLAIN select id from array_table where exists (select 1 from array_table.numbers
         n where n = 10)
-    ref: in-predicate.yamsql:287
+    ref: in-predicate.yamsql:306
     explain: SCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { TF explode(q0.NUMBERS) | FILTER
         _._0 EQUALS promote(@c17 AS LONG) | MAP (@c8 AS _0) | DEFAULT NULL | FILTER
         _ NOT_NULL AS q1 RETURN (q0.ID AS ID) }
@@ -351,7 +378,7 @@ unnamed-2:
     insert_new_count: 32
     insert_reused_count: 0
 -   query: EXPLAIN select id from array_table where 10 in numbers
-    ref: in-predicate.yamsql:294
+    ref: in-predicate.yamsql:313
     explain: SCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { TF explode(arrayDistinct(q0.NUMBERS))
         | FILTER _._0 EQUALS promote(@c5 AS LONG) AS q1 RETURN (q0.ID AS ID) }
     task_count: 363
@@ -363,7 +390,7 @@ unnamed-2:
     insert_new_count: 34
     insert_reused_count: 2
 -   query: EXPLAIN select id from array_table where 15 in numbers
-    ref: in-predicate.yamsql:300
+    ref: in-predicate.yamsql:319
     explain: SCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { TF explode(arrayDistinct(q0.NUMBERS))
         | FILTER _._0 EQUALS promote(@c5 AS LONG) AS q1 RETURN (q0.ID AS ID) }
     task_count: 363
@@ -375,7 +402,7 @@ unnamed-2:
     insert_new_count: 34
     insert_reused_count: 2
 -   query: EXPLAIN select id from array_table where ('apple', 'red') in fruit_records
-    ref: in-predicate.yamsql:306
+    ref: in-predicate.yamsql:325
     explain: SCAN([IS ARRAY_TABLE]) | FILTER (@c6 AS _0, @c8 AS _1) IN _.FRUIT_RECORDS
         | MAP (_.ID AS ID)
     task_count: 363
@@ -387,7 +414,7 @@ unnamed-2:
     insert_new_count: 34
     insert_reused_count: 2
 -   query: EXPLAIN select id from array_table where ('mango', 'orange') in fruit_records
-    ref: in-predicate.yamsql:312
+    ref: in-predicate.yamsql:331
     explain: SCAN([IS ARRAY_TABLE]) | FILTER (@c6 AS _0, @c8 AS _1) IN _.FRUIT_RECORDS
         | MAP (_.ID AS ID)
     task_count: 363
@@ -399,7 +426,7 @@ unnamed-2:
     insert_new_count: 34
     insert_reused_count: 2
 -   query: EXPLAIN select id from array_table where ('apple', 'blue') in fruit_records
-    ref: in-predicate.yamsql:318
+    ref: in-predicate.yamsql:337
     explain: SCAN([IS ARRAY_TABLE]) | FILTER (@c6 AS _0, @c8 AS _1) IN _.FRUIT_RECORDS
         | MAP (_.ID AS ID)
     task_count: 363
@@ -411,7 +438,7 @@ unnamed-2:
     insert_new_count: 34
     insert_reused_count: 2
 -   query: EXPLAIN select id from array_table where ('grape', 'green') in fruit_records
-    ref: in-predicate.yamsql:324
+    ref: in-predicate.yamsql:343
     explain: SCAN([IS ARRAY_TABLE]) | FILTER (@c6 AS _0, @c8 AS _1) IN _.FRUIT_RECORDS
         | MAP (_.ID AS ID)
     task_count: 363
@@ -423,7 +450,7 @@ unnamed-2:
     insert_new_count: 34
     insert_reused_count: 2
 -   query: EXPLAIN select id from array_table where 'apple' not in fruits
-    ref: in-predicate.yamsql:330
+    ref: in-predicate.yamsql:349
     explain: SCAN([IS ARRAY_TABLE]) | FILTER NOT @c5 IN _.FRUITS | MAP (_.ID AS ID)
     task_count: 208
     task_total_time_ms: 11
@@ -434,7 +461,7 @@ unnamed-2:
     insert_new_count: 18
     insert_reused_count: 2
 -   query: EXPLAIN select id from array_table where ('apple', 'red') not in fruit_records
-    ref: in-predicate.yamsql:336
+    ref: in-predicate.yamsql:355
     explain: SCAN([IS ARRAY_TABLE]) | FILTER NOT (@c6 AS _0, @c8 AS _1) IN _.FRUIT_RECORDS
         | MAP (_.ID AS ID)
     task_count: 208
@@ -449,7 +476,7 @@ unnamed-2:
         AS parent_id FROM t_parent, t_child WHERE get_key(t_child.t_link) = t_parent.id
         AND 'tag_a' IN t_parent.lst AND t_parent.id = 'p1' AND t_child.num IN (1,
         2, 3)
-    ref: in-predicate.yamsql:356
+    ref: in-predicate.yamsql:375
     explain: SCAN([IS T_PARENT, EQUALS promote(@c44 AS STRING)]) | FLATMAP q0 -> {
         TF explode(arrayDistinct(q0.LST)) | FLATMAP q1 -> { [IN arrayDistinct(promote(@c50
         AS ARRAY(LONG)))] | INJOIN q2 -> { SCAN([IS T_CHILD]) | FILTER _.T_LINK.NAME
@@ -465,7 +492,7 @@ unnamed-2:
     insert_reused_count: 273
 -   query: EXPLAIN SELECT t.id, n FROM array_table AS t, t.numbers AS n WHERE n IN
         (10, 20)
-    ref: in-predicate.yamsql:367
+    ref: in-predicate.yamsql:386
     explain: TF explode(arrayDistinct(promote(@c19 AS ARRAY(LONG)))) | FLATMAP q0
         -> { SCAN([IS ARRAY_TABLE]) | FLATMAP q1 -> { TF explode(q1.NUMBERS) | FILTER
         _._0 EQUALS q0._0 AS q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0.ID
@@ -479,7 +506,7 @@ unnamed-2:
     insert_new_count: 116
     insert_reused_count: 5
 -   query: EXPLAIN SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx
-    ref: in-predicate.yamsql:373
+    ref: in-predicate.yamsql:392
     explain: SCAN([IS ARRAY_TABLE]) | FLATMAP q0 -> { TF explode(q0.NUMBERS) AS q1
         RETURN (q0.ID AS ID, q1._0 AS N, q1._1 + 1 AS IDX) }
     task_count: 162
@@ -492,7 +519,7 @@ unnamed-2:
     insert_reused_count: 0
 -   query: EXPLAIN SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx
         WHERE n IN (10, 20)
-    ref: in-predicate.yamsql:385
+    ref: in-predicate.yamsql:404
     explain: TF explode(arrayDistinct(promote(@c23 AS ARRAY(LONG)))) | FLATMAP q0
         -> { SCAN([IS ARRAY_TABLE]) | FLATMAP q1 -> { TF explode(q1.NUMBERS) | FILTER
         _._0 EQUALS q0._0 AS q2 RETURN (q1.ID AS ID, q2._0 AS N, q2._1 + 1 AS IDX)
@@ -507,7 +534,7 @@ unnamed-2:
     insert_reused_count: 5
 -   query: EXPLAIN SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx
         WHERE idx IN (1, 3)
-    ref: in-predicate.yamsql:394
+    ref: in-predicate.yamsql:413
     explain: TF explode(arrayDistinct(@c23)) | FLATMAP q0 -> { SCAN([IS ARRAY_TABLE])
         | FLATMAP q1 -> { TF explode(q1.NUMBERS) | FILTER _._1 + 1 EQUALS q0._0 AS
         q2 RETURN (q1 AS _0, q2 AS _1) } AS q3 RETURN (q3._0.ID AS ID, q3._1._0 AS
@@ -522,7 +549,7 @@ unnamed-2:
     insert_reused_count: 5
 -   query: EXPLAIN SELECT t.id, n, idx FROM array_table AS t, t.numbers AS n AT idx
         WHERE t.id IN (2, 4)
-    ref: in-predicate.yamsql:405
+    ref: in-predicate.yamsql:424
     explain: '[IN arrayDistinct(promote(@c25 AS ARRAY(LONG)))] | INJOIN q0 -> { SCAN([IS
         ARRAY_TABLE, EQUALS q0._0]) } | FLATMAP q1 -> { TF explode(q1.NUMBERS) AS
         q2 RETURN (q1.ID AS ID, q2._0 AS N, q2._1 + 1 AS IDX) }'
@@ -536,7 +563,7 @@ unnamed-2:
     insert_reused_count: 8
 -   query: EXPLAIN SELECT t.id, f, idx FROM array_table AS t, t.fruits AS f AT idx
         WHERE f IN ('apple', 'mango')
-    ref: in-predicate.yamsql:413
+    ref: in-predicate.yamsql:432
     explain: TF explode(arrayDistinct(@c23)) | FLATMAP q0 -> { SCAN([IS ARRAY_TABLE])
         | FLATMAP q1 -> { TF explode(q1.FRUITS) | FILTER _._0 EQUALS q0._0 AS q2 RETURN
         (q1.ID AS ID, q2._0 AS F, q2._1 + 1 AS IDX) } AS q3 RETURN q3 }

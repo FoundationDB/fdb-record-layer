@@ -1,32 +1,30 @@
 sql-functions-with-struct-parameters:
 -   query: EXPLAIN select * from f1((10, '100'));
     ref: sql-functions-with-struct-parameters.yamsql:53
-    explain: SCAN([IS NESTED]) | FILTER _.R.V.Y EQUALS promote((@c6 AS _0, @c8 AS
-        _1) AS LONG AS Y, STRING AS Z).Y AND _.R.V.Z EQUALS promote((@c6 AS _0, @c8
-        AS _1) AS LONG AS Y, STRING AS Z).Z | MAP (_.ID AS ID, _.R.V.Y AS Y)
-    task_count: 338
-    task_total_time_ms: 121
-    transform_count: 89
-    transform_time_ms: 80
-    transform_yield_count: 28
-    insert_time_ms: 3
-    insert_new_count: 47
+    explain: SCAN([IS NESTED]) | FILTER _.R.V.Y EQUALS promote(@c6 AS LONG) AND _.R.V.Z
+        EQUALS promote(@c8 AS STRING) | MAP (_.ID AS ID, _.R.V.Y AS Y)
+    task_count: 352
+    task_total_time_ms: 11
+    transform_count: 94
+    transform_time_ms: 3
+    transform_yield_count: 30
+    insert_time_ms: 0
+    insert_new_count: 51
     insert_reused_count: 2
 -   query: EXPLAIN select * from temp_f1((10, '100'));
     setup:
     - create temporary function temp_f1 ( in a type st1 ) on commit drop function
         as select id, r.v.y from nested where r.v.y = a.y and r.v.z = a.z
     ref: sql-functions-with-struct-parameters.yamsql:58
-    explain: SCAN([IS NESTED]) | FILTER _.R.V.Y EQUALS promote((@c6 AS _0, @c8 AS
-        _1) AS LONG AS Y, STRING AS Z).Y AND _.R.V.Z EQUALS promote((@c6 AS _0, @c8
-        AS _1) AS LONG AS Y, STRING AS Z).Z | MAP (_.ID AS ID, _.R.V.Y AS Y)
-    task_count: 338
-    task_total_time_ms: 49
-    transform_count: 89
-    transform_time_ms: 17
-    transform_yield_count: 28
-    insert_time_ms: 2
-    insert_new_count: 47
+    explain: SCAN([IS NESTED]) | FILTER _.R.V.Y EQUALS promote(@c6 AS LONG) AND _.R.V.Z
+        EQUALS promote(@c8 AS STRING) | MAP (_.ID AS ID, _.R.V.Y AS Y)
+    task_count: 352
+    task_total_time_ms: 24
+    transform_count: 94
+    transform_time_ms: 8
+    transform_yield_count: 30
+    insert_time_ms: 0
+    insert_new_count: 51
     insert_reused_count: 2
 -   query: EXPLAIN select * from f2('red')
     ref: sql-functions-with-struct-parameters.yamsql:62

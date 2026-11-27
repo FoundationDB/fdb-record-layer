@@ -1,0 +1,280 @@
+#
+# struct-operators.yamsql
+#
+# This source file is part of the FoundationDB open source project
+#
+# Copyright 2015-2026 Apple Inc. and the FoundationDB project authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+options:
+    supported_version: !current_version
+---
+schema_template:
+    create type as struct TypeA(strA string, intA bigint)
+    create type as struct TypeB(strB string, intB bigint)
+    create type as struct TypeC(strC1 string, strC2 string, intC bigint)
+    create type as struct TypeD(a TypeA, b TypeA array)
+    create table t1(id bigint, a TypeA, a2 TypeA, b TypeB, c TypeC, d TypeD, primary key(id))
+    create table t2(strB string, strC string, intB bigint, primary key(strB))  
+    create table t3(id bigint, d TypeD, primary key(id))
+    create index i1 as select a.strA, a.intA A from t1 order by a.strA, a.intA
+    create index i2 as select strB, strC from t2 order by strB, strC
+    create index i3 as select d.a.strA, d.a.intA from t1 order by d.a.strA, d.a.intA
+---
+setup:
+  steps:
+    - query: INSERT INTO t1 VALUES
+        (1, ('a', 1), ('a', 1), ('a', 1), ('a', 'b', 1), (('a', 1), [('a', 1)])),
+        (2, ('b', 2), ('b', 3), ('b', 2), ('b', 'c', 2), (('b', 2), [('b', 2)])),
+        (3, null, null, null, null, null),
+        (4, ('c', null), ('c', null), null, null, (null, null)),
+        (5, ('c', 1), null, null, null, ((null, 2), [('b', null)]))
+    - query: INSERT INTO t2 VALUES ('a', 'b', 1)
+    - query: INSERT INTO t3 VALUES (1, (('a', 1), [('a', 1)])), (2, (('b', 2), [('b', 2)]))
+---
+test_block:
+  name: struct-comparisons-in-predicates
+  tests:
+    -
+      - query: select id from t1 where a2 = a
+      - explain: "ISCAN(I1 <,>) | FILTER _.A2.STRA EQUALS _.A.STRA AND _.A2.INTA EQUALS _.A.INTA | MAP (_.ID AS ID)"
+      - result: [{!l 1}]
+    -
+      - query: select t1.id from t1 where a2 is not distinct from a
+      - explain: "ISCAN(I3 <,>) | FILTER _.A2.STRA NOT_DISTINCT_FROM _.A.STRA AND _.A2.INTA NOT_DISTINCT_FROM _.A.INTA | MAP (_.ID AS ID)"
+      - unorderedResult: [ { !l 1 }, { !l 3 }, { !l 4 } ]
+    -
+      - query: select t1.id from t1 where a != ('a', 1)
+      - explain: "COVERING(I1 <,> -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) | FILTER _.A.STRA NOT_EQUALS promote(@c11 AS STRING) ∪ COVERING(I1 <,> -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) | FILTER _.A.INTA NOT_EQUALS promote(@c13 AS LONG) COMPARE BY (_.A.STRA, _.A.INTA, _.ID) | MAP (_.ID AS ID)"
+      - unorderedResult: [ { !l 2 }, { !l 4 } , {!l 5}]
+    -
+      - query: select t1.id from t1 where a2 = ('c', CAST(null AS bigint))
+      - explain: "ISCAN(I1 <,>) | FILTER null AND _.A2.STRA EQUALS @c10 | MAP (_.ID AS ID)"
+      - unorderedResult: [ ]
+    -
+      - query: select t1.id from t1 where a2 is not distinct from ('c', CAST(null AS bigint))
+      - explain: "ISCAN(I3 <,>) | FILTER _.A2.STRA NOT_DISTINCT_FROM promote(@c13 AS STRING) AND _.A2.INTA NOT_DISTINCT_FROM NULL | MAP (_.ID AS ID)"
+      - unorderedResult: [ { !l 4 } ]
+    -
+      - query: select t1.id from t1 where a is distinct from ('a', 1)
+      - explain: "COVERING(I1 <,> -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) | FILTER _.A.STRA IS_DISTINCT_FROM promote(@c12 AS STRING) ∪ COVERING(I1 <,> -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) | FILTER _.A.INTA IS_DISTINCT_FROM promote(@c14 AS LONG) COMPARE BY (_.A.STRA, _.A.INTA, _.ID) | MAP (_.ID AS ID)"
+      - unorderedResult: [ { !l 2 }, { !l 3 }, { !l 4 } , { !l 5 } ]
+    -
+      - query: select id from t1 where a = struct TypeA ('a', 1)
+      - explain: "COVERING(I1 [EQUALS promote(@c10 AS STRING), EQUALS promote(@c12 AS LONG)] -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) | MAP (_.ID AS ID)"
+      - result: [{ !l 1 }]
+    -
+      - query: select t1.id from t1 where a is not distinct from ('c', CAST(null AS bigint))
+      - explain: "COVERING(I1 [NOT_DISTINCT_FROM promote(@c13 AS STRING), NOT_DISTINCT_FROM NULL] -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) | MAP (_.ID AS ID)"
+      - result: [{ !l 4 }]
+    -
+      # TODO: The explicit cast for the NULL value shouldn't be needed here
+      - query: select t1.id from t1 where a is not distinct from STRUCT TypeA ('c', CAST(null AS bigint))
+      - explain: "COVERING(I1 [NOT_DISTINCT_FROM promote(@c15 AS STRING), NOT_DISTINCT_FROM NULL] -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) | MAP (_.ID AS ID)"
+      - result: [{ !l 4 }]
+    -
+      - query: select id from t1, (select STRUCT TypeA (strB, intB) as a from t2) sq where t1.a = sq.a
+      - explain: "ISCAN(I2 <,>) | FLATMAP q0 -> { ISCAN(I1 [EQUALS q0.STRB, EQUALS q0.INTB]) AS q1 RETURN (q1.ID AS ID) }"
+      - result: [{1}]
+    -
+      - query: select id from t1 where ('a', 1) = a
+      - explain: "COVERING(I1 [EQUALS promote(@c6 AS STRING), EQUALS promote(@c8 AS LONG)] -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) | MAP (_.ID AS ID)"
+      - result: [{1}]
+    -
+      - query: select id from t1 where a = ('b', 2)
+      - explain: "COVERING(I1 [EQUALS promote(@c8 AS STRING), EQUALS promote(@c10 AS LONG)] -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) | MAP (_.ID AS ID)"
+      - result: [{2}]
+    -
+      - query: select id from range(1, 2) where ('aab', 5) = ('aab', 5.0)
+      - explain: "TF range(promote(@c5 AS LONG), promote(@c7 AS LONG), STEP 1l) | FILTER @c11 EQUALS @c11 AND @c19 EQUALS promote(@c13 AS DOUBLE) | MAP (_.ID AS ID)"
+      - unorderedResult: [{!l 1}]
+    -
+      - query: select id from range(1, 2) where (('aab', 5.0), 0) = (('aab', 5), 0)
+      - explain: "TF range(promote(@c5 AS LONG), promote(@c7 AS LONG), STEP 1l) | FILTER @c12 EQUALS @c12 AND promote(@c24 AS DOUBLE) EQUALS @c14 AND @c17 EQUALS @c17 | MAP (_.ID AS ID)"
+      - unorderedResult: [{!l 1}]
+    -
+      - query: select t1.id from t1 where d = STRUCT TypeD (('a', 1), [STRUCT TypeA ('a', 1l)])
+      - explain: "ISCAN(I3 [EQUALS promote(@c13 AS STRING), EQUALS promote(@c15 AS LONG)]) | FILTER _.D.B EQUALS promote(array((promote(@c13 AS STRING) AS STRA, promote(@c24 AS LONG) AS INTA)) AS ARRAY(STRING AS STRA, LONG AS INTA)) | MAP (_.ID AS ID)"
+      - unorderedResult: [ { !l 1 } ]
+    -
+      - query: select t1.id from t1 INNER JOIN t3 USING(d)
+      - explain: "SCAN([IS T3]) | FLATMAP q0 -> { ISCAN(I3 [EQUALS q0.D.A.STRA, EQUALS q0.D.A.INTA]) | FILTER _.D.B EQUALS q0.D.B AS q1 RETURN (q1.ID AS ID) }"
+      - unorderedResult: [ { !l 1 },  { !l 2 } ]
+    -
+      - query: select t1.id from t1, t1.d.b AS unnested WHERE ('a', 1) = unnested
+      - explain: "ISCAN(I1 <,>) | FLATMAP q0 -> { TF explode(q0.D.B) | FILTER _._0.STRA EQUALS promote(@c16 AS STRING) AND _._0.INTA EQUALS promote(@c18 AS LONG) AS q1 RETURN (q0.ID AS ID) }"
+      - unorderedResult: [ { !l 1 } ]
+    -
+      - query: select t1.id from t1 where a is not null and a2 is distinct from null
+      - explain: "ISCAN(I1 <,>) | FILTER (_.A2.STRA IS_DISTINCT_FROM NULL OR _.A2.INTA IS_DISTINCT_FROM NULL) AND _.A NOT_NULL | MAP (_.ID AS ID)"
+      - unorderedResult: [ { !l 1 }, { !l 2 }, {!l 4}]
+    -
+      - query: select t1.id from t1 where a is null
+      - explain: "ISCAN(I1 <,>) | FILTER _.A IS_NULL | MAP (_.ID AS ID)"
+      - unorderedResult: [ { !l 3 } ]
+    -
+      - query: select t1.id from t1 where a is not null
+      - explain: "ISCAN(I1 <,>) | FILTER _.A NOT_NULL | MAP (_.ID AS ID)"
+      - unorderedResult: [ { !l 1 }, { !l 2 }, { !l 4 }, { !l 5 } ]
+    -
+      - query: select t1.id from t1 where a.strA is null and a2 is not distinct from null
+      - explain: "ISCAN(I1 [[null],[null]]) | FILTER _.A2.STRA NOT_DISTINCT_FROM NULL AND _.A2.INTA NOT_DISTINCT_FROM NULL | MAP (_.ID AS ID)"
+      - unorderedResult: [ { !l 3 } ]
+    -
+      - query: select t1.id from t1 where a.intA is not distinct from 1
+      - explain: "COVERING(I1 <,> -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) | FILTER _.A.INTA NOT_DISTINCT_FROM promote(@c14 AS LONG) | MAP (_.ID AS ID)"
+      - unorderedResult: [ { !l 1 } , { !l 5 } ]
+    -
+      - query: select t1.id from t1 where a >= ('a', 1l)
+      - explain: "COVERING(I1 [[GREATER_THAN promote(@c11 AS STRING)]] -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) ∪ COVERING(I1 [EQUALS promote(@c11 AS STRING), [GREATER_THAN_OR_EQUALS promote(@c13 AS LONG)]] -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) COMPARE BY (_.A.STRA, _.A.INTA, _.ID) | MAP (_.ID AS ID)"
+      - result: [ { !l 1 }, { !l 2 } , { !l 4 } , { !l 5 } ]
+    -
+      - query: select t1.id from t1 where a >= STRUCT TypeA ('a', 1l)
+      - explain: "COVERING(I1 [[GREATER_THAN promote(@c13 AS STRING)]] -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) ∪ COVERING(I1 [EQUALS promote(@c13 AS STRING), [GREATER_THAN_OR_EQUALS promote(@c15 AS LONG)]] -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) COMPARE BY (_.A.STRA, _.A.INTA, _.ID) | MAP (_.ID AS ID)"
+      - result: [ { !l 1 }, { !l 2 } , { !l 4 } , { !l 5 } ]
+    -
+      # TODO: According to the SQL standard, this shouldn't return any rows with a value that has 'a' in the first field,
+      # however this incorrectly returns them due to https://github.com/FoundationDB/fdb-record-layer/issues/4170
+      - query: select t1.id from t1 where a >= ('a', CAST(null AS bigint))
+      - explain: "COVERING(I1 [[GREATER_THAN promote(@c11 AS STRING)]] -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) ∪ COVERING(I1 [EQUALS promote(@c11 AS STRING), [GREATER_THAN_OR_EQUALS NULL]] -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) COMPARE BY (_.A.STRA, _.A.INTA, _.ID) | MAP (_.ID AS ID)"
+      - result: [ { !l 1 }, { !l 2 }, { !l 4 }, { !l 5 } ]
+    -
+      # According to the SQL standard, this shouldn't return any rows as the first comparison involves a null comparison
+      - query: select t1.id from t1 where a2 > (CAST(null AS string), 1)
+      - explain: "COVERING(I1 <,> -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) | FILTER null | MAP (_.ID AS ID)"
+      - result: [ ]
+    -
+      - query: select t1.id from t1 where a2 < ('b', 4)
+      - explain: "ISCAN(I1 <,>) | FILTER (_.A2.STRA LESS_THAN promote(@c10 AS STRING) OR _.A2.STRA EQUALS promote(@c10 AS STRING)) AND (_.A2.STRA LESS_THAN promote(@c10 AS STRING) OR _.A2.INTA LESS_THAN promote(@c12 AS LONG)) | MAP (_.ID AS ID)"
+      - unorderedResult: [ { !l 1 }, { !l 2 } ]
+    -
+      - query: select t1.id from t1 where c > ('a', 'b', 1)
+      - explain: "ISCAN(I1 <,>) | FILTER _.C.STRC1 GREATER_THAN promote(@c10 AS STRING) OR _.C.STRC1 EQUALS promote(@c10 AS STRING) AND (_.C.STRC2 GREATER_THAN promote(@c12 AS STRING) OR _.C.STRC2 EQUALS promote(@c12 AS STRING) AND _.C.INTC GREATER_THAN promote(@c14 AS LONG)) | MAP (_.ID AS ID)"
+      - unorderedResult: [{ !l 2 }]
+    -
+      - query: select t1.id from t1 where c >= ('a', 'b', 1)
+      - explain: "ISCAN(I3 <,>) | FILTER (_.C.STRC1 GREATER_THAN promote(@c11 AS STRING) OR _.C.STRC1 EQUALS promote(@c11 AS STRING)) AND (_.C.STRC1 GREATER_THAN promote(@c11 AS STRING) OR _.C.STRC2 GREATER_THAN promote(@c13 AS STRING) OR _.C.STRC2 EQUALS promote(@c13 AS STRING)) AND (_.C.STRC1 GREATER_THAN promote(@c11 AS STRING) OR _.C.STRC2 GREATER_THAN promote(@c13 AS STRING) OR _.C.INTC GREATER_THAN_OR_EQUALS promote(@c15 AS LONG)) | MAP (_.ID AS ID)"
+      - unorderedResult: [{ !l 1 }, { !l 2 }]
+    -
+      - query: select t1.id from t1 where (t1.a, t1.b) >= (('a', 1), ('b', 2))
+      - explain: "COVERING(I1 [[GREATER_THAN promote(@c20 AS STRING)]] -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) ∪ COVERING(I1 [EQUALS promote(@c20 AS STRING), [GREATER_THAN promote(@c22 AS LONG)]] -> [ID: KEY:[3], A: [INTA: KEY:[1], STRA: KEY:[0]]]) COMPARE BY (_.A.STRA, _.A.INTA, _.ID) | FETCH ∪ ISCAN(I1 [EQUALS promote(@c20 AS STRING), EQUALS promote(@c22 AS LONG)]) | FILTER _.B.STRB GREATER_THAN promote(@c26 AS STRING) ∪ ISCAN(I1 [EQUALS promote(@c20 AS STRING), EQUALS promote(@c22 AS LONG)]) | FILTER _.B.STRB EQUALS promote(@c26 AS STRING) AND _.B.INTB GREATER_THAN_OR_EQUALS promote(@c28 AS LONG) COMPARE BY (_.A.STRA, _.A.INTA, _.ID) | MAP (_.ID AS ID)"
+      - unorderedResult: [{ !l 2 }, { !l 4 }, { !l 5 }]
+    -
+      # This comparison shouldn't be expanded as the deconstructed record has too many fields
+      - query: select t1.id from t1 where (t1.a, t1.b, t1.d.a.strA) >= (('a', 1), ('b', 2), 'a')
+      - explain: "ISCAN(I3 <,>) | FILTER (_.A AS A, _.B AS B, _.D.A.STRA AS STRA) GREATER_THAN_OR_EQUALS promote(((@c28 AS _0, @c30 AS _1) AS _0, (@c34 AS _0, @c36 AS _1) AS _1, @c28 AS _2) AS STRING AS STRA, LONG AS INTA AS A, STRING AS STRB, LONG AS INTB AS B, STRING AS STRA) | MAP (_.ID AS ID)"
+      - unorderedResult: [{ !l 2 }, { !l 4 }, { !l 5 }]
+    -
+      - query: select t1.id from t1 where d.a > ('a', 0)
+      - explain: "COVERING(I3 [[GREATER_THAN promote(@c12 AS STRING)]] -> [ID: KEY:[3], D: [A: [INTA: KEY:[1], STRA: KEY:[0]]]]) ∪ COVERING(I3 [EQUALS promote(@c12 AS STRING), [GREATER_THAN promote(@c14 AS LONG)]] -> [ID: KEY:[3], D: [A: [INTA: KEY:[1], STRA: KEY:[0]]]]) COMPARE BY (_.D.A.STRA, _.D.A.INTA, _.ID) | MAP (_.ID AS ID)"
+      - unorderedResult: [{ !l 1 }, { !l 2 }]
+    -
+      - query: select t1.id from t1 where d.a is null
+      - explain: "ISCAN(I1 <,>) | FILTER _.D.A IS_NULL | MAP (_.ID AS ID)"
+      - unorderedResult: [{ !l 3 }, { !l 4 }]
+---
+test_block:
+  name: struct-comparisons-in-projection
+  tests:
+    -
+      - query: select t1.id, d = (('a', 1), [('a', 1l)]) AS d_comparison from t1
+      - explain: "ISCAN(I1 <,>) | MAP (_.ID AS ID, _.D equals promote(((@c9 AS _0, @c11 AS _1) AS _0, array((@c9 AS _0, @c18 AS _1)) AS _1) AS STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B) AS D_COMPARISON)"
+      - unorderedResult: [{ id: !l 1, d_comparison: true  },
+                          { id: !l 2, d_comparison: false },
+                          { id: !l 3, d_comparison: !null },
+                          { id: !l 4, d_comparison: !null },
+                          { id: !l 5, d_comparison: !null }]
+    -
+      - query: select t1.id, a >= ('a', 1) AS a_comparison from t1
+      - explain: "ISCAN(I3 <,>) | MAP (_.ID AS ID, _.A gte promote((@c9 AS _0, @c11 AS _1) AS STRING AS STRA, LONG AS INTA) AS A_COMPARISON)"
+      - unorderedResult: [{ id: !l 1, a_comparison: true },
+                          { id: !l 2, a_comparison: true },
+                          { id: !l 3, a_comparison: !null _ },
+                          { id: !l 4, a_comparison: true },
+                          { id: !l 5, a_comparison: true }]
+    -
+      - query: select t1.id, a <= ('a', 1) AS a_comparison from t1
+      - explain: "ISCAN(I1 <,>) | MAP (_.ID AS ID, _.A lte promote((@c9 AS _0, @c11 AS _1) AS STRING AS STRA, LONG AS INTA) AS A_COMPARISON)"
+      - unorderedResult: [{ id: !l 1, a_comparison: true  },
+                          { id: !l 2, a_comparison: false },
+                          { id: !l 3, a_comparison: !null _ },
+                          { id: !l 4, a_comparison: false },
+                          { id: !l 5, a_comparison: false }]
+    -
+      - query: select t1.id, d is not distinct from STRUCT TypeD (STRUCT TypeA (CAST(null AS string), 2), [STRUCT TypeA ('b', CAST(null AS bigint))]) AS d_comparison from t1
+      - explain: "ISCAN(I1 <,>) | MAP (_.ID AS ID, _.D notDistinctFrom promote((promote((NULL AS STRA, promote(@c23 AS LONG) AS INTA) AS STRING AS STRA, LONG AS INTA) AS A, promote(array((promote(@c30 AS STRING) AS STRA, NULL AS INTA)) AS ARRAY(STRING AS STRA, LONG AS INTA)) AS B) AS STRING AS STRA, LONG AS INTA AS A, ARRAY(STRING AS STRA, LONG AS INTA) AS B) AS D_COMPARISON)"
+      - unorderedResult: [ { id: !l 1, d_comparison: false },
+                           { id: !l 2, d_comparison: false },
+                           { id: !l 3, d_comparison: false },
+                           { id: !l 4, d_comparison: false },
+                           { id: !l 5, d_comparison: true  }]
+    -
+      - query: select t1.id, d is null AS d_comparison from t1
+      - explain: "ISCAN(I1 <,>) | MAP (_.ID AS ID, isNull_.D AS D_COMPARISON)"
+      - unorderedResult: [{ id: !l 1, d_comparison: false },
+                          { id: !l 2, d_comparison: false },
+                          { id: !l 3, d_comparison: true  },
+                          { id: !l 4, d_comparison: false },
+                          { id: !l 5, d_comparison: false }]
+    -
+      - query: select t1.id, d is not null AS d_comparison from t1
+      - explain: "ISCAN(I1 <,>) | MAP (_.ID AS ID, notNull_.D AS D_COMPARISON)"
+      - unorderedResult: [{ id: !l 1, d_comparison: true  },
+                          { id: !l 2, d_comparison: true  },
+                          { id: !l 3, d_comparison: false },
+                          { id: !l 4, d_comparison: true  },
+                          { id: !l 5, d_comparison: true  }]
+    -
+      - query: select t1.id, d is distinct from null AS d_comparison from t1
+      - explain: "ISCAN(I1 <,>) | MAP (_.ID AS ID, _.D isDistinctFrom NULL AS D_COMPARISON)"
+      - unorderedResult: [{ id: !l 1, d_comparison: true  },
+                          { id: !l 2, d_comparison: true  },
+                          { id: !l 3, d_comparison: false },
+                          { id: !l 4, d_comparison: true  },
+                          { id: !l 5, d_comparison: true  }]
+---
+test_block:
+  name: struct-comparisons-not-allowed
+  tests:
+    -
+      # Different type names, even though the underlying structure is the same
+      - query: select id from t1 where a = b
+      - error: DATATYPE_MISMATCH
+    -
+      - query: select t1.id from t1, (select STRUCT TypeB (strB, intB) as rb from t2) as x where t1.a = x.rb
+      - error: DATATYPE_MISMATCH
+    -
+      - query: select id from t1 where a = c
+      - error: DATATYPE_MISMATCH
+    -
+      - query: select id from t1 where a = STRUCT TypeB ('hello', 5)
+      - error: DATATYPE_MISMATCH
+    -
+      - query: select id from t1 where a = STRUCT TypeC ('hello', 'bye', 10)
+      - error: DATATYPE_MISMATCH
+    -
+      # No type name on the right hand side, but it cannot be promoted to TypeA as
+      # it has a different number of fields.
+      - query: select id from t1 where a = ('bye', 'hello', 1)
+      - error: DATATYPE_MISMATCH
+    -
+      # Field types are not compatible
+      - query: select id from t1 where a = (5, 1)
+      - error: DATATYPE_MISMATCH
+    -
+      # structs cannot be compared with primitives
+      - query: select id from t1 where a = 'hello'
+      - error: DATATYPE_MISMATCH
+...
