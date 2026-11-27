@@ -84,4 +84,30 @@ class QueryPredicateAutoQATest {
         assertThat(right.semanticEquals(left, aliasMap.inverse())).isFalse();
         assertThat(left.semanticEquals(right, aliasMap)).isFalse();
     }
+
+    @Nonnull
+    private static RangeConstraints range(@Nonnull final Comparisons.Comparison... comparisons) {
+        final RangeConstraints.Builder builder = RangeConstraints.newBuilder();
+        for (final Comparisons.Comparison comparison : comparisons) {
+            assertThat(builder.addComparisonMaybe(comparison)).isTrue();
+        }
+        return builder.build().orElseThrow();
+    }
+
+    @Nonnull
+    private static Comparisons.Comparison simple(@Nonnull final Comparisons.Type type, @Nonnull final Object comparand) {
+        return new Comparisons.SimpleComparison(type, comparand);
+    }
+
+    @Test
+    void rangeConstraintsSemanticHashCodeConsistentWithSemanticEquals() {
+        // BUG AQA-32: RangeConstraints.semanticHashCode hashes CompilableRange, which has no equals/hashCode, so two
+        // semantically equal ranges get different (identity, per-run) hash codes. Spec: Correlated#semanticHashCode javadoc.
+        // Two RangeConstraints built from the same comparisons are semantically equal, so their semantic hash codes
+        // (Correlated#semanticHashCode: consistent with semanticEquals, no identity hashing) must be equal.
+        final RangeConstraints first = range(simple(Comparisons.Type.GREATER_THAN, 5));
+        final RangeConstraints second = range(simple(Comparisons.Type.GREATER_THAN, 5));
+        assertThat(first.semanticEquals(second, AliasMap.emptyMap())).isTrue();
+        assertThat(first.semanticHashCode()).isEqualTo(second.semanticHashCode());
+    }
 }

@@ -22,6 +22,11 @@ package com.apple.foundationdb.record.query.plan.cascades;
 
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.PromoteValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -68,5 +73,32 @@ class TypeAutoQATest {
                 Type.Record.Field.unnamedOf(Type.primitiveType(Type.TypeCode.LONG, false))));
         assertThatCode(() -> TypeRepository.newBuilder().addTypeIfNeeded(record).build())
                 .doesNotThrowAnyException();
+    }
+
+    @Test
+    void maximumTypeOfNullAndUuidIsNullableUuid() {
+        // BUG AQA-33: PromoteValue has no NULL_TO_UUID promotion, so maximumType(NULL, UUID) reaches
+        // Verify.verify(!t1.isUnresolved()) and throws. Spec: Type.maximumType javadoc (a type, or null if undefined).
+        // NULL and a UUID must have the nullable UUID as maximum type, as NULL and any other non-NULL type do.
+        // PromoteValue has no NULL_TO_UUID operator, so maximumType falls through to Verify(!isUnresolved) and throws
+        // instead of returning a type or null (Type.maximumType javadoc).
+        final Type uuid = Type.uuidType(false);
+        assertThat(Type.maximumType(Type.nullType(), Type.primitiveType(Type.TypeCode.BYTES, false)))
+                .isEqualTo(Type.primitiveType(Type.TypeCode.BYTES, true));
+        assertThat(Type.maximumType(Type.nullType(), uuid)).isEqualTo(Type.uuidType(true));
+        assertThat(Type.maximumType(uuid, Type.nullType())).isEqualTo(Type.uuidType(true));
+    }
+
+    @Test
+    void injectPromotesRecordWithNullFieldToMaximumType() {
+        // BUG AQA-34: PromoteValue.isPromotionNeeded(NULL, NULL) is true but there is no NULL -> NULL operator, so inject
+        // cannot promote record(NULL, INT) to record(NULL, LONG), the type maximumType returns. Spec: maximumType and inject javadoc.
+        // promoting a record with a NULL-typed field to the maximum type computed by Type.maximumType must succeed.
+        // computePromotionsTrie(NULL, NULL) treats NULL -> NULL as a needed promotion without an operator and throws.
+        final Value in = RecordConstructorValue.ofUnnamed(List.of(new NullValue(Type.nullType()), LiteralValue.ofScalar(1)));
+        final Value other = RecordConstructorValue.ofUnnamed(List.of(new NullValue(Type.nullType()), LiteralValue.ofScalar(2L)));
+        final Type max = Type.maximumType(in.getResultType(), other.getResultType());
+        assertThat(max).isNotNull();
+        assertThatCode(() -> PromoteValue.inject(in, max)).doesNotThrowAnyException();
     }
 }
