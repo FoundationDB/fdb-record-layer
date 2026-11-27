@@ -136,4 +136,70 @@ class QueryPredicateAutoQATest {
             assertThat(roundTripped.eval(null, EvaluationContext.empty())).isEqualTo(constant.eval(null, EvaluationContext.empty()));
         }
     }
+
+    @Nonnull
+    private static RangeConstraints range(@Nonnull final Comparisons.Comparison... comparisons) {
+        final RangeConstraints.Builder builder = RangeConstraints.newBuilder();
+        for (final Comparisons.Comparison comparison : comparisons) {
+            assertThat(builder.addComparisonMaybe(comparison)).isTrue();
+        }
+        return builder.build().orElseThrow();
+    }
+
+    @Nonnull
+    private static Comparisons.Comparison simple(@Nonnull final Comparisons.Type type, @Nonnull final Object comparand) {
+        return new Comparisons.SimpleComparison(type, comparand);
+    }
+
+    @Test
+    void rangeConstraintsSemanticHashCodeConsistentWithSemanticEquals() {
+        // BUG AQA-32: RangeConstraints.semanticHashCode hashes CompilableRange, which has no equals/hashCode, so two
+        // semantically equal ranges get different (identity, per-run) hash codes. Spec: Correlated#semanticHashCode javadoc.
+        // Two RangeConstraints built from the same comparisons are semantically equal, so their semantic hash codes
+        // (Correlated#semanticHashCode: consistent with semanticEquals, no identity hashing) must be equal.
+        final RangeConstraints first = range(simple(Comparisons.Type.GREATER_THAN, 5));
+        final RangeConstraints second = range(simple(Comparisons.Type.GREATER_THAN, 5));
+        assertThat(first.semanticEquals(second, AliasMap.emptyMap())).isTrue();
+        assertThat(first.semanticHashCode()).isEqualTo(second.semanticHashCode());
+    }
+
+    @Test
+    void rangeConstraintsProtoRoundTripOfSingleComparison() {
+        // ofComparisonMaybe builds a range for scan-prefix comparisons only, and fromProto(toProto(r)) is semantically r.
+        assertThat(RangeConstraints.ofComparisonMaybe(simple(Comparisons.Type.NOT_EQUALS, 5))).isEmpty();
+        final PlanSerializationContext serializationContext =
+                new PlanSerializationContext(DefaultPlanSerializationRegistry.INSTANCE, PlanHashable.CURRENT_FOR_CONTINUATION);
+        for (final Comparisons.Comparison comparison : new Comparisons.Comparison[] {
+                simple(Comparisons.Type.EQUALS, 5),
+                new Comparisons.NullComparison(Comparisons.Type.IS_NULL),
+                simple(Comparisons.Type.STARTS_WITH, "a")}) {
+            final RangeConstraints original = RangeConstraints.ofComparisonMaybe(comparison).orElseThrow();
+            final RangeConstraints roundTripped = RangeConstraints.fromProto(serializationContext, original.toProto(serializationContext));
+            assertThat(roundTripped.getComparisons()).isEqualTo(original.getComparisons());
+            assertThat(roundTripped.getDeferredRanges()).isEqualTo(original.getDeferredRanges());
+            assertThat(roundTripped.semanticEquals(original, AliasMap.emptyMap())).isTrue();
+            assertThat(roundTripped.planHash(PlanHashable.CURRENT_FOR_CONTINUATION))
+                    .isEqualTo(original.planHash(PlanHashable.CURRENT_FOR_CONTINUATION));
+        }
+    }
+
+    @Test
+    void compiledRangeMergingWithNullRanges() {
+        // Intersections of value ranges with IS NULL / NOT NULL, adjacent and single-point ranges compile as expected.
+        final EvaluationContext context = EvaluationContext.empty();
+        final Comparisons.Comparison isNull = new Comparisons.NullComparison(Comparisons.Type.IS_NULL);
+        final Comparisons.Comparison notNull = new Comparisons.NullComparison(Comparisons.Type.NOT_NULL);
+        assertThat(range(isNull, notNull).isEmpty(context)).isTrue();
+        assertThat(range(isNull, simple(Comparisons.Type.EQUALS, 5)).isEmpty(context)).isTrue();
+        assertThat(range(notNull, simple(Comparisons.Type.EQUALS, 5)).isEmpty(context)).isFalse();
+        assertThat(range(simple(Comparisons.Type.LESS_THAN, 5), simple(Comparisons.Type.GREATER_THAN_OR_EQUALS, 5)).isEmpty(context)).isTrue();
+        assertThat(range(simple(Comparisons.Type.LESS_THAN_OR_EQUALS, 5), simple(Comparisons.Type.GREATER_THAN, 5)).isEmpty(context)).isTrue();
+        assertThat(range(simple(Comparisons.Type.LESS_THAN_OR_EQUALS, 5), simple(Comparisons.Type.GREATER_THAN_OR_EQUALS, 5)).isEmpty(context)).isFalse();
+        assertThat(range(simple(Comparisons.Type.LESS_THAN, 3), simple(Comparisons.Type.GREATER_THAN, 7)).isEmpty(context)).isTrue();
+
+        assertThat(range(notNull).encloses(range(simple(Comparisons.Type.EQUALS, 5)), context)).isTrue();
+        assertThat(range(notNull).encloses(range(isNull), context)).isFalse();
+        assertThat(range(isNull).encloses(range(isNull), context)).isTrue();
+        assertThat(range(simple(Comparisons.Type.GREATER_THAN, 0)).encloses(range(notNull), context)).isFalse();
+    }
 }

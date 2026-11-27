@@ -130,6 +130,78 @@ class TableFunctionExpressionAutoQATest {
                 .hasSize(1);
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void translateCorrelationsKeepsDistinctFlag(final boolean shouldSimplifyValues) {
+        // Translating the correlation of a distinct candidate explode keeps it distinct, so it is still not equal to the
+        // explode of a query, and a query explode matched against it still requires an existential.
+        final var distinct = distinctExplode(QUERY_ALIAS);
+
+        final var translated = distinct.translateCorrelations(
+                TranslationMap.ofAliases(QUERY_ALIAS, CANDIDATE_ALIAS), shouldSimplifyValues, ImmutableList.of());
+
+        assertThat(translated.getCorrelatedTo()).containsExactly(CANDIDATE_ALIAS);
+        assertThat(((ExplodeValue)translated.getValue()).isDistinct()).isTrue();
+        assertThat(translated).isEqualTo(distinctExplode(CANDIDATE_ALIAS));
+        assertThat(translated).isNotEqualTo(explode(CANDIDATE_ALIAS, false));
+        final var matchInfos = subsumedBy(explode(QUERY_ALIAS, false), translated, BINDING_ALIAS_MAP);
+        assertThat(matchInfos).hasSize(1);
+        assertThat(matchInfos.get(0).requiresExistential()).isTrue();
+    }
+
+    @Test
+    void distinctAndNonDistinctTableFunctionsAreNotEqual() {
+        // The table function of a distinct candidate explode is never equal to that of a query explode, either way,
+        // with or without the binding alias map, and equal table functions have equal hash codes.
+        final var query = explode(QUERY_ALIAS, false);
+        final var distinct = distinctExplode(QUERY_ALIAS);
+        final var distinctCandidate = distinctExplode(CANDIDATE_ALIAS);
+
+        assertThat(query).isNotEqualTo(distinct);
+        assertThat(distinct).isNotEqualTo(query);
+        assertThat(query.semanticEquals(distinct)).isFalse();
+        assertThat(distinct.semanticEquals(query)).isFalse();
+        assertThat(query.equalsWithoutChildren(distinctCandidate, BINDING_ALIAS_MAP)).isFalse();
+        assertThat(distinctCandidate.equalsWithoutChildren(query, BINDING_ALIAS_MAP.inverse())).isFalse();
+        assertThat(distinct.semanticEquals(distinctCandidate, BINDING_ALIAS_MAP)).isTrue();
+        assertThat(distinct.semanticHashCode()).isEqualTo(distinctCandidate.semanticHashCode());
+        assertThat(distinct).isEqualTo(distinctExplode(QUERY_ALIAS));
+        assertThat(distinct.hashCode()).isEqualTo(distinctExplode(QUERY_ALIAS).hashCode());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"equal", "preserving", "distinct"})
+    void onlyADistinctCandidateRequiresAnExistential(@Nonnull final String candidateKind) {
+        // A query explode that neither preserves its order nor is sorted is subsumed by an equal explode, by one that
+        // preserves its order, and by a distinct one; only the distinct one loses repeated elements, so only its match
+        // requires an existential.
+        final var query = explode(QUERY_ALIAS, false);
+        final TableFunctionExpression candidate;
+        switch (candidateKind) {
+            case "equal":
+                candidate = explode(CANDIDATE_ALIAS, false);
+                break;
+            case "preserving":
+                candidate = explode(CANDIDATE_ALIAS, true);
+                break;
+            default:
+                candidate = distinctExplode(CANDIDATE_ALIAS);
+                break;
+        }
+
+        final var matchInfos = subsumedBy(query, candidate, BINDING_ALIAS_MAP);
+        assertThat(matchInfos).hasSize(1);
+        assertThat(matchInfos.get(0).requiresExistential()).isEqualTo("distinct".equals(candidateKind));
+        // the match is a leaf match without child matches
+        assertThat(matchInfos.get(0).getRegularMatchInfo().getPartialMatchMap().isEmpty()).isTrue();
+    }
+
+    @Nonnull
+    private static TableFunctionExpression distinctExplode(@Nonnull final CorrelationIdentifier alias) {
+        return new TableFunctionExpression(
+                new ExplodeValue(collection(alias, RECORD_TYPE), false, false, false, true));
+    }
+
     @Nonnull
     private static TableFunctionExpression explode(@Nonnull final CorrelationIdentifier alias,
                                                    final boolean preserveOrder) {

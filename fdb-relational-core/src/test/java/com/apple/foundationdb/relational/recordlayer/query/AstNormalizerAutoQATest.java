@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalConnection;
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.metadata.DataType;
 import com.apple.foundationdb.relational.api.metrics.RelationalMetric;
@@ -46,13 +47,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URI;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Additional tests for {@link AstNormalizer}, focused on named parameters that are declared but carry no value, and on
@@ -66,6 +70,9 @@ class AstNormalizerAutoQATest {
 
     @Nonnull
     private static final String RANGE_TEMPLATE = "CREATE TABLE t1(id bigint, col1 bigint, PRIMARY KEY(id))";
+
+    @Nonnull
+    private static final String STRING_TEMPLATE = "CREATE TABLE s1(id bigint, s string, PRIMARY KEY(id))";
 
     @Nonnull
     private static final String STORED_SAME_PARAMETER_TEMPLATE = RANGE_TEMPLATE +
@@ -187,6 +194,160 @@ class AstNormalizerAutoQATest {
             insertRange(connection);
             assertThat(idsThroughFunction(connection, "id > ?a and id < ?b", 1L, 4L)).containsExactly(2L, 3L);
             assertThat(idsThroughFunction(connection, "id > ?b and id < ?a", 5L, 2L)).containsExactly(3L, 4L);
+        }
+    }
+
+    @Test
+    void temporaryFunctionUnnamedDefaultAndBodyParametersBindByPosition() throws Exception {
+        // the first `?` (a parameter DEFAULT) and the second `?` (in the body) must each get their own JDBC value
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/AQA_TF_UNNAMED_DEFAULT_DB")).relationalExtension(relationalExtension)
+                .schemaTemplate(RANGE_TEMPLATE).build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            insertRange(connection);
+            connection.setAutoCommit(false);
+            try {
+                try (var ps = connection.prepareStatement("CREATE TEMPORARY FUNCTION f_upto(IN hi BIGINT DEFAULT ?) " +
+                        "ON COMMIT DROP FUNCTION AS SELECT id FROM t1 WHERE id > ? AND id < hi")) {
+                    ps.setLong(1, 4L);
+                    ps.setLong(2, 1L);
+                    ps.execute();
+                }
+                try (var ps = connection.prepareStatement("SELECT id FROM f_upto() WHERE id <> ?")) {
+                    ps.setLong(1, 3L);
+                    assertThat(queryIds(ps)).containsExactly(2L);
+                }
+            } finally {
+                connection.rollback();
+                connection.setAutoCommit(true);
+            }
+        }
+    }
+
+    @Test
+    void temporaryFunctionsAndOuterQueryKeepTheirOwnParameterValues() throws Exception {
+        // two temp functions with `?` / `?p` and an outer query reusing `?` and `?p` with other values stay apart
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/AQA_TF_OWN_VALUES_DB")).relationalExtension(relationalExtension)
+                .schemaTemplate(RANGE_TEMPLATE).build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            insertRange(connection);
+            connection.setAutoCommit(false);
+            try {
+                try (var ps = connection.prepareStatement("CREATE TEMPORARY FUNCTION f_above() " +
+                        "ON COMMIT DROP FUNCTION AS SELECT id FROM t1 WHERE id > ?")) {
+                    ps.setLong(1, 1L);
+                    ps.execute();
+                }
+                try (var ps = connection.prepareStatement("CREATE TEMPORARY FUNCTION f_below() " +
+                        "ON COMMIT DROP FUNCTION AS SELECT id FROM t1 WHERE id < ?p")) {
+                    ps.setLong("p", 5L);
+                    ps.execute();
+                }
+                try (var ps = connection.prepareStatement("SELECT a.id FROM f_above() AS a, f_below() AS b " +
+                        "WHERE a.id = b.id AND a.id <> ? AND a.id <> ?p")) {
+                    ps.setLong(1, 2L);
+                    ps.setLong("p", 4L);
+                    assertThat(queryIds(ps)).containsExactly(3L);
+                }
+            } finally {
+                connection.rollback();
+                connection.setAutoCommit(true);
+            }
+        }
+    }
+
+    @Test
+    void unnamedParametersInCteAndSelectListBindByPositionOnMissAndHit() throws Exception {
+        // `?` in a CTE, the select list and the outer WHERE are bound by text position, on a plan miss and on a hit
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/AQA_CTE_UNNAMED_DB")).relationalExtension(relationalExtension)
+                .schemaTemplate(RANGE_TEMPLATE).build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            insertRange(connection);
+            final var query = "WITH c AS (SELECT id FROM t1 WHERE id > ?) SELECT id + ? AS id FROM c WHERE id < ?";
+            try (var ps = connection.prepareStatement(query)) {
+                ps.setLong(1, 1L);
+                ps.setLong(2, 100L);
+                ps.setLong(3, 4L);
+                assertThat(queryIds(ps)).containsExactlyInAnyOrder(102L, 103L);
+            }
+            try (var ps = connection.prepareStatement(query)) {
+                ps.setLong(1, 2L);
+                ps.setLong(2, 10L);
+                ps.setLong(3, 5L);
+                assertThat(queryIds(ps)).containsExactlyInAnyOrder(13L, 14L);
+            }
+        }
+    }
+
+    @Test
+    void likeWithParameterEscapeFollowsEachBindingOnSharedPlan() throws Exception {
+        // one `LIKE ? ESCAPE ?` text run with '\', NULL, '|' and a two-character escape: each run uses its own escape
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/AQA_LIKE_PARAM_ESCAPE_DB")).relationalExtension(relationalExtension)
+                .schemaTemplate(STRING_TEMPLATE).build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            insertStrings(connection);
+            final var query = "select id from s1 where s like ? escape ?";
+            assertThat(likeIds(connection, query, "a\\_%", "\\")).containsExactly(1L);
+            assertThat(likeIds(connection, query, "a\\_%", null)).containsExactly(3L);
+            assertThat(likeIds(connection, query, "a\\_%", "|")).containsExactly(3L);
+            assertThat(likeIds(connection, query, null, "\\")).isEmpty();
+            assertThatThrownBy(() -> likeIds(connection, query, "a%", "||"))
+                    .isInstanceOf(SQLException.class)
+                    .extracting(e -> ((SQLException)e).getSQLState())
+                    .isEqualTo(ErrorCode.INVALID_ESCAPE_CHARACTER.getErrorCode());
+        }
+    }
+
+    @Test
+    void likeWithLiteralEscapeFollowsEachLiteralOnSharedPlan() throws Exception {
+        // literal escapes are now stripped into constants; queries differing only in the escape must not mix up
+        try (var ddl = Ddl.builder().database(URI.create("/TEST/AQA_LIKE_LITERAL_ESCAPE_DB")).relationalExtension(relationalExtension)
+                .schemaTemplate(STRING_TEMPLATE).build()) {
+            final var connection = ddl.setSchemaAndGetConnection();
+            insertStrings(connection);
+            assertThat(literalLikeIds(connection, "select id from s1 where s like 'a\\_%' escape '\\'")).containsExactly(1L);
+            assertThat(literalLikeIds(connection, "select id from s1 where s like 'a\\_%' escape '|'")).containsExactly(3L);
+            assertThat(literalLikeIds(connection, "select id from s1 where s like 'a\\_%' escape null")).containsExactly(3L);
+            assertThat(literalLikeIds(connection, "select id from s1 where s not like 'a\\_%' escape '\\'"))
+                    .containsExactly(2L, 3L);
+            assertThatThrownBy(() -> literalLikeIds(connection, "select id from s1 where s like 'a%' escape '||'"))
+                    .isInstanceOf(SQLException.class)
+                    .extracting(e -> ((SQLException)e).getSQLState())
+                    .isEqualTo(ErrorCode.INVALID_ESCAPE_CHARACTER.getErrorCode());
+        }
+    }
+
+    @Nonnull
+    private static List<Long> likeIds(@Nonnull final RelationalConnection connection, @Nonnull final String query,
+                                      @Nullable final String pattern, @Nullable final String escape) throws SQLException {
+        try (var ps = connection.prepareStatement(query)) {
+            if (pattern == null) {
+                ps.setNull(1, Types.VARCHAR);
+            } else {
+                ps.setString(1, pattern);
+            }
+            if (escape == null) {
+                ps.setNull(2, Types.VARCHAR);
+            } else {
+                ps.setString(2, escape);
+            }
+            return queryIds(ps);
+        }
+    }
+
+    @Nonnull
+    private static List<Long> literalLikeIds(@Nonnull final RelationalConnection connection,
+                                             @Nonnull final String query) throws SQLException {
+        try (var ps = connection.prepareStatement(query)) {
+            return queryIds(ps);
+        }
+    }
+
+    private static void insertStrings(@Nonnull final RelationalConnection connection) throws SQLException {
+        try (var ps = connection.prepareStatement("INSERT INTO s1 VALUES (1, ?), (2, ?), (3, ?)")) {
+            ps.setString(1, "a_b");
+            ps.setString(2, "axb");
+            ps.setString(3, "a\\xb");
+            ps.executeUpdate();
         }
     }
 

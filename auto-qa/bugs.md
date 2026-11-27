@@ -262,3 +262,29 @@
   records with prefix "a\u0000b", which survive, so the index loses their entries (index corruption). Same byte-range
   defect as AQA-22; the same pattern is in SlidingWindow, Rank, Multidimensional, GeospatialRTree and TimeWindowLeaderboard
   maintainers (not tested). Different from rejected AQA-3.
+
+## AQA-32: RangeConstraints semanticHashCode (and equals/hashCode) are identity-based
+- status: open
+- found: 2026-11-27
+- test: fdb-record-layer-core/src/test/java/com/apple/foundationdb/record/query/plan/cascades/predicates/QueryPredicateAutoQATest.java#rangeConstraintsSemanticHashCodeConsistentWithSemanticEquals
+- spec: Correlated#semanticHashCode javadoc (semanticEquals implies equal semantic hash codes; stable across JVM runs; "must not rely on identity-based hashing")
+- details: semanticHashCode (~477) is Objects.hash(evaluableRange, deferredRanges), and RangeConstraints.CompilableRange
+  (~590) overrides neither equals nor hashCode, so two ranges built from the same comparison are semanticEquals but hash
+  differently (and differently per run). Plain equals/hashCode of RangeConstraints are identity-based the same way.
+
+## AQA-33: Type.maximumType(NULL, UUID) throws VerifyException
+- status: open
+- found: 2026-11-27
+- test: fdb-record-layer-core/src/test/java/com/apple/foundationdb/record/query/plan/cascades/TypeAutoQATest.java#maximumTypeOfNullAndUuidIsNullableUuid
+- spec: Type.maximumType javadoc ("the maximum type ... or null if the maximum type is not defined"); PromoteValue javadoc (promotions follow the SQL standard)
+- details: PromoteValue.PhysicalOperator has NULL_TO_<type> for every concrete type except UUID (CastValue does have
+  NULL_TO_UUID), so the NULL shortcut is skipped and Verify.verify(!t1.isUnresolved()) at Type.java:605 throws.
+
+## AQA-34: PromoteValue.inject cannot promote a record with a NULL field to the type maximumType returns
+- status: open
+- found: 2026-11-27
+- test: fdb-record-layer-core/src/test/java/com/apple/foundationdb/record/query/plan/cascades/TypeAutoQATest.java#injectPromotesRecordWithNullFieldToMaximumType
+- spec: Type.maximumType javadoc (both sides can be promoted up without loss); PromoteValue.inject javadoc ("a value with result type promoteToType")
+- details: maximumType(record(NULL, INT), record(NULL, LONG)) = record(NULL, LONG), but isPromotionNeeded(NULL, NULL) is
+  always true (~467) and there is no NULL -> NULL operator, so computePromotionsTrie throws INCOMPATIBLE_TYPE (~371).
+  RelOpValue uses maximumType + inject the same way, so row comparisons like (NULL, 1) = (NULL, 2L) likely hit it (not tested).

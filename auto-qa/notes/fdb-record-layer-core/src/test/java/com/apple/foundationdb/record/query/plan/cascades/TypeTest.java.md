@@ -1,6 +1,7 @@
 # Notes: fdb-record-layer-core/src/test/java/com/apple/foundationdb/record/query/plan/cascades/TypeTest.java
 ## Visits
 - 2026-11-16 65f9c37bc
+- 2026-11-27 915aa0e3f (PromoteValue changed only in ArrayCoercionBiFunction proto (de)serialization order, #4874; Type.java unchanged; AQA-4/5/6 still fail)
 ## Production code
 - fdb-record-layer-core/src/main/java/com/apple/foundationdb/record/query/plan/cascades/typing/Type.java
 - fdb-record-layer-core/src/main/java/com/apple/foundationdb/record/query/plan/cascades/values/PromoteValue.java (isPromotable, used by maximumType)
@@ -11,10 +12,18 @@
 - maximumType operator precedence `(t1.isPrimitive() || t1.isEnum()) || t1.isUuid() && (...)`: checked with PROMOTION_MAP; no asymmetric result found (no ARRAY->VECTOR promotion exists), harmless today.
 - Enum/Record withName (recent change in 0f3d47195): same-name short-circuit looks fine.
 - Record.toProto reference-id sharing for records equal except name: PlanSerializationContext uses a name-aware Equivalence (recordTypeWithNameEquivalence), so no loss (looked at code only).
+- Type.maximumType(NULL, UUID): throws VerifyException (Null.isUnresolved() is true, no NULL_TO_UUID in PromoteValue PROMOTION_MAP although CastValue has NULL_TO_UUID) (CANDIDATE_BUG, maximumTypeOfNullAndUuidIsNullableUuid). Also affects NULL vs ANY/FUNCTION/RELATION (less relevant).
+- PromoteValue.inject(record(NULL, INT), maximumType = record(NULL, LONG)): computePromotionsTrie(NULL, NULL) -> isPromotionNeeded true, no operator -> SemanticException INCOMPATIBLE_TYPE (CANDIDATE_BUG, injectPromotesRecordWithNullFieldToMaximumType). Same root for ARRAY(NULL) nullability-only promotion.
+- Array element-wise promotion ARRAY(INT)->ARRAY(LONG) via inject + eval: works.
+- isPromotionNeeded on vectors: nullability-only difference -> false; different precision/dimensions -> SemanticException (correct; contrast AQA-4 in maximumType).
 ## Rejected
 - Array(Type) javadoc says "nullable" but constructs non-nullable: behaviour intentionally changed in c1b06f6c8 (2022), javadoc is just stale. Same for Array() and Record.fromFieldDescriptorsMap(Map) javadoc "nullable" vs false. Doc-only, not reported.
 - primitiveType(TypeCode.VECTOR) creates a Primitive whose toProto throws: TypeTest explicitly filters VECTOR out, contrived use.
 ## Untried
+- SQL reachability of maximumType(NULL, UUID): yamsql `CASE WHEN .. THEN uuid_col ELSE NULL END`, `COALESCE(uuid_col, NULL)`, UNION of a uuid column with NULL.
+- SQL reachability of NULL-typed record fields: UNION ALL of `SELECT NULL, 1` and `SELECT NULL, 2L`-like queries.
+- PromoteValue toProto/fromProto round trip with ArrayCoercionBiFunction over array of records (reference ids after #4874).
+- maximumType(STRING, UUID) returns UUID (STRING_TO_UUID in PROMOTION_MAP) although UUID cannot describe all strings; same for STRING/ENUM (has a TODO, likely intentional).
 - TypeCode.toProto/fromProto lack VECTOR and FUNCTION mappings (PTypeCode has VECTOR=18, FUNCTION=19); find a real path serializing them.
 - Field.of(type, "_5") alone at position 0 (no clash): name becomes "_0" but storage "_5"; check round trip through descriptor (fromDescriptor gives name "_5") and whether field lookups by name break.
 - Record.equals erased vs non-erased nullable record NPE (same as Array).
