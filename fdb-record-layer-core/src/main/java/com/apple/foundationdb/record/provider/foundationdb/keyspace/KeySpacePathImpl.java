@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.subspace.Subspace;
-import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.common.annotations.VisibleForTesting;
@@ -221,7 +220,7 @@ class KeySpacePathImpl implements KeySpacePath {
     public CompletableFuture<Boolean> hasDataAsync(@Nonnull FDBRecordContext context) {
         return toTupleAsync(context).thenCompose( tuple -> {
             final byte[] rangeStart = tuple.pack();
-            final byte[] rangeEnd = ByteArrayUtil.strinc(rangeStart);
+            final byte[] rangeEnd = KeySpaceDirectory.tupleRangeEnd(rangeStart);
             return context.ensureActive().getRange(rangeStart, rangeEnd, 1).iterator().onHasNext();
         });
     }
@@ -233,7 +232,7 @@ class KeySpacePathImpl implements KeySpacePath {
         context.setMetaDataVersionStamp();
         return toTupleAsync(context).thenApply( tuple -> {
             final byte[] rangeStart = tuple.pack();
-            final byte[] rangeEnd = ByteArrayUtil.strinc(rangeStart);
+            final byte[] rangeEnd = KeySpaceDirectory.tupleRangeEnd(rangeStart);
             context.clear(new Range(rangeStart, rangeEnd));
             return null;
         });
