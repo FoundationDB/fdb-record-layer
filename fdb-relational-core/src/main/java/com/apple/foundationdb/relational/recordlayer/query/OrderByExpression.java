@@ -55,6 +55,14 @@ public final class OrderByExpression {
         return expression;
     }
 
+    public boolean isDescending() {
+        return descending;
+    }
+
+    public boolean isNullsLast() {
+        return nullsLast;
+    }
+
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private OrderByExpression withExpression(@Nonnull Expression expression) {

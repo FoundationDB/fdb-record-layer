@@ -232,10 +232,32 @@ You can order by columns not in the SELECT list:
 
 The query planner will use an index that includes the ordering column, even if it's not projected in the result.
 
+ORDER BY on Struct Fields
+--------------------------
+
+For tables with struct types, you can order by the entire field:
+
+.. code-block:: sql
+
+    CREATE TYPE AS STRUCT address_type(city STRING, zipcode INTEGER)
+    CREATE TABLE customers(
+        id BIGINT,
+        name STRING,
+        address address_type,
+        PRIMARY KEY(id))
+
+    CREATE INDEX address_idx AS SELECT address.city, address.zipcode FROM customers ORDER BY address.city, address.zipcode
+
+    SELECT name, address
+    FROM customers
+    ORDER BY address
+
+This query also works with an index that has the sort order ``ORDER BY address``.
+
 ORDER BY on Nested Fields
 --------------------------
 
-For tables with struct types, you can order by nested fields:
+It is also possible to order by a nested field on a struct type:
 
 .. code-block:: sql
 
