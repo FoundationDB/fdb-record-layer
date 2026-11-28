@@ -166,6 +166,27 @@ public abstract class ValueEquivalence {
             this.then = then;
         }
 
+        /**
+         * Returns the equivalence that this equivalence asks first.
+         *
+         * @return the first equivalence
+         */
+        @Nonnull
+        public ValueEquivalence getFirst() {
+            return first;
+        }
+
+        /**
+         * Returns the equivalence that this equivalence asks if the first equivalence does not define the two values
+         * as equal.
+         *
+         * @return the second equivalence
+         */
+        @Nonnull
+        public ValueEquivalence getThen() {
+            return then;
+        }
+
         @Nonnull
         @Override
         public ConstrainedBoolean isDefinedEqual(@Nonnull final Value left, @Nonnull final Value right) {
