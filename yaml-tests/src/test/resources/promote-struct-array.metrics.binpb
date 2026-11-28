@@ -1,0 +1,15 @@
+Ó
+X
+promote-struct-array@EXPLAIN select rest_no from restaurant_record where reviews = []ö
+“Ñ”ÿFp ª«Ù.(&0Ó‹¿8+@“ISCAN(RESTAURANT_RECORD_NAME <,>) | FILTER _.REVIEWS EQUALS promote(array() AS ARRAY(LONG AS REVIEWER, INT AS RATING)) | MAP (_.REST_NO AS REST_NO)Ádigraph G {
+  fontname=courier;
+  rankdir=BT;
+  splines=line;
+  1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q84.REST_NO AS REST_NO)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REST_NO)" ];
+  2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Predicate Filter</td></tr><tr><td align="left">WHERE q2.REVIEWS EQUALS promote(array() AS ARRAY(LONG AS REVIEWER, INT AS RATING))</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REST_NO, STRING AS NAME, ARRAY(LONG AS REVIEWER, INT AS RATING) AS REVIEWS, ARRAY(STRING AS VALUE, INT AS WEIGHT) AS TAGS, ARRAY(STRING) AS CUSTOMER)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index Scan</td></tr><tr><td align="left">range: &lt;-âˆž, âˆž&gt;</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REST_NO, STRING AS NAME, ARRAY(LONG AS REVIEWER, INT AS RATING) AS REVIEWS, ARRAY(STRING AS VALUE, INT AS WEIGHT) AS TAGS, ARRAY(STRING) AS CUSTOMER)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">RESTAURANT_RECORD_NAME</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS REST_NO, STRING AS NAME, ARRAY(LONG AS REVIEWER, INT AS RATING) AS REVIEWS, ARRAY(STRING AS VALUE, INT AS WEIGHT) AS TAGS, ARRAY(STRING) AS CUSTOMER)" ];
+  3 -> 2 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  2 -> 1 [ label=<&nbsp;q84> label="q84" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+}
