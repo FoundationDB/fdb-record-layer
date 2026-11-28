@@ -77,6 +77,17 @@ You can set NULL values for individual fields within a STRUCT:
    :end-before: // end::create-struct-null[]
    :dedent: 8
 
+Accessing fields in a ``STRUCT`` parameter
+---------------------------------------------
+
+You can access fields on ``STRUCT`` values passed as parameters whether the parameter is named or unnamed:
+
+.. literalinclude:: ../../../../examples/src/main/java/com/apple/foundationdb/relational/jdbc/examples/AdvancedSnippets.java
+   :language: java
+   :start-after: // tag::access-struct-field-in-parameter[]
+   :end-before: // end::access-struct-field-in-parameter[]
+   :dedent: 8
+
 Working with ``ARRAY`` types
 ============================
 

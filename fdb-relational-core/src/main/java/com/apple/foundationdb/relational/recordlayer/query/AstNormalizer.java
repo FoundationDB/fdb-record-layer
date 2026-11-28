@@ -461,6 +461,11 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
             }
         }
 
+        if (ctx.fullId() != null) {
+            sqlCanonicalizer.append(". ");
+            visit(ctx.fullId());
+        }
+
         return param;
     }
 
