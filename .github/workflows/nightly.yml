@@ -13,6 +13,7 @@ jobs:
   #   a) all the tests
   #   b) the mixed-mode tests
   #   c) the nightly tests
+  #   d) the nightly tests, again, against the other versions of FDB that we support
   # The nightly tests (currently) include all the regular tests, but we want to publish to teamscale the coverage
   # statistics we're getting from PRB separately. We want to be able to differentiate those two types of coverage
   # in teamscale for a better understanding of what might escape in PRB (or in our pre-release test run).
@@ -43,7 +44,7 @@ jobs:
       - name: Run Gradle Test
         uses: ./actions/gradle-test
         with:
-          gradle_command: jar test destructiveTest :fdb-extensions:scalarFallbackTest :fdb-extensions:clientLogTest :fdb-extensions:clientLogChecksumTest codeCoverageReport
+          gradle_command: jar test isolatedTests codeCoverageReport
           gradle_args: -PreleaseBuild=false -PpublishBuild=false -DallTest.timeoutMinutes=330
       - name: Upload coverage to teamscale
         uses: ./actions/teamscale-upload
@@ -153,14 +154,6 @@ jobs:
     strategy:
       matrix:
         subproject: [fdb-extensions, fdb-record-layer-core, fdb-record-layer-lucene, yaml-tests]
-        # fdb-extensions also runs its scalar-fallback and client log event test tasks here so its JaCoCo
-        # execution data is produced alongside the other test tasks and picked up by the coverage-data
-        # upload below. These are separated from the main test task because they require their own JVM
-        # in order to override certain global settings. matrix.extra_tasks is unset (empty) for the other
-        # subprojects.
-        include:
-          - subproject: fdb-extensions
-            extra_tasks: ':fdb-extensions:scalarFallbackTest :fdb-extensions:clientLogTest :fdb-extensions:clientLogChecksumTest'
     runs-on: ubuntu-latest
     # See the timeout comment on the `test` job
     timeout-minutes: 360
@@ -176,7 +169,7 @@ jobs:
       - name: Run Gradle Test
         uses: ./actions/gradle-test
         with:
-          gradle_command: :${{ matrix.subproject }}:jar :${{ matrix.subproject }}:test :${{ matrix.subproject }}:destructiveTest ${{ matrix.extra_tasks }}
+          gradle_command: :${{ matrix.subproject }}:jar :${{ matrix.subproject }}:test :${{ matrix.subproject }}:isolatedTests
           gradle_args: "-PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport -Ptests.includeRandom -Ptests.iterations=2 -Ptests.nightly -DallTest.timeoutMinutes=330"
           report_name: nightly-${{ matrix.subproject }}-test-reports
       - name: Publish Coverage Data
@@ -213,11 +206,11 @@ jobs:
             -x :fdb-record-layer-core:test
             -x :fdb-record-layer-lucene:test
             -x :yaml-tests:test
-            destructiveTest
-            -x :fdb-extensions:destructiveTest
-            -x :fdb-record-layer-core:destructiveTest
-            -x :fdb-record-layer-lucene:destructiveTest
-            -x :yaml-tests:destructiveTest
+            isolatedTests
+            -x :fdb-extensions:isolatedTests
+            -x :fdb-record-layer-core:isolatedTests
+            -x :fdb-record-layer-lucene:isolatedTests
+            -x :yaml-tests:isolatedTests
           gradle_args: "-PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport -Ptests.includeRandom -Ptests.iterations=2 -Ptests.nightly -DallTest.timeoutMinutes=330"
           report_name: nightly-other-test-reports
       - name: Publish Coverage Data
@@ -274,3 +267,93 @@ jobs:
           revision: ${{ github.sha }}
           files: "${{ github.workspace }}/.out/reports/jacoco/codeCoverageReport/codeCoverageReport.xml"
           teamscaleKey: ${{ secrets.TEAMSCALE_ACCESS_KEY }}
+
+  ### Other versions of FDB
+  # The jobs above all run against the default version of FDB (see actions/setup-fdb). These run the nightly tests,
+  # parallelized in the same way as nightly_test and nightly_other_tests, against the other versions of FDB that we
+  # test against. We do not collect coverage from these runs, as that is already covered by the jobs above.
+
+  # The versions of FDB to run against are defined here, for all of the jobs below. These are the latest release of each
+  # version of FDB that we test against, except for the default version (see actions/setup-fdb), which the jobs above
+  # already run against. If the default version is changed, change this list to match.
+  get-fdb-versions:
+    if: github.repository == 'FoundationDB/fdb-record-layer'
+    runs-on: ubuntu-latest
+    outputs:
+      versions: ${{ steps.versions.outputs.versions }}
+    steps:
+      - name: Define versions
+        id: versions
+        run: echo 'versions=["7.3.81", "8.0.1"]' >> "$GITHUB_OUTPUT"
+
+  nightly_fdb_versions_test:
+    name: nightly_fdb_versions_test (${{ matrix.subproject }}, FDB ${{ matrix.fdb_version }})
+    if: github.repository == 'FoundationDB/fdb-record-layer'
+    needs: get-fdb-versions
+    strategy:
+      # A failure with one version of FDB should not hide how the others did
+      fail-fast: false
+      matrix:
+        subproject: [fdb-extensions, fdb-record-layer-core, fdb-record-layer-lucene, yaml-tests]
+        fdb_version: ${{ fromJSON(needs.get-fdb-versions.outputs.versions) }}
+    runs-on: ubuntu-latest
+    # See the timeout comment on the `test` job
+    timeout-minutes: 360
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup Base Environment
+        uses: ./actions/setup-base-env
+      - name: Setup FDB
+        uses: ./actions/setup-fdb
+        with:
+          fdb_version: ${{ matrix.fdb_version }}
+      - name: Run Gradle Test
+        uses: ./actions/gradle-test
+        with:
+          gradle_command: :${{ matrix.subproject }}:jar :${{ matrix.subproject }}:test :${{ matrix.subproject }}:isolatedTests
+          gradle_args: "-PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport -Ptests.includeRandom -Ptests.iterations=2 -Ptests.nightly -DallTest.timeoutMinutes=330"
+          report_name: nightly-fdb-${{ matrix.fdb_version }}-${{ matrix.subproject }}-test-reports
+
+  nightly_fdb_versions_other_tests:
+    name: nightly_fdb_versions_other_tests (FDB ${{ matrix.fdb_version }})
+    if: github.repository == 'FoundationDB/fdb-record-layer'
+    needs: get-fdb-versions
+    strategy:
+      # A failure with one version of FDB should not hide how the others did
+      fail-fast: false
+      matrix:
+        fdb_version: ${{ fromJSON(needs.get-fdb-versions.outputs.versions) }}
+    runs-on: ubuntu-latest
+    # See the timeout comment on the `test` job
+    timeout-minutes: 360
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup Base Environment
+        uses: ./actions/setup-base-env
+      - name: Setup FDB
+        uses: ./actions/setup-fdb
+        with:
+          fdb_version: ${{ matrix.fdb_version }}
+      - name: Run Gradle Test
+        uses: ./actions/gradle-test
+        with:
+          gradle_command: >-
+            jar
+            test
+            -x :fdb-extensions:test
+            -x :fdb-record-layer-core:test
+            -x :fdb-record-layer-lucene:test
+            -x :yaml-tests:test
+            isolatedTests
+            -x :fdb-extensions:isolatedTests
+            -x :fdb-record-layer-core:isolatedTests
+            -x :fdb-record-layer-lucene:isolatedTests
+            -x :yaml-tests:isolatedTests
+          gradle_args: "-PreleaseBuild=false -PpublishBuild=false -PspotbugsEnableHtmlReport -Ptests.includeRandom -Ptests.iterations=2 -Ptests.nightly -DallTest.timeoutMinutes=330"
+          report_name: nightly-fdb-${{ matrix.fdb_version }}-other-test-reports

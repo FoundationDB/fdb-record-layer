@@ -39,6 +39,7 @@ import com.apple.test.Tags;
 import org.assertj.core.api.AutoCloseableSoftAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -75,7 +76,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * <p>The protocol version of the log entries is that of the FDB server, which in turn matches the protocol version
  * of the loaded {@code libfdb_c} library. In addition, the {@value #CHECKSUM_PROPERTY} system property can be used
  * to configure the client knob that makes the client attach checksums to the mutations it records (starting with
- * FDB version 7.4). If that property is set, this test will validate that it reads the correct checksums.
+ * FDB version 7.4). If that property is set, this test will validate that it reads the correct checksums, and
+ * it is skipped if the client library is too old to record them.
  *
  * <p>The test sets client knobs, which should only be done before the FDB network is started. For that reason, it
  * cannot share a JVM with other tests that open a database. It is tagged with {@link Tags#ClientLog}, which
@@ -205,11 +207,9 @@ class FDBClientLogEventsClusterTest {
         } while (recorded.isEmpty());
         // A client that does not know the knob ignores it, which would otherwise show up as missing checksums.
         final long protocolVersion = protocolVersionOf(recorded.get(0));
-        if (expectChecksums && protocolVersion < FDBClientLogEvents.PROTOCOL_VERSION_7_4) {
-            throw new IllegalStateException("The client library writes protocol version " + Long.toHexString(protocolVersion)
-                    + ", which is before 7.4 and so cannot record mutation checksums. "
-                    + "Run the clientLogTest task, which does not ask for them, or use a newer client library.");
-        }
+        Assumptions.assumeFalse(expectChecksums && protocolVersion < FDBClientLogEvents.PROTOCOL_VERSION_7_4,
+                () -> "The client library writes protocol version " + Long.toHexString(protocolVersion)
+                        + ", which is before 7.4 and so cannot record mutation checksums");
     }
 
     private static long protocolVersionOf(@Nonnull Entry entry) {

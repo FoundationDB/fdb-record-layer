@@ -25,6 +25,7 @@ import java.util.regex.Pattern
 
 import javax.inject.Inject
 
+import org.gradle.api.services.BuildServiceParameters
 import org.gradle.api.tasks.testing.TestDescriptor
 import org.gradle.api.tasks.testing.TestListener
 import org.gradle.build.event.BuildEventsListenerRegistry
@@ -66,6 +67,38 @@ test {
     }
 }
 
+// All of the tests that are not part of `test` because they cannot be: they wipe the FDB cluster (destructiveTest), or
+// they need a JVM of their own. To run the full test suite, run this task along with `test`.
+//
+// This does not say which tasks it runs. Each such task registers itself as a dependency to this task where it is
+// defined, the way that destructiveTest does below. This allows different subprojects to register different sets
+// of isolated test tasks.
+tasks.register('isolatedTests') {
+    group = 'verification'
+    description = 'Runs the tests that cannot be part of test, because they wipe FDB or need a JVM of their own.'
+}
+
+// The isolated tests make changes that no other test should be running during: the destructive tests wipe the cluster,
+// and the client log tests change the sampling configuration of the cluster and then put it back. Gradle normally runs
+// one task at a time, but with --parallel (and the configuration cache, which this build uses) it will run tasks at
+// the same time, whether they are in the same project or different ones. This service allows only one task to use it
+// at a time, which keeps the tasks that use it from running at the same time as each other. (It does not keep them
+// from running at the same time as `test`, which does not use it.)
+abstract class IsolatedTestService implements BuildService<BuildServiceParameters.None> {
+}
+
+def isolatedTestService = gradle.sharedServices.registerIfAbsent('isolatedTests', IsolatedTestService) {
+    maxParallelUsages = 1
+}
+
+// Makes the Test task with the given name, which must already have been registered, an isolated test: it is run by
+// isolatedTests, and not at the same time as any of the other isolated tests. Subprojects with their own isolated
+// tests can use this too.
+ext.addIsolatedTest = { String taskName ->
+    tasks.named(taskName).configure { usesService(isolatedTestService) }
+    tasks.named('isolatedTests').configure { dependsOn taskName }
+}
+
 tasks.register('destructiveTest', Test) {
     useJUnitPlatform {
         includeTags 'WipesFDB'
@@ -75,6 +108,7 @@ tasks.register('destructiveTest', Test) {
         junitXml.outputLocation = layout.buildDirectory.dir("test-results/destructive")
     }
 }
+addIsolatedTest('destructiveTest')
 
 // Runs only the index-maintainer scenario matrix (see the `indexes.scenarios` framework in
 // fdb-record-layer-core's testFixtures). Applied to every subproject, so a single root invocation
