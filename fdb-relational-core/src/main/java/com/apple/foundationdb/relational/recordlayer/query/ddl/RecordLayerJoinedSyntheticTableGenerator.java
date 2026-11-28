@@ -69,7 +69,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
  * the tables become the synthetic table's join conditions — a joined record is precisely the combination of stored
  * records that satisfies them, so there is nothing left to filter.
  */
-final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGenerator {
+final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGenerator<RecordLayerJoinedSyntheticTable> {
 
     private static final String JOINED_TABLE_NAME_PREFIX = "__joined_";
 
@@ -115,13 +115,32 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
                                        @Nonnull final Set<RecordLayerTable> sourceTables,
                                        @Nonnull final QuantifierValues quantifierValues,
                                        @Nonnull final String syntheticTableName) {
+        this(constituents, quantifierValues,
+                Suppliers.memoize(() -> SplitPredicates.of(predicate, constituents.keySet())),
+                sourceTables.stream().collect(ImmutableMap.toImmutableMap(table ->
+                        Objects.requireNonNull(table.getType().getStorageName()), Function.identity(), (first, second) -> first)),
+                syntheticTableName, null);
+    }
+
+    /**
+     * A generator for a synthetic table of its own, or, given the record type of an existing synthetic table, for that
+     * one.
+     *
+     * @param adoptedType the record type of the existing synthetic table the index is defined on, {@code null} for a
+     * synthetic table of its own
+     */
+    private RecordLayerJoinedSyntheticTableGenerator(@Nonnull final Map<CorrelationIdentifier, ConstituentInfo> constituents,
+                                       @Nonnull final QuantifierValues quantifierValues,
+                                       @Nonnull final Supplier<SplitPredicates> split,
+                                       @Nonnull final Map<String, RecordLayerTable> tableByStorageName,
+                                       @Nonnull final String syntheticTableName,
+                                       @Nullable final Type.Record adoptedType) {
         this.constituents = constituents;
         this.quantifierValues = quantifierValues;
-        this.split = Suppliers.memoize(() -> SplitPredicates.of(predicate, constituents.keySet()));
-        this.tableByStorageName = sourceTables.stream().collect(ImmutableMap.toImmutableMap(table ->
-                        Objects.requireNonNull(table.getType().getStorageName()), Function.identity(), (first, second) -> first));
+        this.split = split;
+        this.tableByStorageName = tableByStorageName;
         this.syntheticTableName = syntheticTableName;
-        this.syntheticType = Suppliers.memoize(this::computeSyntheticType);
+        this.syntheticType = adoptedType == null ? Suppliers.memoize(this::computeSyntheticType) : () -> adoptedType;
     }
 
     /**
@@ -355,7 +374,7 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
                              : IndexPredicates.conjoin(residualPredicates.stream()
                                      .map(this::rewriteResidual)
                                      .collect(ImmutableList.toImmutableList()));
-        return new IndexSpec(1, IndexSpec.Source.of(generate()), residual, null,
+        return new IndexSpec(1, IndexSpec.Source.ofSyntheticTable(getType()), residual, null,
                 spec.orderBy() == null ? null : rewrite(spec.orderBy()),
                 new IndexSpec.Projection(rewrite(spec.projection().values())));
     }
@@ -464,14 +483,59 @@ final class RecordLayerJoinedSyntheticTableGenerator implements SyntheticTableGe
     @Override
     public RecordLayerSyntheticTable.Builder generate() {
         final var builder = RecordLayerJoinedSyntheticTable.newBuilder(syntheticType.get());
-        constituents.values().forEach(constituent ->
-                builder.addConstituent(constituent.alias(),
-                        tableByStorageName.get(constituent.recordTypeName()).getType()));
-        split.get().joinConditions().forEach(condition ->
-                builder.addJoinCondition(new RecordLayerJoinedSyntheticTable.JoinCondition(
-                        aliasOf(condition.leftAlias()), condition.leftExpression(),
-                        aliasOf(condition.rightAlias()), condition.rightExpression())));
+        joinedConstituents().forEach(builder::addConstituent);
+        joinConditions().forEach(builder::addJoinCondition);
         return builder;
+    }
+
+    @Nonnull
+    @Override
+    public RecordLayerSyntheticTable.Fingerprint<RecordLayerJoinedSyntheticTable> getFingerprint() {
+        return RecordLayerJoinedSyntheticTable.generateFingerprint(joinedConstituents(), joinConditions());
+    }
+
+    @Nonnull
+    @Override
+    public Function<RecordLayerJoinedSyntheticTable, Optional<Map<String, String>>> matcher() {
+        return RecordLayerJoinedSyntheticTable.matcher(joinedConstituents(), joinConditions());
+    }
+
+    @Nonnull
+    @Override
+    public RecordLayerJoinedSyntheticTableGenerator adopt(@Nonnull final RecordLayerJoinedSyntheticTable existing,
+                                                          @Nonnull final Map<String, String> aliasMapping) {
+        final var renamed = ImmutableMap.<CorrelationIdentifier, ConstituentInfo>builder();
+        constituents.forEach((correlation, constituent) -> renamed.put(correlation, new ConstituentInfo(
+                Assert.notNullUnchecked(aliasMapping.get(constituent.alias()), "constituent missing from the alias mapping"),
+                constituent.recordTypeName())));
+        return new RecordLayerJoinedSyntheticTableGenerator(renamed.build(), quantifierValues, split, tableByStorageName,
+                existing.getName(), existing.getType());
+    }
+
+    /**
+     * {@return one constituent per joined table, in the order the definition names them}
+     */
+    @Nonnull
+    private List<RecordLayerJoinedSyntheticTable.JoinedConstituent> joinedConstituents() {
+        return constituents.values().stream()
+                .map(constituent -> {
+                    final var tableType = tableByStorageName.get(constituent.recordTypeName()).getType();
+                    return new RecordLayerJoinedSyntheticTable.JoinedConstituent(constituent.alias(), tableType.getName(),
+                            Objects.requireNonNull(tableType.getStorageName()));
+                })
+                .collect(ImmutableList.toImmutableList());
+    }
+
+    /**
+     * {@return one join condition per equality relating two constituents, each side named by its constituent's alias}
+     */
+    @Nonnull
+    private List<RecordLayerJoinedSyntheticTable.JoinCondition> joinConditions() {
+        return split.get().joinConditions().stream()
+                .map(condition -> new RecordLayerJoinedSyntheticTable.JoinCondition(
+                        aliasOf(condition.leftAlias()), condition.leftExpression(),
+                        aliasOf(condition.rightAlias()), condition.rightExpression()))
+                .collect(ImmutableList.toImmutableList());
     }
 
     /**

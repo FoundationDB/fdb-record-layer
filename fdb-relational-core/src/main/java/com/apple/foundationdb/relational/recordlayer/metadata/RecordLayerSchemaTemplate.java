@@ -54,6 +54,7 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -526,6 +527,11 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         @Nonnull
         private final Map<String, RecordLayerStoredQuery> storedQueries;
 
+        /**
+         * The names of the synthetic tables by their fingerprint, each in registration order.
+         */
+        @Nonnull
+        private final Map<RecordLayerSyntheticTable.Fingerprint<?>, List<String>> syntheticTableNamesByFingerprint;
 
         private RecordMetaData cachedMetadata;
 
@@ -536,6 +542,7 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
             invokedRoutines = new LinkedHashMap<>();
             views = new LinkedHashMap<>();
             syntheticTables = new LinkedHashMap<>();
+            syntheticTableNamesByFingerprint = new HashMap<>();
             storedQueries = new LinkedHashMap<>();
             // enable long rows is TRUE by default
             enableLongRows = true;
@@ -653,6 +660,44 @@ public final class RecordLayerSchemaTemplate implements SchemaTemplate {
         public Builder addSyntheticTable(@Nonnull final RecordLayerSyntheticTable table) {
             verifyNameIsNotUsed(table.getName());
             syntheticTables.put(table.getName(), table);
+            syntheticTableNamesByFingerprint.computeIfAbsent(table.getFingerprint(), ignored -> new ArrayList<>())
+                    .add(table.getName());
+            return this;
+        }
+
+        /**
+         * {@return the synthetic tables of the given fingerprint, in the order they were added} A definition reuses the
+         * first of them producing the same synthetic records as the synthetic table it would add, which makes the table
+         * reused the same for the same schema template.
+         *
+         * @param fingerprint the fingerprint of the synthetic table a definition would add
+         * @param <T> the kind of synthetic table with that fingerprint
+         */
+        @Nonnull
+        public <T extends RecordLayerSyntheticTable> List<T> getSyntheticTables(
+                @Nonnull final RecordLayerSyntheticTable.Fingerprint<T> fingerprint) {
+            return syntheticTableNamesByFingerprint.getOrDefault(fingerprint, List.of()).stream()
+                    .map(name -> Assert.castUnchecked(syntheticTables.get(name), fingerprint.getTableClass()))
+                    .collect(ImmutableList.toImmutableList());
+        }
+
+        /**
+         * Defines an index on the table it names, which is either a stored table or a synthetic one.
+         *
+         * @param index the index
+         * @return this builder
+         */
+        @Nonnull
+        public Builder addIndex(@Nonnull final RecordLayerIndex index) {
+            final var tableName = index.getTableName();
+            final var table = tables.get(tableName);
+            if (table != null) {
+                tables.put(tableName, RecordLayerTable.Builder.from(table).addIndex(index).build());
+                return this;
+            }
+            final var syntheticTable = syntheticTables.get(tableName);
+            Assert.notNullUnchecked(syntheticTable, ErrorCode.UNDEFINED_TABLE, "could not find '%s'", tableName);
+            syntheticTables.put(tableName, syntheticTable.withIndex(index));
             return this;
         }
 

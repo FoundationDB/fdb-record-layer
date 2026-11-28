@@ -57,19 +57,20 @@ public interface IndexGenerator {
      * Builds the index this generator was configured with.
      *
      * <p>The returned index builder is not yet built, so a caller that knows something the definition does not carry can
-     * still add it -- a vector index, for instance, sets its index type and engine options afterwards. Nothing is
-     * written to the schema template until the caller registers the result.
+     * still add it -- a vector index, for instance, sets its index type and engine options afterwards. The index is not
+     * added to the schema template; the caller adds it with
+     * {@link com.apple.foundationdb.relational.recordlayer.metadata.RecordLayerSchemaTemplate.Builder#addIndex}.
      *
-     * <p>An index whose key spans a record composed of several others is defined on a synthetic table, which the result
-     * carries alongside the index. {@link IndexGenerationResult#registerOn} registers both, since an index whose
-     * synthetic table is not registered names a type that does not exist.
+     * <p>An index whose key spans a record composed of several others is defined on a synthetic table. That table is
+     * either one the schema template already has, producing the same synthetic records, or one this method adds to the
+     * schema template, without any index, before returning. Either way the index names a table the schema template has.
      *
-     * @return the index the definition asks for, with the synthetic table to define it on when there is one
+     * @return the index the definition asks for
      * @throws com.apple.foundationdb.relational.api.exceptions.UncheckedRelationalException with
      * {@link com.apple.foundationdb.relational.api.exceptions.ErrorCode#UNSUPPORTED_OPERATION} if the definition
      * describes an index that cannot be stored, such as one over a join, or one whose projection holds a value that no
      * key expression can express
      */
     @Nonnull
-    IndexGenerationResult generate();
+    RecordLayerIndex.Builder generate();
 }
