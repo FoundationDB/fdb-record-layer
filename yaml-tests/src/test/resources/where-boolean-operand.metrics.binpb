@@ -81,10 +81,10 @@ v
   3 -> 2 [ label=<&nbsp;q96> label="q96" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}‡.
+}ﬂ.
 ä
-'where-boolean-operand-non-boolean-value_EXPLAIN select rest_no from restaurant_record where (rest_no > 1001 and null) or rest_no = 1000–-
-¡&ˇ√ÆãÉ  ¯œ1(ä0ëí∑8è@;èSCAN([[GREATER_THAN promote(@c8 AS LONG)]]) | TFILTER RESTAURANT_RECORD | FILTER null ‚à™ COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO EQUALS promote(@c15 AS LONG) | FETCH COMPARE BY (_.REST_NO) | MAP (_.REST_NO AS REST_NO)õ+digraph G {
+'where-boolean-operand-non-boolean-value_EXPLAIN select rest_no from restaurant_record where (rest_no > 1001 and null) or rest_no = 1000œ-
+¡&çÈªÇ ‘⁄«(ä0å’±8è@;èSCAN([[GREATER_THAN promote(@c8 AS LONG)]]) | TFILTER RESTAURANT_RECORD | FILTER null ‚à™ COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO EQUALS promote(@c15 AS LONG) | FETCH COMPARE BY (_.REST_NO) | MAP (_.REST_NO AS REST_NO)õ+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -107,11 +107,11 @@ v
   9 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   10 -> 8 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ì
+}í
 |
-'where-boolean-operand-non-boolean-valueQEXPLAIN select rest_no from restaurant_record where not (rest_no > 1001 and null)í
-÷
-ﬁìÛ ® ÷Èë(Z0◊∂Õ8Æ@ÆCOVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO LESS_THAN_OR_EQUALS promote(@c9 AS LONG) OR NOT null | MAP (_.REST_NO AS REST_NO)¿digraph G {
+'where-boolean-operand-non-boolean-valueQEXPLAIN select rest_no from restaurant_record where not (rest_no > 1001 and null)ë
+÷
+∑å€ß Í≈¶(Z0Ÿƒ38Æ@ÆCOVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO LESS_THAN_OR_EQUALS promote(@c9 AS LONG) OR NOT null | MAP (_.REST_NO AS REST_NO)¿digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -122,11 +122,11 @@ v
   3 -> 2 [ label=<&nbsp;q86> label="q86" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q90> label="q90" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ˆ
+}ı
 u
-'where-boolean-operand-non-boolean-valueJEXPLAIN select rest_no from restaurant_record where rest_no > 1001 or null¸
-»
-“Œü!¢ ™¶õ(X0·Ó 8™@£COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO GREATER_THAN promote(@c7 AS LONG) OR null | MAP (_.REST_NO AS REST_NO)µdigraph G {
+'where-boolean-operand-non-boolean-valueJEXPLAIN select rest_no from restaurant_record where rest_no > 1001 or null˚
+»
+÷©Å° ‘¿Ö(X0øú,8™@£COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO GREATER_THAN promote(@c7 AS LONG) OR null | MAP (_.REST_NO AS REST_NO)µdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -140,7 +140,7 @@ u
 }¯.
 ç
 'where-boolean-operand-non-boolean-valuebEXPLAIN select rest_no from restaurant_record where not (rest_no > 1001 or null) or rest_no = 1000Â-
-œ&˚≠Ôfä ÌÌ¨%(å0ßÉÊ	8ì@;öSCAN([[LESS_THAN_OR_EQUALS promote(@c9 AS LONG)]]) | TFILTER RESTAURANT_RECORD | FILTER NOT null ‚à™ COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO EQUALS promote(@c16 AS LONG) | FETCH COMPARE BY (_.REST_NO) | MAP (_.REST_NO AS REST_NO)¶+digraph G {
+œ&ñ©¨â ª›√(å0Óªƒ8ì@;öSCAN([[LESS_THAN_OR_EQUALS promote(@c9 AS LONG)]]) | TFILTER RESTAURANT_RECORD | FILTER NOT null ‚à™ COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO EQUALS promote(@c16 AS LONG) | FETCH COMPARE BY (_.REST_NO) | MAP (_.REST_NO AS REST_NO)¶+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -163,11 +163,11 @@ u
   9 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   10 -> 8 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}¯
+}˜
 y
-'where-boolean-operand-non-boolean-valueNEXPLAIN select rest_no from restaurant_record where not true or rest_no = 1000˙
-Í
-¥•Å™ ¶ø∞([0≈“¥8µ@¢COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER NOT true OR _.REST_NO EQUALS promote(@c10 AS LONG) | MAP (_.REST_NO AS REST_NO)¥digraph G {
+'where-boolean-operand-non-boolean-valueNEXPLAIN select rest_no from restaurant_record where not true or rest_no = 1000˘
+Í
+Ω´À© æ∞ƒ([0∂è?8µ@¢COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER NOT true OR _.REST_NO EQUALS promote(@c10 AS LONG) | MAP (_.REST_NO AS REST_NO)¥digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -192,12 +192,11 @@ h
   3 -> 2 [ label=<&nbsp;q86> label="q86" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 3 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q90> label="q90" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ú
+}Ò
 {
-'where-boolean-operand-non-boolean-valuePEXPLAIN select rest_no from restaurant_record where not (null) or rest_no = 1000Ú
-‹
-¥˛Ú§ ∂¸Ç
-(Y0°éÚ8±@ûCOVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER null OR _.REST_NO EQUALS promote(@c12 AS LONG) | MAP (_.REST_NO AS REST_NO)∞digraph G {
+'where-boolean-operand-non-boolean-valuePEXPLAIN select rest_no from restaurant_record where not (null) or rest_no = 1000Ò
+‹
+ëéî£ ¡®ì(Y0„Õ*8±@ûCOVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER null OR _.REST_NO EQUALS promote(@c12 AS LONG) | MAP (_.REST_NO AS REST_NO)∞digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -224,10 +223,10 @@ h
   4 -> 3 [ label=<&nbsp;q96> label="q96" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   5 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}®
+}ß
 |
-'where-boolean-operand-non-boolean-valueQEXPLAIN select rest_no from restaurant_record where not (rest_no > 1001 and true)ß
-ì¶˚â#ˆ ¬®»(m0˙˛é8’@∑COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER NOT _.REST_NO GREATER_THAN promote(@c9 AS LONG) OR NOT @c11 EQUALS true | MAP (_.REST_NO AS REST_NO)Ãdigraph G {
+'where-boolean-operand-non-boolean-valueQEXPLAIN select rest_no from restaurant_record where not (rest_no > 1001 and true)¶
+ìâ∫˙ı ºáÆ(m0˘ÉA8’@∑COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER NOT _.REST_NO GREATER_THAN promote(@c9 AS LONG) OR NOT @c11 EQUALS true | MAP (_.REST_NO AS REST_NO)Ãdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -285,7 +284,7 @@ k
 }’.
 
 where-boolean-operand-parameter\EXPLAIN select rest_no from restaurant_record where (? and rest_no > 1001) or rest_no = 1000—-
-¡&´∑ïIÉ Æ°◊(ä0ëßÖ8è@;êSCAN([[GREATER_THAN promote(@c10 AS LONG)]]) | TFILTER RESTAURANT_RECORD | FILTER null ‚à™ COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO EQUALS promote(@c15 AS LONG) | FETCH COMPARE BY (_.REST_NO) | MAP (_.REST_NO AS REST_NO)ú+digraph G {
+¡&˜—≈Ç êØä(ä0é·©8è@;êSCAN([[GREATER_THAN promote(@c10 AS LONG)]]) | TFILTER RESTAURANT_RECORD | FILTER null ‚à™ COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO EQUALS promote(@c15 AS LONG) | FETCH COMPARE BY (_.REST_NO) | MAP (_.REST_NO AS REST_NO)ú+digraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -308,11 +307,11 @@ k
   9 -> 7 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   10 -> 8 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q2> label="q2" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Î
+}Í
 j
-where-boolean-operand-parameterGEXPLAIN select rest_no from restaurant_record where rest_no > 1001 or ?¸
-»
-À€∑¢ éáÀ(X0π∆≈8™@£COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO GREATER_THAN promote(@c7 AS LONG) OR null | MAP (_.REST_NO AS REST_NO)µdigraph G {
+where-boolean-operand-parameterGEXPLAIN select rest_no from restaurant_record where rest_no > 1001 or ?˚
+»
+›¡¬° ﬁ√Ÿ(X0…Ä'8™@£COVERING(RESTAURANT_RECORD_NAME <,> -> [NAME: KEY:[0], REST_NO: KEY:[1]]) | FILTER _.REST_NO GREATER_THAN promote(@c7 AS LONG) OR null | MAP (_.REST_NO AS REST_NO)µdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

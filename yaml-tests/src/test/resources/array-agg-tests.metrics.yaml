@@ -133,16 +133,16 @@ array-agg-with-aggregate-index:
     insert_new_count: 25
     insert_reused_count: 2
 -   query: EXPLAIN SELECT COUNT(*) FROM T4
-    ref: array-agg-tests.yamsql:526
+    ref: array-agg-tests.yamsql:529
     explain: 'AISCAN(T4_count <,> BY_GROUP -> [_0: VALUE:[0]]) | MAP (_ AS _0) | ON
         EMPTY NULL | MAP (coalesce_long(_._0._0, 0l) AS _0)'
-    task_count: 473
-    task_total_time_ms: 160
-    transform_count: 126
-    transform_time_ms: 116
-    transform_yield_count: 48
-    insert_time_ms: 4
-    insert_new_count: 47
+    task_count: 503
+    task_total_time_ms: 29
+    transform_count: 131
+    transform_time_ms: 15
+    transform_yield_count: 50
+    insert_time_ms: 0
+    insert_new_count: 50
     insert_reused_count: 6
 -   query: EXPLAIN SELECT grp, SUM(val) FROM T4 GROUP BY grp
     ref: array-agg-tests.yamsql:530

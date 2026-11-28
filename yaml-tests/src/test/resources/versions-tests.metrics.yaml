@@ -46,9 +46,9 @@ versions-queries:
     explain: ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c13 AS LONG), IS_NULL])
         | MAP (_.__ROW_VERSION AS VERSION, _.COL2 AS COL2)
     task_count: 730
-    task_total_time_ms: 57
-    transform_count: 173
-    transform_time_ms: 15
+    task_total_time_ms: 36
+    transform_count: 172
+    transform_time_ms: 10
     transform_yield_count: 57
     insert_time_ms: 1
     insert_new_count: 81
@@ -72,9 +72,9 @@ versions-queries:
     explain: ISCAN(GROUPED_VERSION_INDEX [EQUALS promote(@c13 AS LONG), NOT_DISTINCT_FROM
         NULL]) | MAP (_.__ROW_VERSION AS VERSION, _.COL2 AS COL2)
     task_count: 730
-    task_total_time_ms: 33
-    transform_count: 173
-    transform_time_ms: 8
+    task_total_time_ms: 60
+    transform_count: 172
+    transform_time_ms: 21
     transform_yield_count: 57
     insert_time_ms: 0
     insert_new_count: 81
