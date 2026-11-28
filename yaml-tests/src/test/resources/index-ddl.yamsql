@@ -30,6 +30,7 @@ schema_template:
         id integer,
         name string,
         email string,
+        alternate_email string,
         age integer,
         city string,
         country string,
@@ -93,10 +94,10 @@ setup:
     # Insert test data including NULL values to test NULLS ordering
     # Each table gets different profession values to test UNIQUE constraints independently
     - query: INSERT INTO customers_materialized_view VALUES
-             (1, 'Alice', 'alice@example.com', 25, 'New York', 'USA', 'Engineer'),
-             (2, 'Bob', 'bob@example.com', NULL, 'London', NULL, 'Designer'),
-             (3, 'Charlie', NULL, 35, 'Paris', 'France', 'Manager'),
-             (4, NULL, 'null@example.com', 30, NULL, 'Canada', 'Analyst')
+             (1, 'Alice', 'alice@example.com', NULL, 25, 'New York', 'USA', 'Engineer'),
+             (2, 'Bob', 'bob@example.com', NULL, NULL, 'London', NULL, 'Designer'),
+             (3, 'Charlie', NULL, NULL, 35, 'Paris', 'France', 'Manager'),
+             (4, NULL, 'null@example.com', 'null@example.com', 30, NULL, 'Canada', 'Analyst')
     - query: INSERT INTO customers_index_on_table VALUES
              (1, 'Alice', 'alice@example.com', 25, 'New York', 'USA', 'Engineer'),
              (2, 'Bob', 'bob@example.com', NULL, 'London', NULL, 'Designer'),
@@ -133,6 +134,12 @@ test_block:
       - query: select age, city from customers_index_on_table where age > 25 order by age, city
       - explain: "COVERING(IDX_IOT_MULTI [[GREATER_THAN promote(@c9 AS INT)]] -> [AGE: KEY:[0], CITY: KEY:[1], ID: KEY:[3]]) | MAP (_.AGE AS AGE, _.CITY AS CITY)"
       - result: [{ 30, !null }, { 35, Paris }]
+    -
+      # The predicate here should be applied as a residual filter as it is not sargable
+      - query: select id from customers_materialized_view where email = alternate_email
+      - supported_version: !current_version
+      - explain: "ISCAN(IDX_MV_EMAIL <,>) | FILTER _.EMAIL EQUALS _.ALTERNATE_EMAIL | MAP (_.ID AS ID)"
+      - result: [ { 4 } ]
 ---
 test_block:
   name: include_clause
@@ -220,14 +227,14 @@ test_block:
   tests:
     # Test UNIQUE constraint violations on profession column - should fail when attempting to insert duplicate professions
     -
-      - query: INSERT INTO customers_materialized_view VALUES (5, 'David', 'david@example.com', 28, 'Boston', 'USA', 'Engineer')
+      - query: INSERT INTO customers_materialized_view VALUES (5, 'David', 'david@example.com', NULL, 28, 'Boston', 'USA', 'Engineer')
       - error: UNIQUE_CONSTRAINT_VIOLATION
     -
       - query: INSERT INTO customers_index_on_table VALUES (5, 'David', 'david@example.com', 28, 'Boston', 'USA', 'Engineer')
       - error: UNIQUE_CONSTRAINT_VIOLATION
     # Test that different professions still work
     -
-      - query: INSERT INTO customers_materialized_view VALUES (5, 'David', 'david@example.com', 28, 'Boston', 'USA', 'Architect')
+      - query: INSERT INTO customers_materialized_view VALUES (5, 'David', 'david@example.com', NULL, 28, 'Boston', 'USA', 'Architect')
       - count: 1
     -
       - query: INSERT INTO customers_index_on_table VALUES (5, 'David', 'david@example.com', 28, 'Seattle', 'USA', 'Architect')
