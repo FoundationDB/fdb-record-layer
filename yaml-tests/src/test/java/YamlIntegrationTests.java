@@ -126,6 +126,11 @@ public class YamlIntegrationTests {
     }
 
     @TestTemplate
+    void cachedPlanCosting(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("cached-plan-costing.yamsql");
+    }
+
+    @TestTemplate
     void mergeComparisonKeys(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("merge-comparison-keys.yamsql");
     }
@@ -501,6 +506,11 @@ public class YamlIntegrationTests {
     @TestTemplate
     public void unionEmptyTables(YamlTest.Runner runner) throws Exception {
         runner.runYamsql("union-empty-tables.yamsql");
+    }
+
+    @TestTemplate
+    public void unnestedRecordTypeIndexes(YamlTest.Runner runner) throws Exception {
+        runner.runYamsql("unnested-record-type-indexes.yamsql");
     }
 
     @TestTemplate

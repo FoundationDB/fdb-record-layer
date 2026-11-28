@@ -4,8 +4,8 @@ in-query-or-compound:
         >= 4)
     ref: in-query-or-compound.yamsql:55
     explain: '[IN arrayDistinct(@c16) SORTED] | INJOIN q0 -> { COVERING(MULTI_INDEX
-        [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS INT), EQUALS q0] ->
-        [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED: KEY:[2], REC_NO: KEY:[3], STR_VALUE_INDEXED:
+        [EQUALS promote(@c7 AS STRING), EQUALS promote(@c11 AS INT), EQUALS q0._0]
+        -> [NUM_VALUE_2: KEY:[1], NUM_VALUE_3_INDEXED: KEY:[2], REC_NO: KEY:[3], STR_VALUE_INDEXED:
         KEY:[0]]) } ∪ COVERING(MULTI_INDEX [EQUALS promote(@c7 AS STRING), EQUALS
         promote(@c11 AS INT), [GREATER_THAN_OR_EQUALS promote(@c25 AS INT)]] -> [NUM_VALUE_2:
         KEY:[1], NUM_VALUE_3_INDEXED: KEY:[2], REC_NO: KEY:[3], STR_VALUE_INDEXED:

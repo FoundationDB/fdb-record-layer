@@ -27,7 +27,8 @@ Parameters
     The string value to test. Must be of type STRING.
 
 ``pattern``
-    A string literal containing the pattern to match. Supports two wildcards:
+    A string expression containing the pattern to match, for example a string literal, a prepared statement
+    parameter (``?``), or a column. Supports two wildcards:
 
     - ``%`` - Matches zero or more characters
     - ``_`` - Matches exactly one character
@@ -37,6 +38,17 @@ Parameters
 
 ``ESCAPE escape_char`` (optional)
     Specifies a single-character escape sequence to treat wildcard characters (``%`` or ``_``) as literals in the pattern.
+    Like the pattern, ``escape_char`` can be any string expression. If it is NULL, the pattern is matched as if there
+    were no ESCAPE clause.
+
+The pattern and the escape character are validated when the query runs, so they can be bound as parameters of a
+prepared statement:
+
+.. code-block:: sql
+
+    SELECT column1
+    FROM table_name
+    WHERE column1 LIKE ? ESCAPE ?
 
 Returns
 =======
@@ -316,6 +328,87 @@ While these examples all throw errors:
     * - :sql:`22025`
     * - :json:`invalid_escape_sequence`
 
+Patterns from Columns
+---------------------
+
+The pattern and the escape character can be taken from columns, so that each row is matched against its own pattern.
+For example, given a table of filename patterns:
+
+.. code-block:: sql
+
+    CREATE TABLE name_patterns(
+        id BIGINT,
+        pattern STRING,
+        escape_char STRING,
+        PRIMARY KEY(id))
+
+    INSERT INTO name_patterns VALUES
+        (1, 'final%', NULL),
+        (2, '%\_%', '\'),
+        (3, NULL, NULL)
+
+Find the files that match each pattern:
+
+.. code-block:: sql
+
+    SELECT p.id AS pattern_id, f.filename
+    FROM name_patterns AS p, files AS f
+    WHERE f.filename LIKE p.pattern ESCAPE p.escape_char
+
+.. list-table::
+    :header-rows: 1
+
+    * - :sql:`pattern_id`
+      - :sql:`filename`
+    * - :json:`1`
+      - :json:`"final_report.pdf"`
+    * - :json:`1`
+      - :json:`"final-report.pdf"`
+    * - :json:`1`
+      - :json:`"final\-report.pdf"`
+    * - :json:`2`
+      - :json:`"report_2024.pdf"`
+    * - :json:`2`
+      - :json:`"test_file.csv"`
+    * - :json:`2`
+      - :json:`"final_report.pdf"`
+
+Pattern 1 has a NULL escape character, so it is matched as if there were no ESCAPE clause. Pattern 3 matches no file,
+as its pattern is NULL.
+
+NULL Patterns and Escape Characters
+-----------------------------------
+
+If the pattern is NULL, both LIKE and NOT LIKE return NULL, so neither of these queries returns any rows:
+
+.. code-block:: sql
+
+    SELECT filename
+    FROM files
+    WHERE filename LIKE NULL
+
+    SELECT filename
+    FROM files
+    WHERE filename NOT LIKE NULL
+
+If the escape character is NULL, the pattern is matched as if there were no ESCAPE clause. Here, ``\`` is then an
+ordinary character, and ``_`` matches any single character:
+
+.. code-block:: sql
+
+    SELECT filename
+    FROM files
+    WHERE filename LIKE 'final\_report.pdf' ESCAPE NULL
+
+.. list-table::
+    :header-rows: 1
+
+    * - :sql:`filename`
+    * - :json:`"final\-report.pdf"`
+
+Compare this to ``ESCAPE '\'`` above, which matches only ``final_report.pdf``. Note that the SQL standard instead
+specifies that LIKE returns NULL if the escape character is NULL.
+
 Important Notes
 ===============
 
@@ -333,6 +426,13 @@ If either the expression or pattern is NULL, LIKE returns NULL:
 
     WHERE NULL LIKE 'pattern'     -- Returns NULL
     WHERE name LIKE NULL           -- Returns NULL
+
+A NULL escape character is treated like a missing ESCAPE clause (see
+`NULL Patterns and Escape Characters`_):
+
+.. code-block:: sql
+
+    WHERE name LIKE 'pattern' ESCAPE NULL    -- Same as: WHERE name LIKE 'pattern'
 
 Performance Considerations
 --------------------------

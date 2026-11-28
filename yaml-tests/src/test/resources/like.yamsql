@@ -25,6 +25,8 @@ schema_template:
     create table B(b1 integer, b2 string, primary key(b1))
     create table C(c1 integer, c2 string, primary key(c1))
 
+    create table P(id integer, val string, pat string, esc string, primary key(id))
+
     create index c2 as select c2 from c order by c2
 ---
 setup:
@@ -80,6 +82,16 @@ setup:
         (17, 'catch-all'),
         (18, 'cavalry'),
         (19, 'cb')
+        ;
+    - query: insert into P values
+        (1, 'apple', 'app%', null),
+        (2, 'apple', 'b%', null),
+        (3, '50%', '50|%', '|'),
+        (4, '500', '50|%', '|'),
+        (5, 'x_y', 'x\_y', '\'),
+        (6, 'xzy', 'x\_y', '\'),
+        (7, null, '%', null),
+        (8, 'abc', null, null)
         ;
 ---
 test_block:
@@ -150,13 +162,18 @@ test_block:
       - error: INTERNAL_ERROR
     -
       - query: select * from A WHERE A1 LIKE 'A' ESCAPE 4
-      # "ESCAPE" expects to be followed by a string literal.
-      # Arguably, should be INVALID_ARGUMENT_FOR_FUNCTION
+      - initialVersionAtLeast: 4.19.4.0
+      # LIKE requires a string for its escape character
+      - error: INVALID_ARGUMENT_FOR_FUNCTION
+      - initialVersionLessThan: 4.19.4.0
+      # "ESCAPE" used to expect a string literal
       - error: SYNTAX_ERROR
     -
       - query: select * from A WHERE A1 LIKE 'A' ESCAPE NULL
-      # "ESCAPE" expects to be followed by a string literal.
-      # Arguably, should be treated just like a missing ESCAPE
+      - initialVersionAtLeast: 4.19.4.0
+      - result: []
+      - initialVersionLessThan: 4.19.4.0
+      # "ESCAPE" used to expect a string literal
       - error: SYNTAX_ERROR
     -
       - query: select * from A WHERE A1 LIKE 'A'
@@ -661,4 +678,100 @@ test_block:
       - unorderedResult: [
           {'%%abcdef'},
         ]
+---
+test_block:
+  name: like-with-expressions
+  options:
+    supported_version: 4.19.4.0
+    # Bind the values in !! ... !! as parameters; the other blocks cover patterns and escape characters as literals.
+    statement_type: prepared
+  tests:
+    # The pattern and the escape character can be prepared statement parameters.
+    -
+      - query: select * from C WHERE C2 LIKE !! 'ca%al' !!
+      - result: [
+          { C1: 13, C2: cabal},
+          { C1: 15, C2: canal},
+          { C1: 16, C2: capital},
+        ]
+    -
+      # Same query with another pattern, which must not reuse the result of the previous one
+      - query: select * from C WHERE C2 LIKE !! 'ban%' !!
+      - result: [
+          { C1:  8, C2: banal},
+          { C1:  9, C2: banana},
+        ]
+    -
+      - query: select * from C WHERE C2 NOT LIKE !! '%a%' !!
+      - result: [
+          { C1: 10, C2: bench},
+          { C1: 11, C2: bento},
+          { C1: 12, C2: c},
+          { C1: 19, C2: cb},
+        ]
+    -
+      - query: select * from A WHERE A1 LIKE !! '\_%' !! ESCAPE !! '\' !!
+      - result: [{'___abcdef'}]
+    -
+      - query: select * from A WHERE A1 LIKE !! 'a%z' !! ESCAPE 'a'
+      - result: [{'%z'}]
+    -
+      - query: select * from A WHERE A1 LIKE 'a?%z' ESCAPE !! '?' !!
+      - result: [{'a%z'}]
+    -
+      - query: select * from A WHERE A1 LIKE '%%' ESCAPE !! '%' !!
+      - error: ESCAPE_CHARACTER_CONFLICT
+    -
+      - query: select * from A WHERE A1 LIKE !! '%' !! ESCAPE !! 'ab' !!
+      - error: INVALID_ESCAPE_CHARACTER
+    -
+      - query: select * from A WHERE A1 LIKE !! '_abc%' !! ESCAPE !! 'b' !!
+      - error: INVALID_ESCAPE_SEQUENCE
+    -
+      - query: select * from A WHERE A1 LIKE !! !n null !!
+      - result: []
+    -
+      - query: select * from A WHERE A1 LIKE !! 4 !!
+      # LIKE requires a string for its pattern
+      - error: INVALID_ARGUMENT_FOR_FUNCTION
+    # The pattern can be built by concatenating strings, e.g. a prefix given as a parameter and a wildcard.
+    -
+      - query: select * from C WHERE C2 LIKE 'ca' + '%' + 'al'
+      - result: [
+          { C1: 13, C2: cabal},
+          { C1: 15, C2: canal},
+          { C1: 16, C2: capital},
+        ]
+    -
+      - query: select * from C WHERE C2 LIKE !! 'ben' !! + '%'
+      - result: [
+          { C1: 10, C2: bench},
+          { C1: 11, C2: bento},
+        ]
+    -
+      - query: select * from C WHERE C2 NOT LIKE !! 'a' !! + '%' AND C2 NOT LIKE !! 'c' !! + '%'
+      - result: [
+          { C1:  8, C2: banal},
+          { C1:  9, C2: banana},
+          { C1: 10, C2: bench},
+          { C1: 11, C2: bento},
+        ]
+    # The pattern and the escape character can also be taken from columns, in which case they can vary per row.
+    -
+      - query: select id from P WHERE val LIKE pat
+      - result: [{1}]
+    -
+      - query: select id from P WHERE val LIKE pat ESCAPE esc
+      # A NULL escape character is treated like a missing ESCAPE clause
+      - result: [{1}, {3}, {5}]
+    -
+      - query: select id from P WHERE val NOT LIKE pat ESCAPE esc
+      # Rows with a NULL value or pattern are neither LIKE nor NOT LIKE
+      - result: [{2}, {4}, {6}]
+    -
+      - query: select id from P WHERE val LIKE pat + '%'
+      - result: [{1}]
+    -
+      - query: select id from P WHERE val LIKE '%' + pat ESCAPE esc
+      - result: [{1}, {3}, {5}]
 ...

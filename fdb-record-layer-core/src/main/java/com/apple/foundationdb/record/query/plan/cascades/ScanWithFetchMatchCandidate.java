@@ -148,37 +148,16 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
         final var covered = new IndexEntryToRecordValueHelper();
         final var logicalKeyValuesBuilder = ImmutableList.<Value>builder();
         for (int i = 0; i < indexKeyValues.size(); i++) {
-            final Value keyValue = indexKeyValues.get(i);
-
-            final var extractFromIndexEntryPairOptional =
-                    keyValue.extractFromIndexEntryMaybe(baseObjectValue, EvaluationContext.empty(), AliasMap.emptyMap(),
-                            ImmutableSet.of(), IndexKeyValueToPartialRecord.TupleSource.KEY, ImmutableIntArray.of(i));
-            if (extractFromIndexEntryPairOptional.isPresent()) {
-                final var extractFromIndexEntryPair = extractFromIndexEntryPairOptional.get();
-                if (!addCoveringField(builder, extractFromIndexEntryPair.getKey(),
-                        extractFromIndexEntryPair.getValue())) {
-                    return Optional.empty();
-                }
-                recordCoveredField(covered, extractFromIndexEntryPair);
-                logicalKeyValuesBuilder.add(extractFromIndexEntryPair.getLeft());
+            if (!addDatum(builder, covered, logicalKeyValuesBuilder, baseObjectValue,
+                    IndexKeyValueToPartialRecord.TupleSource.KEY, indexKeyValues.get(i), ImmutableIntArray.of(i))) {
+                return Optional.empty();
             }
         }
-
         final var logicalValueValuesBuilder = ImmutableList.<Value>builder();
         for (int i = 0; i < indexValueValues.size(); i++) {
-            final Value valueValue = indexValueValues.get(i);
-            final var extractFromIndexEntryPairOptional =
-                    valueValue.extractFromIndexEntryMaybe(baseObjectValue, EvaluationContext.empty(),
-                            AliasMap.emptyMap(), ImmutableSet.of(), IndexKeyValueToPartialRecord.TupleSource.VALUE,
-                            ImmutableIntArray.of(i));
-            if (extractFromIndexEntryPairOptional.isPresent()) {
-                final var extractFromIndexEntryPair = extractFromIndexEntryPairOptional.get();
-                if (!addCoveringField(builder, extractFromIndexEntryPair.getKey(),
-                        extractFromIndexEntryPair.getValue())) {
-                    return Optional.empty();
-                }
-                recordCoveredField(covered, extractFromIndexEntryPair);
-                logicalValueValuesBuilder.add(extractFromIndexEntryPair.getLeft());
+            if (!addDatum(builder, covered, logicalValueValuesBuilder, baseObjectValue,
+                    IndexKeyValueToPartialRecord.TupleSource.VALUE, indexValueValues.get(i), ImmutableIntArray.of(i))) {
+                return Optional.empty();
             }
         }
 
@@ -190,6 +169,54 @@ public interface ScanWithFetchMatchCandidate extends WithPrimaryKeyMatchCandidat
                 new ScanWithFetchMatchCandidate.IndexEntryToLogicalRecord(queriedRecordType, builder.build(),
                         logicalKeyValuesBuilder.build(), logicalValueValuesBuilder.build(),
                         indexEntryToRecordValue(baseType, covered)));
+    }
+
+    /**
+     * Reads a datum of an index entry into the field of the record it holds, if it holds one. A datum is a column of
+     * the entry or, if the column holds a nested tuple, one of the columns of that tuple, one level deeper.
+     *
+     * @param builder the copiers reading the entry into a partial record
+     * @param covered what the entry covers so far, for the value reading it into a record
+     * @param logicalValuesBuilder the fields of the record read from the entry so far
+     * @param baseObjectValue the record the index is over
+     * @param source whether the datum is in the key or the value of the entry
+     * @param value the value the expansion of the index registered for the datum
+     * @param ordinalPath the path to the datum in the tuple of {@code source}
+     * @return {@code false} if the datum holds a field the partial record cannot hold, {@code true} otherwise
+     */
+    private static boolean addDatum(@Nonnull final IndexKeyValueToPartialRecord.Builder builder,
+                                    @Nonnull final IndexEntryToRecordValueHelper covered,
+                                    @Nonnull final ImmutableList.Builder<Value> logicalValuesBuilder,
+                                    @Nonnull final Value baseObjectValue,
+                                    @Nonnull final IndexKeyValueToPartialRecord.TupleSource source,
+                                    @Nonnull final Value value,
+                                    @Nonnull final ImmutableIntArray ordinalPath) {
+        // An index key or value registered as a record constructor comes from the expansion of a list key expression
+        // (see KeyExpressionExpansionVisitor#visitExpression(ListKeyExpression)): the entry holds a nested tuple
+        // there, rather than a field the record can be read from as a whole, so each of its columns is read instead.
+        if (value instanceof final RecordConstructorValue recordConstructorValue) {
+            final var columns = recordConstructorValue.getColumns();
+            for (int i = 0; i < columns.size(); i++) {
+                final var columnPath = ImmutableIntArray.builder(ordinalPath.length() + 1).addAll(ordinalPath).add(i).build();
+                if (!addDatum(builder, covered, logicalValuesBuilder, baseObjectValue, source,
+                        columns.get(i).getValue(), columnPath)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        final var extraction = value.extractFromIndexEntryMaybe(baseObjectValue, EvaluationContext.empty(),
+                AliasMap.emptyMap(), ImmutableSet.of(), source, ordinalPath).orElse(null);
+        if (extraction == null) {
+            return true;
+        }
+        if (!addCoveringField(builder, extraction.getKey(), extraction.getValue())) {
+            return false;
+        }
+        recordCoveredField(covered, extraction);
+        logicalValuesBuilder.add(extraction.getKey());
+        return true;
     }
 
     /**

@@ -4,7 +4,7 @@ inputs:
   fdb_version:
     description: 'Version of FDB to run'
     required: false
-    default: "7.3.42"
+    default: "7.4.10"
   gradle_command:
     description: 'Gradle command to run'
     default: build destructiveTest

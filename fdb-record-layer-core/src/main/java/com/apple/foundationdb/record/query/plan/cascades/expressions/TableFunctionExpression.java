@@ -28,14 +28,19 @@ import com.apple.foundationdb.record.query.plan.cascades.Compensation;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.cascades.MatchInfo;
+import com.apple.foundationdb.record.query.plan.cascades.MatchInfo.RegularMatchInfo;
 import com.apple.foundationdb.record.query.plan.cascades.PartialMatch;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
+import com.apple.foundationdb.record.query.plan.cascades.Quantifiers;
+import com.apple.foundationdb.record.query.plan.cascades.ValueEquivalence;
 import com.apple.foundationdb.record.query.plan.cascades.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.cascades.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.QueriedValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
+import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.TranslationMap;
 import com.google.common.base.Verify;
@@ -147,11 +152,22 @@ public class TableFunctionExpression extends AbstractRelationalExpressionWithout
                                           @Nonnull final AliasMap bindingAliasMap,
                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                           @Nonnull final EvaluationContext evaluationContext) {
-        if (!isCompatiblyAndCompletelyBound(bindingAliasMap, candidateExpression.getQuantifiers())) {
+        if (!(candidateExpression instanceof TableFunctionExpression candidateTableFunctionExpression)) {
             return ImmutableList.of();
         }
-
-        return exactlySubsumedBy(candidateExpression, bindingAliasMap, partialMatchMap, TranslationMap.empty());
+        final var candidateValue = candidateTableFunctionExpression.getValue();
+        if (!value.impliesCandidateValue(candidateValue, bindingAliasMap)) {
+            return ImmutableList.of();
+        }
+        final var maxMatchMap =
+                MaxMatchMap.identityOf(getResultValue(), candidateExpression.getResultValue(),
+                        Quantifiers.aliases(candidateExpression.getQuantifiers()),
+                        ValueEquivalence.fromAliasMap(bindingAliasMap));
+        boolean requiresExistential = candidateValue instanceof final ExplodeValue candidateExplodeValue
+                && candidateExplodeValue.isDistinct();
+        return RegularMatchInfo.tryFromMatchMap(bindingAliasMap, partialMatchMap, maxMatchMap, requiresExistential)
+                .map(ImmutableList::of)
+                .orElse(ImmutableList.of());
     }
 
     @Nonnull

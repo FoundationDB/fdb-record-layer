@@ -118,10 +118,10 @@ h
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T1_IDX1</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS COL1, STRING AS COL2, INT AS COL3)" ];
   3 -> 2 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q181> label="q181" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}á
+}à
 —
-basic-sql-function-tests{EXPLAIN select A.col1 AS W, A.col2 AS X, B.col1 AS Y, B.col2 AS Z from f1(103, 'b') A, f1(103, 'b') B where A.col1 = B.col1Ä
-æÂ†ª•é Àž™6(à0íÀÅ8Ÿ@²ISCAN(T1_IDX1 [EQUALS @c29, [LESS_THAN promote(@c27 AS LONG)]]) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS @c29, EQUALS q0.COL1] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | FILTER _.COL1 LESS_THAN promote(@c27 AS LONG) | FETCH AS q1 RETURN (q1.COL1 AS W, q1.COL2 AS X, q0.COL1 AS Y, q0.COL2 AS Z) }ìdigraph G {
+basic-sql-function-tests{EXPLAIN select A.col1 AS W, A.col2 AS X, B.col1 AS Y, B.col2 AS Z from f1(103, 'b') A, f1(103, 'b') B where A.col1 = B.col1Ã
+ìÊöaê ú­§+(á0íÀÅ8 @²ISCAN(T1_IDX1 [EQUALS @c29, [LESS_THAN promote(@c27 AS LONG)]]) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS @c29, EQUALS q0.COL1] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | FILTER _.COL1 LESS_THAN promote(@c27 AS LONG) | FETCH AS q1 RETURN (q1.COL1 AS W, q1.COL2 AS X, q0.COL1 AS Y, q0.COL2 AS Z) }ìdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -149,7 +149,7 @@ h
 }ö
 ¬
 basic-sql-function-testsEXPLAIN select A.col1 AS W, A.col2 AS X, B.col1 AS Y, B.col2 AS Z from f1(a => 103, b => 'b') A, f1(a => 103, b => 'b') B where A.col1 = B.col1Ä
-æ©ÔÉ¦é øí·9(à0Ž¶ô8Ÿ@²ISCAN(T1_IDX1 [EQUALS @c33, [LESS_THAN promote(@c29 AS LONG)]]) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS @c33, EQUALS q0.COL1] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | FILTER _.COL1 LESS_THAN promote(@c29 AS LONG) | FETCH AS q1 RETURN (q1.COL1 AS W, q1.COL2 AS X, q0.COL1 AS Y, q0.COL2 AS Z) }ìdigraph G {
+ìÁá®ƒê øí·9(á0Î·8 @²ISCAN(T1_IDX1 [EQUALS @c33, [LESS_THAN promote(@c29 AS LONG)]]) | FLATMAP q0 -> { COVERING(T1_IDX1 [EQUALS @c33, EQUALS q0.COL1] -> [COL1: KEY:[1], COL2: KEY:[0], COL3: KEY:[2]]) | FILTER _.COL1 LESS_THAN promote(@c29 AS LONG) | FETCH AS q1 RETURN (q1.COL1 AS W, q1.COL2 AS X, q0.COL1 AS Y, q0.COL2 AS Z) }ìdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;

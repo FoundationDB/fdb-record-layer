@@ -69,7 +69,7 @@ import java.util.Set;
  * in this context. What does make sense is to say that you want the stream to be ordered by {@code field("a", FanOut)},
  * but you actually are expressing a requirement on data computed on a record before it even flows into the sort, i.e.
  * it cannot be computed (conceptually) in this operator. The nested repeated field {@code a} needs to come from either
- * a physical version of an {@link ExplodeExpression} (which we don't have (yet)) or from an index access as index keys
+ * a physical version of an explode (which we don't have (yet)) or from an index access as index keys
  * can be constructed in this way. The expressiveness that is fundamentally lacking here is to model what data flows,
  * how it flows and what operations have been applied to it since it was generated. There are other places where exactly
  * this is a problem as well. Specifically, for the sort expression, however, this problem manifests itself as:

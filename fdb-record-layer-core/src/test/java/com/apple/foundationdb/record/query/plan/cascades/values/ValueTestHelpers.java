@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -72,5 +73,19 @@ public class ValueTestHelpers {
     @Nonnull
     public static Value field(@Nonnull final Value value, @Nonnull final String fieldName) {
         return FieldValue.ofFieldName(value, fieldName);
+    }
+
+    /**
+     * Creates a named record type. Serialization writes such a type in full the first time that it occurs in a
+     * serialization context and as a reference id after that, which makes it suitable for testing that nested objects
+     * are deserialized in the order of serialization.
+     *
+     * @return a new named record type; all calls return equal types
+     */
+    @Nonnull
+    public static Type.Record namedRecordType() {
+        return Type.Record.fromFieldsWithName("Shared", false, List.of(
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.LONG), Optional.of("a"), Optional.of(2)),
+                Type.Record.Field.of(Type.primitiveType(Type.TypeCode.STRING), Optional.of("b"), Optional.of(5))));
     }
 }

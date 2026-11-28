@@ -349,7 +349,16 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
             return ImmutableList.of();
         }
         final var mergedParameterBindingMap = mergedParameterBindingMapOptional.get();
-        
+
+        // A child match that requires an existential is correct under an existential quantifier. Under a for-each
+        // quantifier, it is not correct yet, so this match also requires an existential. See
+        // MatchInfo#requiresExistential().
+        final boolean requiresExistential =
+                partialMatchMap.entrySet()
+                        .stream()
+                        .anyMatch(entry -> !(entry.getKey().get() instanceof Quantifier.Existential) &&
+                                Objects.requireNonNull(entry.getValue().get()).getMatchInfo().requiresExistential());
+
         final var matchedCorrelatedToBuilder = ImmutableSet.<CorrelationIdentifier>builder();
         // Loop through all child matches and reject a match if the children matches were unable to match all
         // for-each quantifiers. Also keep track of all aliases the matched quantifiers are correlated to.
@@ -485,7 +494,7 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
                                 Quantifiers.aliases(candidateExpression.getQuantifiers()), bindingValueEquivalence);
                 return RegularMatchInfo.tryMerge(bindingAliasMap, partialMatchMap, mergedParameterBindingMap,
                                 PredicateMap.empty(), maxMatchMap, GroupByMappings.empty(), null,
-                                maxMatchMap.getQueryPlanConstraint())
+                                maxMatchMap.getQueryPlanConstraint(), requiresExistential)
                         .map(ImmutableList::of)
                                 .orElse(ImmutableList.of());
             } else {
@@ -605,7 +614,7 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
                                             return RegularMatchInfo.tryMerge(bindingAliasMap, partialMatchMap,
                                                     allParameterBindingMap, predicateMap,
                                                     maxMatchMap, GroupByMappings.empty(), null,
-                                                    maxMatchMap.getQueryPlanConstraint());
+                                                    maxMatchMap.getQueryPlanConstraint(), requiresExistential);
                                         })
                                         .map(ImmutableList::of)
                                         .orElse(ImmutableList.of());
@@ -829,17 +838,29 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
         // optimal way. We need to fold over all those compensations to form one child compensation. The tree that
         // is formed by partial matches therefore collapses into a chain of compensations.
         //
-        final Compensation childCompensation = quantifiers
-                .stream()
-                .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
-                .flatMap(quantifier ->
-                        regularMatchInfo.getChildPartialMatchMaybe(quantifier)
-                                .map(childPartialMatch -> {
-                                    final var bindingAliasMap = regularMatchInfo.getBindingAliasMap();
-                                    return childPartialMatch.compensate(boundParameterPrefixMap, adjustedPullUp,
-                                            Objects.requireNonNull(bindingAliasMap.getTarget(quantifier.getAlias())));
-                                }).stream())
-                .reduce(Compensation.noCompensation(), Compensation::union);
+        // We also remember which of the matched for-each quantifiers have a child match that needs compensation of its
+        // own, as a match over several of them is compensated over only one of them.
+        //
+        Compensation childCompensation = Compensation.noCompensation();
+        final var childCompensatedAliasesBuilder = ImmutableList.<CorrelationIdentifier>builder();
+        for (final var quantifier : quantifiers) {
+            if (!(quantifier instanceof Quantifier.ForEach)) {
+                continue;
+            }
+            final var childPartialMatchOptional = regularMatchInfo.getChildPartialMatchMaybe(quantifier);
+            if (childPartialMatchOptional.isEmpty()) {
+                continue;
+            }
+            final var bindingAliasMap = regularMatchInfo.getBindingAliasMap();
+            final var compensation =
+                    childPartialMatchOptional.get().compensate(boundParameterPrefixMap, adjustedPullUp,
+                            Objects.requireNonNull(bindingAliasMap.getTarget(quantifier.getAlias())));
+            if (compensation.isNeeded()) {
+                childCompensatedAliasesBuilder.add(quantifier.getAlias());
+            }
+            childCompensation = childCompensation.union(compensation);
+        }
+        final var childCompensatedAliases = childCompensatedAliasesBuilder.build();
 
         if (childCompensation.isImpossible() ||
                 !childCompensation.canBeDeferred()) {
@@ -924,16 +945,27 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
         }
 
         //
-        // We now know we need compensation, and if we have more than one quantifier, we would have to translate
-        // the references of the values from the query graph to values operating on the MQT in order to do that
-        // compensation. We cannot do that (yet). If we, however, do not have to worry about compensation we just do
-        // this select entirely with the scan.
+        // We now know we need compensation. If more than one for-each quantifier was matched, reapplying that
+        // compensation means translating references from the query graph onto values over the MQT. For predicates and
+        // for unmatched quantifiers we cannot do that (yet).
+        //
+        // For the result value we can: `computeResultCompensation` above already expressed it over the root of the
+        // match. That is the case a candidate over a synthetic record type produces -- the match stands in for the
+        // whole join, and all that is left is to project the query's result out of the record the scan flows. The
+        // result is re-targeted onto just one of the matched quantifiers (see `ForMatch.applyFinal()`), which has to be
+        // the one whose child match needs compensation of its own, so at most one of them may.
         //
         final var partialMatchMap = regularMatchInfo.getPartialMatchMap();
-        if (quantifiers.stream()
-                    .filter(quantifier -> quantifier instanceof Quantifier.ForEach &&
-                            partialMatchMap.containsKeyUnwrapped(quantifier))
-                    .count() > 1) {
+        final var isResultCompensationOnly =
+                !childCompensation.isNeededForFiltering() &&
+                        unmatchedQuantifiers.isEmpty() &&
+                        !isAnyCompensationFunctionNeeded &&
+                        childCompensatedAliases.size() <= 1;
+        if (!isResultCompensationOnly &&
+                quantifiers.stream()
+                        .filter(quantifier -> quantifier instanceof Quantifier.ForEach &&
+                                partialMatchMap.containsKeyUnwrapped(quantifier))
+                        .count() > 1) {
             return Compensation.impossibleCompensation();
         }
 
@@ -942,6 +974,7 @@ public class SelectExpression extends AbstractRelationalExpressionWithChildren i
                 getMatchedQuantifiers(partialMatch),
                 partialMatch.getUnmatchedQuantifiers(),
                 partialMatch.getCompensatedAliases(),
+                Iterables.getFirst(childCompensatedAliases, null),
                 compensatedResult.getResultCompensationFunction(),
                 compensatedResult.getGroupByMappings());
     }

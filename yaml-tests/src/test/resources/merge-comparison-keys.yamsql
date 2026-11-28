@@ -23,7 +23,7 @@
 # IN-lists over enums and UUIDs do not get past PromoteValue yet.
 ---
 options:
-    supported_version: !current_version
+    supported_version: 4.19.1.0
 ---
 schema_template:
     create type as enum color ('red', 'green', 'blue')
@@ -161,7 +161,7 @@ test_block:
       - result: [{1}, {2}]
     -
       - query: select id from t_str_a where v in ('y', 'x') order by v asc
-      - explain: "[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_A_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - explain: "[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_A_V [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
       - result: [{1}, {2}]
     -
       - query: select id from t_str_a where a = 1 and c = 1 order by v asc
@@ -173,7 +173,7 @@ test_block:
       - result: [{2}, {1}]
     -
       - query: select id from t_str_a where v in ('y', 'x') order by v desc nulls last
-      - explain: "[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_A_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - explain: "[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_A_V [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
       - result: [{2}, {1}]
     -
       - query: select id from t_str_a where a = 1 and c = 1 order by v desc nulls last
@@ -185,7 +185,7 @@ test_block:
       - result: [{2}, {1}]
     -
       - query: select id from t_str_d where v in ('y', 'x') order by v desc
-      - explain: "[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_D_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - explain: "[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_D_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
       - result: [{2}, {1}]
     -
       - query: select id from t_str_d where a = 1 and c = 1 order by v desc
@@ -197,7 +197,7 @@ test_block:
       - result: [{1}, {2}]
     -
       - query: select id from t_str_d where v in ('y', 'x') order by v asc nulls first
-      - explain: "[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_D_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - explain: "[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_D_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
       - result: [{1}, {2}]
     -
       - query: select id from t_str_d where a = 1 and c = 1 order by v asc nulls first
@@ -209,7 +209,7 @@ test_block:
       - result: [{1}, {2}]
     -
       - query: select id from t_str_anf where v in ('y', 'x') order by v asc nulls first
-      - explain: "[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_ANF_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - explain: "[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_ANF_V [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
       - result: [{1}, {2}]
     -
       - query: select id from t_str_anf where a = 1 and c = 1 order by v asc nulls first
@@ -221,7 +221,7 @@ test_block:
       - result: [{2}, {1}]
     -
       - query: select id from t_str_anf where v in ('y', 'x') order by v desc nulls last
-      - explain: "[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_ANF_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - explain: "[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_ANF_V [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
       - result: [{2}, {1}]
     -
       - query: select id from t_str_anf where a = 1 and c = 1 order by v desc nulls last
@@ -233,7 +233,7 @@ test_block:
       - result: [{1}, {2}]
     -
       - query: select id from t_str_anl where v in ('y', 'x') order by v asc nulls last
-      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_ANL_V [EQUALS to_ordered_bytes(q0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)"
+      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_ANL_V [EQUALS to_ordered_bytes(q0._0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)"
       - result: [{1}, {2}]
     -
       - query: select id from t_str_anl where a = 1 and c = 1 order by v asc nulls last
@@ -245,7 +245,7 @@ test_block:
       - result: [{2}, {1}]
     -
       - query: select id from t_str_anl where v in ('y', 'x') order by v desc nulls first
-      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_ANL_V [EQUALS to_ordered_bytes(q0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)"
+      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_ANL_V [EQUALS to_ordered_bytes(q0._0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)"
       - result: [{2}, {1}]
     -
       - query: select id from t_str_anl where a = 1 and c = 1 order by v desc nulls first
@@ -257,7 +257,7 @@ test_block:
       - result: [{2}, {1}]
     -
       - query: select id from t_str_dnf where v in ('y', 'x') order by v desc nulls first
-      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_DNF_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)"
+      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_DNF_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)"
       - result: [{2}, {1}]
     -
       - query: select id from t_str_dnf where a = 1 and c = 1 order by v desc nulls first
@@ -269,7 +269,7 @@ test_block:
       - result: [{1}, {2}]
     -
       - query: select id from t_str_dnf where v in ('y', 'x') order by v asc nulls last
-      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_DNF_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)"
+      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_DNF_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)"
       - result: [{1}, {2}]
     -
       - query: select id from t_str_dnf where a = 1 and c = 1 order by v asc nulls last
@@ -281,7 +281,7 @@ test_block:
       - result: [{2}, {1}]
     -
       - query: select id from t_str_dnl where v in ('y', 'x') order by v desc nulls last
-      - explain: "[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_DNL_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - explain: "[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_DNL_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
       - result: [{2}, {1}]
     -
       - query: select id from t_str_dnl where a = 1 and c = 1 order by v desc nulls last
@@ -293,7 +293,7 @@ test_block:
       - result: [{1}, {2}]
     -
       - query: select id from t_str_dnl where v in ('y', 'x') order by v asc nulls first
-      - explain: "[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_DNL_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - explain: "[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_DNL_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
       - result: [{1}, {2}]
     -
       - query: select id from t_str_dnl where a = 1 and c = 1 order by v asc nulls first
@@ -305,7 +305,7 @@ test_block:
       - result: [{1}, {2}]
     -
       - query: select id from t_byt_a where v in (X'ff', X'01') order by v asc
-      - explain: "[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_A_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - explain: "[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_A_V [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
       - result: [{1}, {2}]
     -
       - query: select id from t_byt_a where a = 1 and c = 1 order by v asc
@@ -317,7 +317,7 @@ test_block:
       - result: [{2}, {1}]
     -
       - query: select id from t_byt_a where v in (X'ff', X'01') order by v desc nulls last
-      - explain: "[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_A_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - explain: "[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_A_V [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
       - result: [{2}, {1}]
     -
       - query: select id from t_byt_a where a = 1 and c = 1 order by v desc nulls last
@@ -329,7 +329,7 @@ test_block:
       - result: [{2}, {1}]
     -
       - query: select id from t_byt_d where v in (X'ff', X'01') order by v desc
-      - explain: "[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_D_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - explain: "[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_D_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
       - result: [{2}, {1}]
     -
       - query: select id from t_byt_d where a = 1 and c = 1 order by v desc
@@ -341,7 +341,7 @@ test_block:
       - result: [{1}, {2}]
     -
       - query: select id from t_byt_d where v in (X'ff', X'01') order by v asc nulls first
-      - explain: "[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_D_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - explain: "[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_D_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
       - result: [{1}, {2}]
     -
       - query: select id from t_byt_d where a = 1 and c = 1 order by v asc nulls first
@@ -353,7 +353,7 @@ test_block:
       - result: [{1}, {2}]
     -
       - query: select id from t_byt_anf where v in (X'ff', X'01') order by v asc nulls first
-      - explain: "[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_ANF_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - explain: "[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_ANF_V [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
       - result: [{1}, {2}]
     -
       - query: select id from t_byt_anf where a = 1 and c = 1 order by v asc nulls first
@@ -365,7 +365,7 @@ test_block:
       - result: [{2}, {1}]
     -
       - query: select id from t_byt_anf where v in (X'ff', X'01') order by v desc nulls last
-      - explain: "[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_ANF_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - explain: "[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_ANF_V [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
       - result: [{2}, {1}]
     -
       - query: select id from t_byt_anf where a = 1 and c = 1 order by v desc nulls last
@@ -377,7 +377,7 @@ test_block:
       - result: [{1}, {2}]
     -
       - query: select id from t_byt_anl where v in (X'ff', X'01') order by v asc nulls last
-      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_ANL_V [EQUALS to_ordered_bytes(q0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)"
+      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_ANL_V [EQUALS to_ordered_bytes(q0._0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)"
       - result: [{1}, {2}]
     -
       - query: select id from t_byt_anl where a = 1 and c = 1 order by v asc nulls last
@@ -389,7 +389,7 @@ test_block:
       - result: [{2}, {1}]
     -
       - query: select id from t_byt_anl where v in (X'ff', X'01') order by v desc nulls first
-      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_ANL_V [EQUALS to_ordered_bytes(q0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)"
+      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_ANL_V [EQUALS to_ordered_bytes(q0._0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)"
       - result: [{2}, {1}]
     -
       - query: select id from t_byt_anl where a = 1 and c = 1 order by v desc nulls first
@@ -401,7 +401,7 @@ test_block:
       - result: [{2}, {1}]
     -
       - query: select id from t_byt_dnf where v in (X'ff', X'01') order by v desc nulls first
-      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_DNF_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)"
+      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_DNF_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)"
       - result: [{2}, {1}]
     -
       - query: select id from t_byt_dnf where a = 1 and c = 1 order by v desc nulls first
@@ -413,7 +413,7 @@ test_block:
       - result: [{1}, {2}]
     -
       - query: select id from t_byt_dnf where v in (X'ff', X'01') order by v asc nulls last
-      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_DNF_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)"
+      - explain: "[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_DNF_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)"
       - result: [{1}, {2}]
     -
       - query: select id from t_byt_dnf where a = 1 and c = 1 order by v asc nulls last
@@ -425,7 +425,7 @@ test_block:
       - result: [{2}, {1}]
     -
       - query: select id from t_byt_dnl where v in (X'ff', X'01') order by v desc nulls last
-      - explain: "[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_DNL_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - explain: "[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_DNL_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
       - result: [{2}, {1}]
     -
       - query: select id from t_byt_dnl where a = 1 and c = 1 order by v desc nulls last
@@ -437,7 +437,7 @@ test_block:
       - result: [{1}, {2}]
     -
       - query: select id from t_byt_dnl where v in (X'ff', X'01') order by v asc nulls first
-      - explain: "[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_DNL_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
+      - explain: "[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_DNL_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)"
       - result: [{1}, {2}]
     -
       - query: select id from t_byt_dnl where a = 1 and c = 1 order by v asc nulls first

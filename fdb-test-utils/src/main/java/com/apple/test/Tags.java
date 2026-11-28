@@ -69,6 +69,20 @@ public final class Tags {
      * scalar-fallback task.
      */
     public static final String DualScalarSIMD = "DualScalarSIMD";
+    /**
+     * Tests that exercise an {@code IndexMaintainer} through the shared index scenario framework
+     * (see {@code com.apple.foundationdb.record.provider.foundationdb.indexes.scenarios}). Applied
+     * automatically by the {@code @IndexScenarios} annotation, so that the whole index-maintainer
+     * matrix can be run on its own via the {@code indexScenarioTest} Gradle task.
+     */
+    public static final String IndexScenarios = "IndexScenarios";
+    /**
+     * Tests that read the client latency log written by a live cluster. They set FDB client knobs, which can
+     * only be done before the FDB network starts, and so need a JVM that no other test has opened a database in.
+     * Excluded from the default test task and run by the {@code clientLogTest} and {@code clientLogChecksumTest}
+     * Gradle tasks of {@code fdb-extensions}.
+     */
+    public static final String ClientLog = "ClientLog";
 
     private Tags() {
     }

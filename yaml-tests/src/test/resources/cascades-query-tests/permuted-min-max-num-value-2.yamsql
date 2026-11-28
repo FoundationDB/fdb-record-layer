@@ -69,7 +69,7 @@ test_block:
                group by str_value_indexed, num_value_3_indexed
                having str_value_indexed in ('even', 'odd')
                order by max(num_value_2) desc
-      - explain: "[IN arrayDistinct(@c21)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_2_BY_STR_VALUE_THREE [EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._0 AS STR_VALUE_INDEXED, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE BY (_.M, _.STR_VALUE_INDEXED, _.NUM_VALUE_3_INDEXED)"
+      - explain: "[IN arrayDistinct(@c21)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_2_BY_STR_VALUE_THREE [EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._0 AS STR_VALUE_INDEXED, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE BY (_.M, _.STR_VALUE_INDEXED, _.NUM_VALUE_3_INDEXED)"
       - unorderedResult: [{STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 0, M: 2},
                           {STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 1, M: 2},
                           {STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 2, M: 2},
@@ -97,7 +97,7 @@ test_block:
                group by str_value_indexed, num_value_3_indexed
                having str_value_indexed in !! !in {['even', 'odd']} !!
                order by max(num_value_2) desc
-      - explain: "[IN arrayDistinct(@c21)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_2_BY_STR_VALUE_THREE [EQUALS q0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._0 AS STR_VALUE_INDEXED, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE BY (_.M, _.STR_VALUE_INDEXED, _.NUM_VALUE_3_INDEXED)"
+      - explain: "[IN arrayDistinct(@c21)] INUNION q0 -> { AISCAN(MAX_NUM_VALUE_2_BY_STR_VALUE_THREE [EQUALS q0._0] BY_GROUP REVERSE -> [_0: KEY:[0], _1: KEY:[2], _2: KEY:[1]]) | MAP (_._0 AS STR_VALUE_INDEXED, _._1 AS NUM_VALUE_3_INDEXED, _._2 AS M) } COMPARE BY (_.M, _.STR_VALUE_INDEXED, _.NUM_VALUE_3_INDEXED)"
       - unorderedResult: [{STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 0, M: 2},
                           {STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 1, M: 2},
                           {STR_VALUE_INDEXED: 'even', NUM_VALUE_3_INDEXED: 2, M: 2},

@@ -21,22 +21,26 @@
 package com.apple.foundationdb.relational.recordlayer.query.visitors;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.cascades.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
 import com.apple.foundationdb.record.query.plan.cascades.Reference;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.OuterJoinExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.DeleteExpression;
-import com.apple.foundationdb.record.query.plan.cascades.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RecursiveUnionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.UpdateExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.CompatibleTypeEvolutionPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RangeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.StreamingValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.pair.NonnullPair;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
@@ -261,10 +265,9 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         } else {
             // No FROM clause: synthesize a single-row source so constant expressions
             // can be projected over exactly one output row (standard SQL semantics).
-            final var dummyElement = Expression.fromUnderlying(LiteralValue.ofScalar(true));
-            final var arrayOfOne = getDelegate().resolveFunction("__internal_array", false, dummyElement);
-            final var explodeExpr = new ExplodeExpression(arrayOfOne.getUnderlying());
-            final var syntheticQuantifier = Quantifier.forEach(Reference.initialOf(explodeExpr));
+            final var rangeOfOne = (StreamingValue)new RangeValue.RangeFn()
+                    .encapsulate(CallSiteArguments.ofPositional(LiteralValue.ofScalar(1L)));
+            final var syntheticQuantifier = Quantifier.forEach(Reference.initialOf(new TableFunctionExpression(rangeOfOne)));
             getDelegate().getCurrentPlanFragment().setOperator(LogicalOperator.newUnnamedOperator(Expressions.empty(), syntheticQuantifier));
         }
 
@@ -812,9 +815,9 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
         }
         final var arguments = Expressions.of(rowExpressionBuilder.build()).asList().toArray(new Expression[0]);
         final var arrayOfTuples = getDelegate().resolveFunction("__internal_array", false, arguments);
-        final var explodeExpression = new ExplodeExpression(arrayOfTuples.getUnderlying());
-        final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(explodeExpression));
-        var output = Expressions.of(LogicalOperator.convertToExpressions(resultingQuantifier));
+        final var resultingQuantifier =
+                Quantifier.forEach(Reference.initialOf(new TableFunctionExpression(new ExplodeValue(arrayOfTuples.getUnderlying()))));
+        var output = LogicalOperator.convertToExpressions(ExplodeValue.elementValue(resultingQuantifier.getFlowedObjectValue()));
         return typeMaybe == null
                 ? LogicalOperator.newUnnamedOperator(output, resultingQuantifier)
                 : LogicalOperator.newNamedOperator(Identifier.of(typeMaybe.getLeft()), output, resultingQuantifier);
@@ -901,8 +904,12 @@ public final class QueryVisitor extends DelegatingVisitor<BaseVisitor> {
                 "subqueries in INSERT ... VALUES are not supported");
         final var arguments = Expressions.of(insertTuples).asList().toArray(new Expression[0]);
         final var arrayOfTuples = getDelegate().resolveFunction("__internal_array", false, arguments);
-        final var explodeExpression = new ExplodeExpression(arrayOfTuples.getUnderlying());
-        final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(explodeExpression));
+        final var explodeQuantifier =
+                Quantifier.forEach(Reference.initialOf(new TableFunctionExpression(new ExplodeValue(arrayOfTuples.getUnderlying()))));
+        // the insert consumes the tuples themselves, not the (element, ordinal) structs the explode produces
+        final var tuplesExpression = new SelectExpression(ExplodeValue.elementValue(explodeQuantifier.getFlowedObjectValue()),
+                ImmutableList.of(explodeQuantifier), ImmutableList.of());
+        final var resultingQuantifier = Quantifier.forEach(Reference.initialOf(tuplesExpression));
         return LogicalOperator.newUnnamedOperator(Expressions.ofSingle(arrayOfTuples), resultingQuantifier);
     }
 

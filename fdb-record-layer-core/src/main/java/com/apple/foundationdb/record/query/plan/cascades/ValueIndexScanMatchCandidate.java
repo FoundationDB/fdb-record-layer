@@ -62,6 +62,13 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     private final List<RecordType> queriedRecordTypes;
 
     /**
+     * How the records of the index entries are fetched, which depends on whether the queried record types are stored
+     * or synthetic.
+     */
+    @Nonnull
+    private final RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords fetchIndexRecords;
+
+    /**
      * Holds the parameter names for all necessary parameters that need to be bound during matching.
      */
     @Nonnull
@@ -121,6 +128,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                                         @Nullable final KeyExpression primaryKey) {
         this.index = index;
         this.queriedRecordTypes = ImmutableList.copyOf(queriedRecordTypes);
+        this.fetchIndexRecords = fetchIndexRecordsFor(index, this.queriedRecordTypes);
         this.traversal = traversal;
         this.parameters = ImmutableList.copyOf(parameters);
         this.baseType = baseType;
@@ -239,7 +247,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                                 primaryKey,
                                 IndexScanComparisons.byValue(toScanComparisons(comparisonRanges)),
                                 planContext.getPlannerConfiguration().getIndexFetchMethod(),
-                                RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
+                                fetchIndexRecords,
                                 reverseScanOrder,
                                 false,
                                 partialMatch.getMatchCandidate(),
@@ -266,7 +274,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                         primaryKey,
                         scanParameters,
                         planContext.getPlannerConfiguration().getIndexFetchMethod(),
-                        RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY,
+                        fetchIndexRecords,
                         isReverse,
                         false,
                         partialMatch.getMatchCandidate(),
@@ -279,7 +287,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                 indexEntryToLogicalRecord.indexKeyValueToPartialRecord());
 
         return Optional.of(new RecordQueryFetchFromPartialRecordPlan(Quantifier.physical(memoizer.memoizePlan(coveringIndexPlan)),
-                coveringIndexPlan::pushValueThroughFetch, baseRecordType, RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY));
+                coveringIndexPlan::pushValueThroughFetch, baseRecordType, fetchIndexRecords));
     }
 
     @Nonnull
@@ -296,6 +304,28 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                 targetAlias,
                 Iterables.concat(indexEntryToLogicalRecord.logicalKeyValues(),
                         indexEntryToLogicalRecord.logicalValueValues()));
+    }
+
+    /**
+     * Returns how the records of the entries of an index over the given record types are fetched: through the
+     * constituents of a synthetic record, if the record types are synthetic, or by primary key otherwise.
+     *
+     * @param index the index
+     * @param queriedRecordTypes the record types the index is defined over
+     * @return how the records of the index entries are fetched
+     * @throws UnsupportedOperationException if the index is defined over both stored and synthetic record types
+     */
+    @Nonnull
+    private static RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords fetchIndexRecordsFor(@Nonnull final Index index,
+                                                                                                 @Nonnull final List<RecordType> queriedRecordTypes) {
+        final boolean synthetic = queriedRecordTypes.stream().anyMatch(RecordType::isSynthetic);
+        if (synthetic && !queriedRecordTypes.stream().allMatch(RecordType::isSynthetic)) {
+            throw new UnsupportedOperationException("cannot mix stored and synthetic record types in index candidate " +
+                    index.getName());
+        }
+        return synthetic
+                ? RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.SYNTHETIC_CONSTITUENTS
+                : RecordQueryFetchFromPartialRecordPlan.FetchIndexRecords.PRIMARY_KEY;
     }
 
     @Override

@@ -234,16 +234,17 @@ public class OuterJoinExpression extends AbstractRelationalExpressionWithChildre
      */
     @Nonnull
     @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public OuterJoinExpression translateCorrelations(@Nonnull final TranslationMap translationMap,
                                                      final boolean shouldSimplifyValues,
                                                      @Nonnull final List<? extends Quantifier> translatedQuantifiers) {
         Verify.verify(translatedQuantifiers.size() == 2);
         final Quantifier.ForEach translatedPreserved = translatedQuantifiers.get(0).narrow(Quantifier.ForEach.class);
         final Quantifier.ForEach translatedNullSupplying = translatedQuantifiers.get(1).narrow(Quantifier.ForEach.class);
-        // Don’t allocate a new expression if the translation is a no-op and the children translated to equal quantifiers.
+        // Don’t allocate a new expression if the translation is a no-op and the children are the very same quantifiers.
         if (translationMap.definesOnlyIdentities()
-                && translatedPreserved.equals(preservedQuantifier)
-                && translatedNullSupplying.equals(nullSupplyingQuantifier)) {
+                && translatedPreserved == preservedQuantifier
+                && translatedNullSupplying == nullSupplyingQuantifier) {
             return this;
         }
         final List<QueryPredicate> translatedPredicates =

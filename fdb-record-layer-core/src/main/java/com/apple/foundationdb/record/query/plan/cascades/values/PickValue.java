@@ -180,13 +180,16 @@ public class PickValue extends AbstractValue {
     @Nonnull
     public static PickValue fromProto(@Nonnull final PlanSerializationContext serializationContext,
                                       @Nonnull final PPickValue pickValueProto) {
+        final Value selectorValue = Value.fromValueProto(serializationContext,
+                Objects.requireNonNull(pickValueProto.getSelectorValue()));
         final ImmutableList.Builder<Value> alternativeValuesBuilder = ImmutableList.builder();
         for (int i = 0; i < pickValueProto.getAlternativeValuesCount(); i ++) {
             alternativeValuesBuilder.add(Value.fromValueProto(serializationContext, pickValueProto.getAlternativeValues(i)));
         }
-        return new PickValue(Value.fromValueProto(serializationContext, Objects.requireNonNull(pickValueProto.getSelectorValue())),
-                alternativeValuesBuilder.build(),
-                Type.fromTypeProto(serializationContext, Objects.requireNonNull(pickValueProto.getResultType())));
+        final ImmutableList<Value> alternativeValues = alternativeValuesBuilder.build();
+        final Type resultType = Type.fromTypeProto(serializationContext,
+                Objects.requireNonNull(pickValueProto.getResultType()));
+        return new PickValue(selectorValue, alternativeValues, resultType);
     }
 
     @Nonnull

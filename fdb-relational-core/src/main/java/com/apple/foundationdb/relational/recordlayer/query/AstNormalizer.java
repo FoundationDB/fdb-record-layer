@@ -130,6 +130,13 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     @Nonnull
     private final PreparedParams preparedStatementParameters;
 
+    /**
+     * The 1-based indexes of the unnamed parameters of the statement being normalized, by the index of their token.
+     * Set from the parse tree of the statement before it is visited.
+     */
+    @Nonnull
+    private Map<Integer, Integer> unnamedParameterIndexes = Map.of();
+
     @Nonnull
     private final Set<NormalizationResult.QueryCachingFlags> queryCachingFlags;
 
@@ -398,8 +405,9 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
     public Object visitPreparedStatementParameter(@Nonnull RelationalParser.PreparedStatementParameterContext ctx) {
         Object param;
         if (ctx.QUESTION() != null) {
-            final int currentUnnamedParameterIndex = preparedStatementParameters.currentUnnamedParamIndex();
-            param = preparedStatementParameters.nextUnnamedParamValue();
+            final int currentUnnamedParameterIndex = Assert.notNullUnchecked(unnamedParameterIndexes.get(ctx.getStart().getTokenIndex()),
+                    ErrorCode.INTERNAL_ERROR, "unnamed parameter not found in its statement");
+            param = preparedStatementParameters.unnamedParamValue(currentUnnamedParameterIndex);
             if (param instanceof Array || param instanceof Struct) {
                 allowLiteralAddition = false;
             }
@@ -418,21 +426,17 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                 allowTokenAddition = true;
             }
         } else {
-            // Note we preserve named parameters in canonical representation, otherwise we could mix up different queries
-            // if we use '?' ubiquitously.
-            // e.g. select * from t1 where col1 = ?P1 and col2 = ?P2
-            //      select * from t1 where col1 = ?P2 and col2 = ?P1
+            // A named parameter is canonicalized to a bare '?', like an unnamed one: values bind by token position,
+            // so the name does not affect the plan. The parameter hash keeps the name, since it validates
+            // continuations.
             final var namedParameterContext = ctx.NAMED_PARAMETER();
             final var parameterName = namedParameterContext.getText().substring(1);
             if (preparedStatementParameters.unboundDeclaredTypeMaybe(parameterName).isPresent()) {
-                // Declared but unbound. Canonicalized to ?name so the cache key matches what a runtime client sends;
-                // nothing is added to the literal table, since planning registers a value-free literal instead. The
-                // parameter hash omits the absent value, which is safe because it feeds continuation validation rather
-                // than the cache key.
+                // Declared but unbound: nothing is added to the literal table, since planning registers a value-free
+                // literal instead.
                 if (allowTokenAddition) {
-                    final var canonicalName = "?" + parameterName;
-                    sqlCanonicalizer.append(canonicalName).append(" ");
-                    parameterHash.putInt(Objects.hash(canonicalName));
+                    sqlCanonicalizer.append("? ");
+                    parameterHash.putInt(Objects.hash("?" + parameterName));
                 }
                 param = null;
             } else {
@@ -654,9 +658,9 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                     .addLiteral(Type.any(), literal, unnamedParameterIndex, parameterName, tokenIndex);
         }
         if (allowTokenAddition) {
-            final String canonicalName = parameterName == null ? "?" : "?" + parameterName;
-            sqlCanonicalizer.append(canonicalName).append(" ");
-            parameterHash.putInt(Objects.hash(canonicalName, literal));
+            sqlCanonicalizer.append("? ");
+            final String hashName = parameterName == null ? "?" : "?" + parameterName;
+            parameterHash.putInt(Objects.hash(hashName, literal));
         }
     }
 
@@ -703,6 +707,7 @@ public final class AstNormalizer extends RelationalParserBaseVisitor<Object> {
                                                    @Nonnull final String query,
                                                    @Nonnull final QueryEvaluationConstants queryEvaluationConstants) throws RelationalException {
         final var astNormalizer = new AstNormalizer(preparedStatementParameters, caseSensitive, currentPlanHashMode, parseTreeInfo.getQueryType() == ParseTreeInfo.QueryType.DESCRIBE_QUERY, queryEvaluationConstants);
+        astNormalizer.unnamedParameterIndexes = ParseHelpers.unnamedParameterIndexes(parseTreeInfo.getRootContext());
         astNormalizer.visit(parseTreeInfo.getRootContext());
         final var recordLayerSchemaTemplate = Assert.castUnchecked(schemaTemplate, RecordLayerSchemaTemplate.class);
 

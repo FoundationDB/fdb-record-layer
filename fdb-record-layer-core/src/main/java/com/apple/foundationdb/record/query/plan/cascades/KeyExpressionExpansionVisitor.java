@@ -38,7 +38,9 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpre
 import com.apple.foundationdb.record.query.plan.cascades.predicates.Placeholder;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.PredicateWithValueAndRanges;
 import com.apple.foundationdb.record.query.plan.cascades.values.EmptyValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.RecordConstructorValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.util.ProtoUtils;
 import com.google.common.base.Verify;
@@ -144,9 +146,15 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
         switch (fanType) {
             case FanOut:
                 // explode this field and prefixes of this field
-                final Quantifier.ForEach childBase = fieldKeyExpression.explodeField(baseQuantifier, fieldNamePrefix);
-                value = state.registerValue(childBase.getFlowedObjectValue());
-                column = Column.unnamedOf(value);
+                final Quantifier.ForEach childBase = fieldKeyExpression.explodeField(baseQuantifier, fieldNamePrefix,
+                        isFanOutDistinct());
+                value = state.registerValue(ExplodeValue.elementValue(childBase.getFlowedObjectValue()));
+                //
+                // The select over the explode flows the explode's whole (element, ordinal) struct rather than just the
+                // element, so that a query's select over the explode matches it whether it flows the element or the
+                // struct. The element is then accessed on the struct to form the column of this expansion.
+                //
+                column = Column.unnamedOf(childBase.getFlowedObjectValue());
                 final GraphExpansion childExpansion;
                 if (state.isKey() && !state.isInternalExpansion()) {
                     childExpansion = GraphExpansion.ofResultColumnAndPlaceholder(column, value.asPlaceholder(newParameterAlias()));
@@ -161,25 +169,16 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 final GraphExpansion.Sealed sealedChildExpansion = childExpansion.seal();
                 return sealedChildExpansion
                         .builderWithInheritedPlaceholders()
-                        .pullUpQuantifier(childQuantifier)
+                        .addQuantifier(childQuantifier)
+                        .addResultColumn(Column.unnamedOf(ExplodeValue.elementValue(
+                                FieldValue.ofOrdinalNumber(childQuantifier.getFlowedObjectValue(), 0))))
                         .build();
             case Concatenate:
             case None:
                 // Note: `Concatenate` and `None` can use the graph expansion logic. Both just access the field directly
                 // via `FieldValue.ofFieldNames()`.
                 value = state.registerValue(FieldValue.ofFieldNames(baseQuantifier.getFlowedObjectValue(), fieldNames));
-                if (state.isSelectStar()) {
-                    if (state.isKey() && !state.isInternalExpansion()) {
-                        return GraphExpansion.ofPlaceholder(value.asPlaceholder(newParameterAlias()));
-                    }
-                    return GraphExpansion.empty();
-                } else {
-                    column = Column.unnamedOf(value);
-                    if (state.isKey() && !state.isInternalExpansion()) {
-                        return GraphExpansion.ofResultColumnAndPlaceholder(column, value.asPlaceholder(newParameterAlias()));
-                    }
-                    return GraphExpansion.ofResultColumn(column);
-                }
+                return expandPosition(state, value);
             default:
                 throw new UnsupportedOperationException();
         }
@@ -308,15 +307,17 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                 }
             case FanOut:
                 // explode the parent field(s) also depending on the prefix
-                final Quantifier.ForEach childBaseQuantifier = parent.explodeField(baseQuantifier, fieldNamePrefix);
+                final Quantifier.ForEach childBaseQuantifier = parent.explodeField(baseQuantifier, fieldNamePrefix,
+                        isFanOutDistinct());
                 // expand the children of the key expression and then unify them into an expansion of this expression
                 final GraphExpansion childExpansion =
-                        pop(child.expand(push(state.withBaseQuantifier(childBaseQuantifier).withFieldNamePrefix(ImmutableList.of()))));
+                        pop(child.expand(push(state.withBaseQuantifier(childBaseQuantifier)
+                                .withFieldNamePrefix(ImmutableList.of(ExplodeValue.ELEMENT_FIELD_NAME)))));
                 final GraphExpansion baseAndChildExpansion;
                 if (state.isSelectStar()) {
                     final GraphExpansion baseExpansion =
                             GraphExpansion.builder()
-                                    .pullUpQuantifier(childBaseQuantifier)
+                                    .pullUpExplodeQuantifier(childBaseQuantifier)
                                     .build();
                     baseAndChildExpansion = GraphExpansion.ofOthers(baseExpansion, childExpansion);
 
@@ -339,7 +340,7 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
                             GraphExpansion.builder()
                                     .addAllPredicates(childExpansion.getPredicates())
                                     .addAllPlaceholders(childExpansion.getPlaceholders());
-                    baseAndChildExpansionBuilder.pullUpQuantifier(childBaseQuantifier);
+                    baseAndChildExpansionBuilder.pullUpExplodeQuantifier(childBaseQuantifier);
                     childExpansion.getQuantifiers()
                             .forEach(baseAndChildExpansionBuilder::pullUpQuantifier);
                     baseAndChildExpansion = baseAndChildExpansionBuilder.build();
@@ -367,6 +368,17 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
             default:
                 throw new RecordCoreException("unsupported fan type");
         }
+    }
+
+    /**
+     * Whether the expansion makes a {@linkplain ExplodeValue#isDistinct() distinct} explode for a field that fans
+     * out. This is correct for an index that keeps one entry for each distinct element of a record: equal elements
+     * give the same entry key, so they use one entry. See {@link MatchInfo#requiresExistential()}.
+     *
+     * @return {@code true} if a field that fans out is exploded distinct
+     */
+    protected boolean isFanOutDistinct() {
+        return false;
     }
 
     @Nonnull
@@ -445,7 +457,50 @@ public class KeyExpressionExpansionVisitor implements KeyExpressionVisitor<Visit
     @Nonnull
     @Override
     public GraphExpansion visitExpression(@Nonnull final ListKeyExpression listKeyExpression) {
-        throw new UnsupportedOperationException("visitor method for this key expression is not implemented");
+        final ImmutableList.Builder<GraphExpansion> expandedPredicatesBuilder = ImmutableList.builder();
+        final VisitorState state = getCurrentState();
+        int currentOrdinal = state.getCurrentOrdinal();
+        for (KeyExpression child : listKeyExpression.getChildren()) {
+            final VisitorState childState = state.withCurrentOrdinal(currentOrdinal);
+            final GraphExpansion childExpansion = pop(child.expand(push(childState.forFunctionalExpansion())));
+            if (!childExpansion.getQuantifiers().isEmpty()) {
+                throw new UnsupportedOperationException("cannot expand a list whose child introduces quantifiers");
+            }
+            final var childValues = childExpansion.getResultColumns()
+                    .stream()
+                    .map(Column::getValue)
+                    .collect(ImmutableList.toImmutableList());
+            // a list places its child in a nested tuple, so the value of the position is the record of the child's
+            // column values -- a record of one for a single-column child, as that tuple is nested all the same
+            final var value = childState.registerValue(RecordConstructorValue.ofUnnamed(childValues));
+            // the position is then expanded like that of a scalar field, under the list's own state
+            expandedPredicatesBuilder.add(expandPosition(childState, value));
+            currentOrdinal++;
+        }
+        return GraphExpansion.ofOthers(expandedPredicatesBuilder.build());
+    }
+
+    /**
+     * Expands a single position of a key expression whose value has already been registered. A key position outside
+     * an internal expansion is sargable and gets a placeholder, and the value is returned as a result column unless
+     * the expansion is select-star, whose result is the whole base record instead.
+     *
+     * @param state the state the position is visited in
+     * @param value the value of the position
+     * @return the expansion of the position
+     */
+    @Nonnull
+    private static GraphExpansion expandPosition(@Nonnull final VisitorState state, @Nonnull final Value value) {
+        final boolean isSargable = state.isKey() && !state.isInternalExpansion();
+        if (state.isSelectStar()) {
+            return isSargable
+                    ? GraphExpansion.ofPlaceholder(value.asPlaceholder(newParameterAlias()))
+                    : GraphExpansion.empty();
+        }
+        final var column = Column.unnamedOf(value);
+        return isSargable
+                ? GraphExpansion.ofResultColumnAndPlaceholder(column, value.asPlaceholder(newParameterAlias()))
+                : GraphExpansion.ofResultColumn(column);
     }
 
     /**

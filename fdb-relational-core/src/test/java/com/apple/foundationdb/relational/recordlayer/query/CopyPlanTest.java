@@ -46,6 +46,8 @@ class CopyPlanTest {
         final MutablePlanGenerationContext context = new MutablePlanGenerationContext(preparedParams,
                 PlanHashable.PlanHashMode.VC1, sql, sql, 0,
                 QueryEvaluationConstants.empty());
+        // the data is bound to the single unnamed parameter of the statement, whose token is at index 1.
+        context.setUnnamedParameterIndexes(Map.of(1, 1));
         context.processUnnamedPreparedParam(1);
         return context;
     }

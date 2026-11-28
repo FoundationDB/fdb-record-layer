@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.planprotos.PExplodeValue;
 import com.apple.foundationdb.record.planprotos.PValue;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.cursors.KeyComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AliasMap;
 import com.apple.foundationdb.record.query.plan.cascades.Column;
 import com.apple.foundationdb.record.query.plan.cascades.ConstrainedBoolean;
@@ -84,6 +85,11 @@ import java.util.stream.IntStream;
  * in descending order if it is also {@linkplain #isReverse() reverse}, and numbers the ordinals in that order. The
  * order is a property of the explode rather than of its collection, so it does not have to be recovered from whatever
  * computes the collection. Only an explode that does not preserve the order of its collection can be sorted.
+ *
+ * <p>An explode that is {@linkplain #isDistinct() distinct} gives each distinct element of its collection one time.
+ * This is used to represent value index on a repeated field, which keeps one entry for each distinct element of a
+ * record. Hence, only the planner uses a distinct explode, in a match candidate, and it cannot be evaluated or
+ * serialized.
  */
 @API(API.Status.EXPERIMENTAL)
 public class ExplodeValue extends AbstractValue implements StreamingValue, CreatesDynamicTypesValue {
@@ -96,8 +102,7 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
     private static final Type ORDINAL_TYPE = Type.primitiveType(Type.TypeCode.INT, false);
 
     @Nonnull
-    @SuppressWarnings("unchecked")
-    private static final Comparator<Object> ELEMENT_COMPARATOR = Comparator.comparing(Comparable.class::cast);
+    private static final Comparator<Object> ELEMENT_COMPARATOR = KeyComparisons.FIELD_COMPARATOR;
 
     @Nonnull
     private final Value collectionValue;
@@ -123,6 +128,12 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
      */
     private final boolean reverse;
 
+    /**
+     * Whether the explode gives each distinct element of its collection one time, and not each element. Only the
+     * explode of a match candidate can be distinct. Thus a distinct explode is never equal to the explode of a query.
+     */
+    private final boolean distinct;
+
     @Nonnull
     private final CorrelationIdentifier elementAlias;
 
@@ -142,13 +153,21 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
 
     public ExplodeValue(@Nonnull final Value collectionValue, final boolean preserveOrder, final boolean sorted,
                         final boolean reverse) {
+        this(collectionValue, preserveOrder, sorted, reverse, false);
+    }
+
+    public ExplodeValue(@Nonnull final Value collectionValue, final boolean preserveOrder, final boolean sorted,
+                        final boolean reverse, final boolean distinct) {
         Verify.verify(collectionValue.getResultType().isArray());
         Verify.verify(!preserveOrder || !sorted, "cannot sort an explode that preserves its order");
         Verify.verify(sorted || !reverse, "cannot reverse an explode that is not sorted");
+        Verify.verify(!preserveOrder || !distinct, "cannot make an explode that preserves its order distinct");
+        Verify.verify(!sorted || !distinct, "cannot make a sorted explode distinct");
         this.collectionValue = collectionValue;
         this.preserveOrder = preserveOrder;
         this.sorted = sorted;
         this.reverse = reverse;
+        this.distinct = distinct;
         this.elementType = Objects.requireNonNull(((Type.Array)collectionValue.getResultType()).getElementType());
         Verify.verify(!sorted || isSortable(elementType), "cannot sort elements of type %s", elementType);
         this.elementAlias = CorrelationIdentifier.uniqueId();
@@ -177,8 +196,13 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
         return reverse;
     }
 
+    public boolean isDistinct() {
+        return distinct;
+    }
+
     /**
-     * Whether elements of a type can be sorted, which needs their representation to be {@link Comparable}.
+     * Whether elements of a type can be sorted, which needs their representation to be comparable in the order an index
+     * keeps them in.
      *
      * @param elementType the type of the elements
      * @return {@code true} if an explode of an array of such elements can be sorted
@@ -187,25 +211,24 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
         if (elementType.isEnum()) {
             return true;
         }
-        return elementType.isPrimitive() &&
-                elementType.getTypeCode() != Type.TypeCode.BYTES && elementType.getTypeCode() != Type.TypeCode.VECTOR;
+        return elementType.isPrimitive() && elementType.getTypeCode() != Type.TypeCode.VECTOR;
     }
 
     /**
-     * Returns an explode of a different collection that preserves its order, and is sorted, if and only if this one
-     * does and is.
+     * Returns an explode of a different collection that preserves its order, is sorted, and is distinct if and only if
+     * this one does and is.
      *
      * @param newCollectionValue the new collection
      * @return an explode of the new collection
      */
     @Nonnull
     public ExplodeValue withCollectionValue(@Nonnull final Value newCollectionValue) {
-        return new ExplodeValue(newCollectionValue, preserveOrder, sorted, reverse);
+        return new ExplodeValue(newCollectionValue, preserveOrder, sorted, reverse, distinct);
     }
 
     /**
-     * Returns an explode of the same collection that produces its elements sorted. Only an explode that does not
-     * preserve the order of its collection can be sorted.
+     * Returns an explode of the same collection that produces its elements sorted. Only an explode that neither
+     * preserves the order of its collection nor is distinct can be sorted.
      *
      * @param reverse whether to sort in descending order
      * @return a sorted explode of the same collection
@@ -213,7 +236,37 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
     @Nonnull
     public ExplodeValue sorted(final boolean reverse) {
         Verify.verify(!preserveOrder, "cannot sort an explode that preserves its order");
+        Verify.verify(!distinct, "cannot sort a distinct explode");
         return new ExplodeValue(collectionValue, false, true, reverse);
+    }
+
+    @Nonnull
+    public Type getElementType() {
+        return elementType;
+    }
+
+    /**
+     * {@return the element of a struct produced by an explode}
+     *
+     * @param explodedValue a value of the {@linkplain #getResultType() result type} of an explode, typically the
+     *        flowed object value of a quantifier ranging over the explode
+     */
+    @Nonnull
+    public static Value elementValue(@Nonnull final Value explodedValue) {
+        return FieldValue.ofOrdinalNumberAndFuseIfPossible(explodedValue, 0);
+    }
+
+    /**
+     * {@return the 0-based ordinal of a struct produced by an explode} Only the ordinals of an explode that
+     * {@linkplain #preservesOrder() preserves its order} are meaningful, as those of any other explode may be
+     * renumbered.
+     *
+     * @param explodedValue a value of the {@linkplain #getResultType() result type} of an explode, typically the
+     *        flowed object value of a quantifier ranging over the explode
+     */
+    @Nonnull
+    public static Value ordinalValue(@Nonnull final Value explodedValue) {
+        return FieldValue.ofOrdinalNumberAndFuseIfPossible(explodedValue, 1);
     }
 
     @Nonnull
@@ -314,6 +367,9 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
     public ExplainTokensWithPrecedence explain(@Nonnull final Iterable<Supplier<ExplainTokensWithPrecedence>> explainSuppliers) {
         final var explainTokens = new ExplainTokens().addFunctionCall("explode",
                 Iterables.getOnlyElement(explainSuppliers).get().getExplainTokens());
+        if (distinct) {
+            explainTokens.addWhitespace().addKeyword("DISTINCT");
+        }
         if (sorted) {
             explainTokens.addWhitespace().addKeyword("SORTED");
             if (reverse) {
@@ -334,6 +390,41 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
         return PlanHashable.objectsPlanHash(mode, BASE_HASH, collectionValue, preserveOrder, sorted, reverse);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>An explode that neither preserves its order nor is sorted also implies an explode of a semantically equal
+     * collection that differs from it in how it produces the elements:
+     * <ul>
+     *     <li>a distinct one, which it only implies under an existential quantifier, and</li>
+     *     <li>one that preserves its order.</li>
+     * </ul>
+     */
+    @Override
+    public boolean impliesCandidateValue(@Nonnull final StreamingValue candidateValue,
+                                         @Nonnull final AliasMap bindingAliasMap) {
+        if (!(candidateValue instanceof ExplodeValue candidateExplodeValue) ||
+                !collectionValue.semanticEquals(candidateExplodeValue.getCollectionValue(), bindingAliasMap)) {
+            return false;
+        }
+        // Only the explode of a match candidate can be distinct. The explode of a query is never distinct.
+        Verify.verify(!distinct, "the explode of a query cannot be distinct");
+        // A distinct candidate explode gives each distinct element one time. This explode gives each element. Thus the
+        // match is correct only under an existential quantifier. The matches of the parents make sure of this, see
+        // MatchInfo#requiresExistential().
+        if (candidateExplodeValue.isDistinct()) {
+            // The ordinals of a distinct explode count the distinct elements, not the positions in the array. A
+            // distinct explode also gives the elements in no specified order. Thus it can only replace an explode
+            // that does not preserve its order and is not sorted.
+            return !preserveOrder && !sorted;
+        }
+        // An explode that preserves its order can replace an explode of the same collection that does not. Both give
+        // one (element, ordinal) struct for each element, and this explode does not use its ordinals. A candidate
+        // explode cannot replace a sorted explode, because the candidate does not give the elements in that order.
+        return equalsWithoutChildren(candidateExplodeValue).isTrue() ||
+                (!preserveOrder && !sorted && candidateExplodeValue.preservesOrder());
+    }
+
     @Nonnull
     @Override
     public ConstrainedBoolean equalsWithoutChildren(@Nonnull final Value other) {
@@ -341,7 +432,8 @@ public class ExplodeValue extends AbstractValue implements StreamingValue, Creat
                 .filter(ignored -> {
                     final var otherExplodeValue = (ExplodeValue)other;
                     return preserveOrder == otherExplodeValue.preservesOrder() &&
-                            sorted == otherExplodeValue.isSorted() && reverse == otherExplodeValue.isReverse();
+                            sorted == otherExplodeValue.isSorted() && reverse == otherExplodeValue.isReverse() &&
+                            distinct == otherExplodeValue.isDistinct();
                 });
     }
 

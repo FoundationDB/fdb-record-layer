@@ -18,10 +18,10 @@ _
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}è
+}í
 \
-merge-comparison-keysCEXPLAIN select id from t_str_a where v in ('y', 'x') order by v asc‡
-ÎÇ™“&† Þíñ(n0­à²8±@ž[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_A_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Ådigraph G {
+merge-comparison-keysCEXPLAIN select id from t_str_a where v in ('y', 'x') order by v ascŒ
+á„‘È‡ Øõú(o0“…38³@¡[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_A_V [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Èdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -29,7 +29,7 @@ _
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(@c7))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q55]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q55._0]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_STR_A_V</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
   3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -81,11 +81,10 @@ k
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ù
+}þ
 h
-merge-comparison-keysOEXPLAIN select id from t_str_a where v in ('y', 'x') order by v desc nulls lastŒ
-–¶·Â’ ÚÌ­
-(t0‹€Á8¹@£[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_A_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Ådigraph G {
+merge-comparison-keysOEXPLAIN select id from t_str_a where v in ('y', 'x') order by v desc nulls last‘
+©Ó»£“ Íñè(u0¤å28»@¦[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_A_V [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Èdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -93,7 +92,7 @@ h
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(@c7))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q55]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q55._0]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_STR_A_V</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
   3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -145,29 +144,28 @@ h
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ù
+}Þ
 ]
-merge-comparison-keysDEXPLAIN select id from t_str_d where v in ('y', 'x') order by v desc÷
-Î‘—›† ¬ä’
-(n0†°Á8±@ë[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_D_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)èdigraph G {
+merge-comparison-keysDEXPLAIN select id from t_str_d where v in ('y', 'x') order by v descü
+áóæë‡ «çð(o0Èç38³@î[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_D_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)ëdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(@c7))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55, DESC_NULLS_LAST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(@c7))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55._0, DESC_NULLS_LAST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_STR_D_V</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
   3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q139> label="q139" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ label=<&nbsp;q139> label="q139" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
     rank=same;
     rankDir=LR;
-    3 -> 4 [ color="red" style="invis" ];
+    4 -> 3 [ color="red" style="invis" ];
   }
 }Ã
 ]
@@ -209,10 +207,10 @@ k
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ß
+}å
 h
-merge-comparison-keysOEXPLAIN select id from t_str_d where v in ('y', 'x') order by v asc nulls firstò
-–ŸØ¿’ ¢Ê„	(t0Ð°8¹@æ[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_D_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)èdigraph G {
+merge-comparison-keysOEXPLAIN select id from t_str_d where v in ('y', 'x') order by v asc nulls firstø
+©ëÑÙ“ ¯Ù”(u0Ð°8»@é[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_D_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)ëdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -220,7 +218,7 @@ h
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(@c7))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55, DESC_NULLS_LAST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55._0, DESC_NULLS_LAST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_STR_D_V</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
   3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -272,10 +270,10 @@ m
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ú
+}€
 j
-merge-comparison-keysQEXPLAIN select id from t_str_anf where v in ('y', 'x') order by v asc nulls first‹
-Î–‹â† ÷Ìá(n0ý­˜8±@ [IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_ANF_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Çdigraph G {
+merge-comparison-keysQEXPLAIN select id from t_str_anf where v in ('y', 'x') order by v asc nulls first‘
+áó¯³‡ ç„(o0ý­˜8³@£[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_ANF_V [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Êdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -283,7 +281,7 @@ j
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(@c7))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q55]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q55._0]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_STR_ANF_V</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
   3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -336,10 +334,10 @@ m
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ÿ
+}„
 j
-merge-comparison-keysQEXPLAIN select id from t_str_anf where v in ('y', 'x') order by v desc nulls last
-–‰Û’’ ’æÛ(t0ºÞ½8¹@¥[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_ANF_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Çdigraph G {
+merge-comparison-keysQEXPLAIN select id from t_str_anf where v in ('y', 'x') order by v desc nulls last•
+©ø«´“ ··Ë(u0éý18»@¨[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_ANF_V [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Êdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -347,7 +345,7 @@ j
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(@c7))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q55]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q55._0]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_STR_ANF_V</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
   3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -400,18 +398,18 @@ l
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}á
+}ð
 i
-merge-comparison-keysPEXPLAIN select id from t_str_anl where v in ('y', 'x') order by v asc nulls lastó
-¤Éúýƒ ½çà(k0³è~8¬@—[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_ANL_V [EQUALS to_ordered_bytes(q0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)¹digraph G {
+merge-comparison-keysPEXPLAIN select id from t_str_anl where v in ('y', 'x') order by v asc nulls last‚
+·’”Ì„ ¡Çá(l0³è~8®@š[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_ANL_V [EQUALS to_ordered_bytes(q0._0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)Ådigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">In Union</td></tr><tr><td align="left">COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q55 IN arrayDistinct(@c7)]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q55 IN explode(arrayDistinct(@c7))]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55, ASC_NULLS_LAST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55._0, ASC_NULLS_LAST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_STR_ANL_V</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
   3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -463,18 +461,18 @@ n
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}è
+}÷
 k
-merge-comparison-keysREXPLAIN select id from t_str_anl where v in ('y', 'x') order by v desc nulls firstø
-Òš ÚŒ ãØ›	(o0÷¨‚8±@™[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_ANL_V [EQUALS to_ordered_bytes(q0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)»digraph G {
+merge-comparison-keysREXPLAIN select id from t_str_anl where v in ('y', 'x') order by v desc nulls first‡
+å€’Ò ý’õ(p0÷¨‚8³@œ[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_ANL_V [EQUALS to_ordered_bytes(q0._0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)Çdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">In Union</td></tr><tr><td align="left">COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q55 IN arrayDistinct(@c7)]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q55 IN explode(arrayDistinct(@c7))]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55, ASC_NULLS_LAST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55._0, ASC_NULLS_LAST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_STR_ANL_V</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
   3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -526,28 +524,28 @@ n
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}í
+}ü
 k
-merge-comparison-keysREXPLAIN select id from t_str_dnf where v in ('y', 'x') order by v desc nulls firstý
-¤á¬ôƒ ‘øÆ(k0¦–w8¬@[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_DNF_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)½digraph G {
+merge-comparison-keysREXPLAIN select id from t_str_dnf where v in ('y', 'x') order by v desc nulls firstŒ
+·ÁâÂ„ Ûî…(l0¦–w8®@ [IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_DNF_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)Édigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">In Union</td></tr><tr><td align="left">COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q55 IN arrayDistinct(@c7)]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55, DESC_NULLS_FIRST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q55 IN explode(arrayDistinct(@c7))]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55._0, DESC_NULLS_FIRST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_STR_DNF_V</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
   3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q139> label="q139" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ label=<&nbsp;q139> label="q139" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
     rank=same;
     rankDir=LR;
-    3 -> 4 [ color="red" style="invis" ];
+    4 -> 3 [ color="red" style="invis" ];
   }
 }Û
 k
@@ -589,28 +587,28 @@ l
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ç
+}ö
 i
-merge-comparison-keysPEXPLAIN select id from t_str_dnf where v in ('y', 'x') order by v asc nulls lastù
-Ò¥”ñŒ ¨‹(o0öŠm8±@›[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_DNF_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)»digraph G {
+merge-comparison-keysPEXPLAIN select id from t_str_dnf where v in ('y', 'x') order by v asc nulls lastˆ
+å¥·‰ “Õâ(p0öŠm8³@ž[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_DNF_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)Çdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">In Union</td></tr><tr><td align="left">COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q55 IN arrayDistinct(@c7)]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55, DESC_NULLS_FIRST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q55 IN explode(arrayDistinct(@c7))]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55._0, DESC_NULLS_FIRST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_STR_DNF_V</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
   3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 3 [ label=<&nbsp;q139> label="q139" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q139> label="q139" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
     rank=same;
     rankDir=LR;
-    4 -> 3 [ color="red" style="invis" ];
+    3 -> 4 [ color="red" style="invis" ];
   }
 }
 i
@@ -652,10 +650,10 @@ m
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}é
+}ï
 j
-merge-comparison-keysQEXPLAIN select id from t_str_dnl where v in ('y', 'x') order by v desc nulls lastú
-Îã„ƒ† Ô‰Ã(n0Š¬n8±@í[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_DNL_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)êdigraph G {
+merge-comparison-keysQEXPLAIN select id from t_str_dnl where v in ('y', 'x') order by v desc nulls last€
+á•›Ä‡ ÿ˜Ô(o0Š¬n8³@ð[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_DNL_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)ídigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -663,7 +661,7 @@ j
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(@c7))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55, DESC_NULLS_LAST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55._0, DESC_NULLS_LAST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_STR_DNL_V</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
   3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -715,10 +713,10 @@ m
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ä
+}ê
 j
-merge-comparison-keysQEXPLAIN select id from t_str_dnl where v in ('y', 'x') order by v asc nulls firstõ
-–£ÕÛ’ ¾¾Š(t0¦µp8¹@è[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_DNL_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)êdigraph G {
+merge-comparison-keysQEXPLAIN select id from t_str_dnl where v in ('y', 'x') order by v asc nulls firstû
+©¥‘“ ´Øï(u0¦µp8»@ë[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_DNL_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)ídigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -726,7 +724,7 @@ j
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(@c7))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, STRING AS V)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55, DESC_NULLS_LAST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55._0, DESC_NULLS_LAST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_STR_DNL_V</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, STRING AS V)" ];
   3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -778,10 +776,10 @@ c
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}æ
+}ì
 `
-merge-comparison-keysGEXPLAIN select id from t_byt_a where v in (X'ff', X'01') order by v asc
-ÎŒÀÙ† Êõö(n0Âôo8±@ž[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_A_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Àdigraph G {
+merge-comparison-keysGEXPLAIN select id from t_byt_a where v in (X'ff', X'01') order by v asc‡
+áÊ²Ÿ‡ €þÃ(o0Âôo8³@¡[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_A_V [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Ãdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -789,7 +787,7 @@ c
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(@c7))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q55]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q55._0]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_BYT_A_V</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
   3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -841,28 +839,28 @@ o
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}÷
+}ý
 l
-merge-comparison-keysSEXPLAIN select id from t_byt_a where v in (X'ff', X'01') order by v desc nulls last†
-–š„Þ’ ¿…Ò(t0ìÈl8¹@£[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_A_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Àdigraph G {
+merge-comparison-keysSEXPLAIN select id from t_byt_a where v in (X'ff', X'01') order by v desc nulls lastŒ
+©¿ý¸“ ùÏÐ(u0ìÈl8»@¦[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_A_V [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Ãdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(@c7))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q55]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(@c7))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q55._0]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_BYT_A_V</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
   3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 3 [ label=<&nbsp;q139> label="q139" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q139> label="q139" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
     rank=same;
     rankDir=LR;
-    4 -> 3 [ color="red" style="invis" ];
+    3 -> 4 [ color="red" style="invis" ];
   }
 }å
 h
@@ -904,28 +902,28 @@ d
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}×
+}Ý
 a
-merge-comparison-keysHEXPLAIN select id from t_byt_d where v in (X'ff', X'01') order by v descñ
-Î¬Óý† –¾€(n0ðÁi8±@ë[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_D_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)ãdigraph G {
+merge-comparison-keysHEXPLAIN select id from t_byt_d where v in (X'ff', X'01') order by v desc÷
+áÀÕè‡ ç’ï(o0ðÁi8³@î[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_D_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)ædigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(@c7))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55, DESC_NULLS_LAST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(@c7))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55._0, DESC_NULLS_LAST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_BYT_D_V</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
   3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q139> label="q139" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ label=<&nbsp;q139> label="q139" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
     rank=same;
     rankDir=LR;
-    3 -> 4 [ color="red" style="invis" ];
+    4 -> 3 [ color="red" style="invis" ];
   }
 }½
 ]
@@ -967,10 +965,10 @@ o
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}Ý
+}ã
 l
-merge-comparison-keysSEXPLAIN select id from t_byt_d where v in (X'ff', X'01') order by v asc nulls firstì
-–•û›’ Œ©û(t0²‚v8¹@æ[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_D_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)ãdigraph G {
+merge-comparison-keysSEXPLAIN select id from t_byt_d where v in (X'ff', X'01') order by v asc nulls firstò
+©Ì›ˆ“ ã³÷(u0²‚v8»@é[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_D_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)ædigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -978,7 +976,7 @@ l
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(@c7))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55, DESC_NULLS_LAST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55._0, DESC_NULLS_LAST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_BYT_D_V</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
   3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -1030,28 +1028,28 @@ q
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ø
+}þ
 n
-merge-comparison-keysUEXPLAIN select id from t_byt_anf where v in (X'ff', X'01') order by v asc nulls first…
-Î÷ŒÐ† Æ£¤(n0Žõf8±@ [IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_ANF_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Âdigraph G {
+merge-comparison-keysUEXPLAIN select id from t_byt_anf where v in (X'ff', X'01') order by v asc nulls first‹
+áü¯‡ øÈ(o0Žõf8³@£[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_ANF_V [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Ådigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(@c7))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q55]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(@c7))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q55._0]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_BYT_ANF_V</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
   3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q139> label="q139" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ label=<&nbsp;q139> label="q139" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
     rank=same;
     rankDir=LR;
-    3 -> 4 [ color="red" style="invis" ];
+    4 -> 3 [ color="red" style="invis" ];
   }
 }û
 j
@@ -1093,28 +1091,28 @@ q
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ý
+}ƒ
 n
-merge-comparison-keysUEXPLAIN select id from t_byt_anf where v in (X'ff', X'01') order by v desc nulls lastŠ
-–àŒõ’ é¬ó(t0åÄV8¹@¥[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_ANF_V [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Âdigraph G {
+merge-comparison-keysUEXPLAIN select id from t_byt_anf where v in (X'ff', X'01') order by v desc nulls last
+©µ­Ç	“ ‰×Ò(u0åÄV8»@¨[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_ANF_V [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)Ådigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(@c7))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q55]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(@c7))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS q55._0]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_BYT_ANF_V</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
   3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 4 [ label=<&nbsp;q139> label="q139" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 3 [ label=<&nbsp;q139> label="q139" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
     rank=same;
     rankDir=LR;
-    3 -> 4 [ color="red" style="invis" ];
+    4 -> 3 [ color="red" style="invis" ];
   }
 }ï
 j
@@ -1156,28 +1154,28 @@ p
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}à
+}ï
 m
-merge-comparison-keysTEXPLAIN select id from t_byt_anl where v in (X'ff', X'01') order by v asc nulls lastî
-¤‚„ƒ ý¯¿(k0ˆ‹f8¬@—[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_ANL_V [EQUALS to_ordered_bytes(q0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)´digraph G {
+merge-comparison-keysTEXPLAIN select id from t_byt_anl where v in (X'ff', X'01') order by v asc nulls lastý
+·óÜ”„ Èô(l0ˆ‹f8®@š[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_ANL_V [EQUALS to_ordered_bytes(q0._0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)Àdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">In Union</td></tr><tr><td align="left">COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q55 IN arrayDistinct(@c7)]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55, ASC_NULLS_LAST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q55 IN explode(arrayDistinct(@c7))]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55._0, ASC_NULLS_LAST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_BYT_ANL_V</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
   3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 3 [ label=<&nbsp;q139> label="q139" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q139> label="q139" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
     rank=same;
     rankDir=LR;
-    4 -> 3 [ color="red" style="invis" ];
+    3 -> 4 [ color="red" style="invis" ];
   }
 }Ï
 i
@@ -1219,18 +1217,18 @@ r
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}æ
+}õ
 o
-merge-comparison-keysVEXPLAIN select id from t_byt_anl where v in (X'ff', X'01') order by v desc nulls firstò
-ÒèûƒŒ ¶‹Ä(o0¹û`8±@™[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_ANL_V [EQUALS to_ordered_bytes(q0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)¶digraph G {
+merge-comparison-keysVEXPLAIN select id from t_byt_anl where v in (X'ff', X'01') order by v desc nulls first
+å†Àù Þêî(p0¹û`8³@œ[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_ANL_V [EQUALS to_ordered_bytes(q0._0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)Âdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">In Union</td></tr><tr><td align="left">COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q55 IN arrayDistinct(@c7)]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q55 IN explode(arrayDistinct(@c7))]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55, ASC_NULLS_LAST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55._0, ASC_NULLS_LAST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_BYT_ANL_V</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
   3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -1282,18 +1280,18 @@ r
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ì
+}û
 o
-merge-comparison-keysVEXPLAIN select id from t_byt_dnf where v in (X'ff', X'01') order by v desc nulls firstø
-¤ Íöƒ ‡ê‰(k0ÀÉU8¬@[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_DNF_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)¸digraph G {
+merge-comparison-keysVEXPLAIN select id from t_byt_dnf where v in (X'ff', X'01') order by v desc nulls first‡
+·…ŒÖ„ ªõå(l0ÀÉU8®@ [IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_DNF_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)Ädigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">In Union</td></tr><tr><td align="left">COMPARE BY (to_ordered_bytes(_.V, DESC_NULLS_FIRST), _.ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q55 IN arrayDistinct(@c7)]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q55 IN explode(arrayDistinct(@c7))]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55, DESC_NULLS_FIRST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55._0, DESC_NULLS_FIRST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_BYT_DNF_V</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
   3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -1345,18 +1343,18 @@ p
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}æ
+}õ
 m
-merge-comparison-keysTEXPLAIN select id from t_byt_dnf where v in (X'ff', X'01') order by v asc nulls lastô
-Ò¢êÙŒ  ¬ë(o0„äW8±@›[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_DNF_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)¶digraph G {
+merge-comparison-keysTEXPLAIN select id from t_byt_dnf where v in (X'ff', X'01') order by v asc nulls lastƒ
+å‚ÜÛ áçß(p0„äW8³@ž[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_DNF_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)Âdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">In Union</td></tr><tr><td align="left">COMPARE BY (to_ordered_bytes(_.V, ASC_NULLS_LAST), _.ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q55 IN arrayDistinct(@c7)]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Values</td></tr><tr><td align="left">VALUES([__corr_q55 IN explode(arrayDistinct(@c7))]</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55, DESC_NULLS_FIRST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55._0, DESC_NULLS_FIRST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_BYT_DNF_V</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
   3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -1408,10 +1406,10 @@ q
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}è
+}î
 n
-merge-comparison-keysUEXPLAIN select id from t_byt_dnl where v in (X'ff', X'01') order by v desc nulls lastõ
-ÎÔÐý† ‹æÍ(n0· Q8±@í[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_DNL_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)ådigraph G {
+merge-comparison-keysUEXPLAIN select id from t_byt_dnl where v in (X'ff', X'01') order by v desc nulls lastû
+á«Õ¶‡ èÙÒ(o0· Q8³@ð[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_DNL_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)èdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
@@ -1419,7 +1417,7 @@ n
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
   3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(@c7))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
   4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55, DESC_NULLS_LAST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55._0, DESC_NULLS_LAST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_BYT_DNL_V</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
   3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
@@ -1471,28 +1469,28 @@ q
   6 -> 4 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   7 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-}ã
+}é
 n
-merge-comparison-keysUEXPLAIN select id from t_byt_dnl where v in (X'ff', X'01') order by v asc nulls firstð
-–ÚµÚ’ Í›à(t0øèV8¹@è[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_DNL_V [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)ådigraph G {
+merge-comparison-keysUEXPLAIN select id from t_byt_dnl where v in (X'ff', X'01') order by v asc nulls firstö
+©Å š“ ´çó(u0øèV8»@ë[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_DNL_V [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0], DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)èdigraph G {
   fontname=courier;
   rankdir=BT;
   splines=line;
   1 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q6.ID AS ID)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID)" ];
   2 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Nested Loop Join</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="12" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
-  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
-  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(@c7))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
-  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55, DESC_NULLS_LAST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
+  3 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Table Function</td></tr><tr><td align="left">EXPLODE(arrayDistinct(@c7))</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="darkseagreen2" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
+  4 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Value Computation</td></tr><tr><td align="left">MAP (q139.ID AS ID, q139.V AS V)</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, BYTES AS V)" ];
+  5 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Covering Index Scan</td></tr><tr><td align="left">comparisons: [EQUALS to_ordered_bytes(q55._0, DESC_NULLS_LAST)]</td></tr></table>> color="black" shape="plain" style="solid" fillcolor="black" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
   6 [ label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="8"><tr><td align="left">Index</td></tr><tr><td align="left">T_BYT_DNL_V</td></tr></table>> color="black" shape="plain" style="filled" fillcolor="lightblue" fontname="courier" fontsize="8" tooltip="RELATION(LONG AS ID, LONG AS A, LONG AS C, BYTES AS V)" ];
   3 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   4 -> 2 [ color="black" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
-  5 -> 3 [ label=<&nbsp;q139> label="q139" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
+  5 -> 4 [ label=<&nbsp;q139> label="q139" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   6 -> 5 [ color="gray20" style="solid" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   2 -> 1 [ label=<&nbsp;q6> label="q6" color="gray20" style="bold" fontname="courier" fontsize="8" arrowhead="normal" arrowtail="none" dir="both" ];
   {
     rank=same;
     rankDir=LR;
-    4 -> 3 [ color="red" style="invis" ];
+    3 -> 4 [ color="red" style="invis" ];
   }
 }Æ
 j

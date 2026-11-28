@@ -83,15 +83,14 @@ cte-tests:
         as (select c1.x, c1.y, c2.a, c2.b from c1, c2 where c1.x < c2.a) select x1,
         y1, a1, b1 from combined
     ref: cte.yamsql:156
-    explain: 'ISCAN(I1 [[LESS_THAN promote(@c18 AS LONG)]]) | FLATMAP q0 -> { COVERING(I1
-        <,> -> [COL1: KEY:[1], COL2: KEY:[0], ID: KEY:[3]]) | FILTER _.COL1 EQUALS
-        promote(@c38 AS LONG) AND q0.ID LESS_THAN _.ID | FETCH AS q1 RETURN (q0.ID
-        AS X1, q0.COL1 AS Y1, q1.ID AS A1, q1.COL2 AS B1) }'
-    task_count: 1201
-    task_total_time_ms: 19
-    transform_count: 306
+    explain: ISCAN(I1 [[LESS_THAN promote(@c18 AS LONG)]]) | FLATMAP q0 -> { SCAN([IS
+        T1, [GREATER_THAN q0.ID]]) | FILTER _.COL1 EQUALS promote(@c38 AS LONG) AS
+        q1 RETURN (q0.ID AS X1, q0.COL1 AS Y1, q1.ID AS A1, q1.COL2 AS B1) }
+    task_count: 1211
+    task_total_time_ms: 14
+    transform_count: 307
     transform_time_ms: 8
-    transform_yield_count: 88
+    transform_yield_count: 89
     insert_time_ms: 0
-    insert_new_count: 164
-    insert_reused_count: 11
+    insert_new_count: 166
+    insert_reused_count: 10

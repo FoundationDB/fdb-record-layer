@@ -38,9 +38,11 @@ import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalSort
 import com.apple.foundationdb.record.query.plan.cascades.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.FieldValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
@@ -127,6 +129,22 @@ public class FDBQueryGraphTestHelpers extends FDBRecordStoreQueryTestBase {
     @Nonnull
     public static Quantifier fullTypeScan(@Nonnull RecordMetaData metaData, @Nonnull String typeName) {
         return fullTypeScan(metaData, typeName, fullScan(metaData));
+    }
+
+    /**
+     * {@return a quantifier over an explode of the collection}
+     */
+    @Nonnull
+    public static Quantifier.ForEach explode(@Nonnull Value collectionValue) {
+        return Quantifier.forEach(Reference.initialOf(new TableFunctionExpression(new ExplodeValue(collectionValue))));
+    }
+
+    /**
+     * {@return the element an explode quantifier flows}
+     */
+    @Nonnull
+    public static Value elementOf(@Nonnull Quantifier explodeQun) {
+        return ExplodeValue.elementValue(explodeQun.getFlowedObjectValue());
     }
 
     @Nonnull

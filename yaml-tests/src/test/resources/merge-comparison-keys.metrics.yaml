@@ -16,15 +16,15 @@ merge-comparison-keys:
 -   query: EXPLAIN select id from t_str_a where v in ('y', 'x') order by v asc
     ref: merge-comparison-keys.yamsql:164
     explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_A_V [EQUALS
-        q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID
-        AS ID)'
-    task_count: 1486
-    task_total_time_ms: 80
-    transform_count: 390
-    transform_time_ms: 35
-    transform_yield_count: 110
-    insert_time_ms: 5
-    insert_new_count: 177
+        q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP
+        (_.ID AS ID)'
+    task_count: 1505
+    task_total_time_ms: 15
+    transform_count: 391
+    transform_time_ms: 6
+    transform_yield_count: 111
+    insert_time_ms: 0
+    insert_new_count: 179
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_str_a where a = 1 and c = 1 order by v asc
     ref: merge-comparison-keys.yamsql:168
@@ -58,15 +58,15 @@ merge-comparison-keys:
         last
     ref: merge-comparison-keys.yamsql:176
     explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_A_V
-        [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } |
-        MAP (_.ID AS ID)'
-    task_count: 1558
-    task_total_time_ms: 55
-    transform_count: 402
-    transform_time_ms: 21
-    transform_yield_count: 116
-    insert_time_ms: 3
-    insert_new_count: 185
+        [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V)
+        } | MAP (_.ID AS ID)'
+    task_count: 1577
+    task_total_time_ms: 17
+    transform_count: 403
+    transform_time_ms: 5
+    transform_yield_count: 117
+    insert_time_ms: 0
+    insert_new_count: 187
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_str_a where a = 1 and c = 1 order by v desc nulls
         last
@@ -100,15 +100,15 @@ merge-comparison-keys:
 -   query: EXPLAIN select id from t_str_d where v in ('y', 'x') order by v desc
     ref: merge-comparison-keys.yamsql:188
     explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_D_V
-        [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)'
-    task_count: 1486
-    task_total_time_ms: 50
-    transform_count: 390
-    transform_time_ms: 21
-    transform_yield_count: 110
-    insert_time_ms: 3
-    insert_new_count: 177
+    task_count: 1505
+    task_total_time_ms: 16
+    transform_count: 391
+    transform_time_ms: 6
+    transform_yield_count: 111
+    insert_time_ms: 0
+    insert_new_count: 179
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_str_d where a = 1 and c = 1 order by v desc
     ref: merge-comparison-keys.yamsql:192
@@ -143,15 +143,15 @@ merge-comparison-keys:
         first
     ref: merge-comparison-keys.yamsql:200
     explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_D_V [EQUALS
-        to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)'
-    task_count: 1558
-    task_total_time_ms: 47
-    transform_count: 402
-    transform_time_ms: 18
-    transform_yield_count: 116
+    task_count: 1577
+    task_total_time_ms: 18
+    transform_count: 403
+    transform_time_ms: 6
+    transform_yield_count: 117
     insert_time_ms: 2
-    insert_new_count: 185
+    insert_new_count: 187
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_str_d where a = 1 and c = 1 order by v asc nulls
         first
@@ -186,15 +186,15 @@ merge-comparison-keys:
         first
     ref: merge-comparison-keys.yamsql:212
     explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_ANF_V
-        [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } |
-        MAP (_.ID AS ID)'
-    task_count: 1486
-    task_total_time_ms: 39
-    transform_count: 390
-    transform_time_ms: 16
-    transform_yield_count: 110
+        [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V)
+        } | MAP (_.ID AS ID)'
+    task_count: 1505
+    task_total_time_ms: 17
+    transform_count: 391
+    transform_time_ms: 6
+    transform_yield_count: 111
     insert_time_ms: 2
-    insert_new_count: 177
+    insert_new_count: 179
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_str_anf where a = 1 and c = 1 order by v asc nulls
         first
@@ -229,15 +229,15 @@ merge-comparison-keys:
         nulls last
     ref: merge-comparison-keys.yamsql:224
     explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_ANF_V
-        [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } |
-        MAP (_.ID AS ID)'
-    task_count: 1558
-    task_total_time_ms: 42
-    transform_count: 402
-    transform_time_ms: 16
-    transform_yield_count: 116
-    insert_time_ms: 3
-    insert_new_count: 185
+        [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V)
+        } | MAP (_.ID AS ID)'
+    task_count: 1577
+    task_total_time_ms: 15
+    transform_count: 403
+    transform_time_ms: 5
+    transform_yield_count: 117
+    insert_time_ms: 0
+    insert_new_count: 187
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_str_anf where a = 1 and c = 1 order by v desc
         nulls last
@@ -273,16 +273,16 @@ merge-comparison-keys:
         last
     ref: merge-comparison-keys.yamsql:236
     explain: '[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_ANL_V [EQUALS
-        to_ordered_bytes(q0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        to_ordered_bytes(q0._0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V,
         ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)'
-    task_count: 1444
-    task_total_time_ms: 35
-    transform_count: 387
-    transform_time_ms: 14
-    transform_yield_count: 107
+    task_count: 1463
+    task_total_time_ms: 15
+    transform_count: 388
+    transform_time_ms: 5
+    transform_yield_count: 108
     insert_time_ms: 2
-    insert_new_count: 172
+    insert_new_count: 174
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_str_anl where a = 1 and c = 1 order by v asc nulls
         last
@@ -317,16 +317,16 @@ merge-comparison-keys:
         nulls first
     ref: merge-comparison-keys.yamsql:248
     explain: '[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_ANL_V [EQUALS
-        to_ordered_bytes(q0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        to_ordered_bytes(q0._0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V,
         DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)'
-    task_count: 1490
-    task_total_time_ms: 41
-    transform_count: 396
-    transform_time_ms: 19
-    transform_yield_count: 111
+    task_count: 1509
+    task_total_time_ms: 18
+    transform_count: 397
+    transform_time_ms: 6
+    transform_yield_count: 112
     insert_time_ms: 2
-    insert_new_count: 177
+    insert_new_count: 179
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_str_anl where a = 1 and c = 1 order by v desc
         nulls first
@@ -361,16 +361,16 @@ merge-comparison-keys:
         nulls first
     ref: merge-comparison-keys.yamsql:260
     explain: '[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_DNF_V [EQUALS
-        to_ordered_bytes(q0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        to_ordered_bytes(q0._0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V,
         DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)'
-    task_count: 1444
-    task_total_time_ms: 33
-    transform_count: 387
-    transform_time_ms: 13
-    transform_yield_count: 107
+    task_count: 1463
+    task_total_time_ms: 17
+    transform_count: 388
+    transform_time_ms: 6
+    transform_yield_count: 108
     insert_time_ms: 1
-    insert_new_count: 172
+    insert_new_count: 174
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_str_dnf where a = 1 and c = 1 order by v desc
         nulls first
@@ -405,16 +405,16 @@ merge-comparison-keys:
         last
     ref: merge-comparison-keys.yamsql:272
     explain: '[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_STR_DNF_V [EQUALS
-        to_ordered_bytes(q0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        to_ordered_bytes(q0._0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V,
         ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)'
-    task_count: 1490
-    task_total_time_ms: 33
-    transform_count: 396
-    transform_time_ms: 13
-    transform_yield_count: 111
+    task_count: 1509
+    task_total_time_ms: 16
+    transform_count: 397
+    transform_time_ms: 5
+    transform_yield_count: 112
     insert_time_ms: 1
-    insert_new_count: 177
+    insert_new_count: 179
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_str_dnf where a = 1 and c = 1 order by v asc nulls
         last
@@ -450,15 +450,15 @@ merge-comparison-keys:
         nulls last
     ref: merge-comparison-keys.yamsql:284
     explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_STR_DNL_V
-        [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)'
-    task_count: 1486
-    task_total_time_ms: 33
-    transform_count: 390
-    transform_time_ms: 13
-    transform_yield_count: 110
+    task_count: 1505
+    task_total_time_ms: 15
+    transform_count: 391
+    transform_time_ms: 5
+    transform_yield_count: 111
     insert_time_ms: 1
-    insert_new_count: 177
+    insert_new_count: 179
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_str_dnl where a = 1 and c = 1 order by v desc
         nulls last
@@ -494,15 +494,15 @@ merge-comparison-keys:
         first
     ref: merge-comparison-keys.yamsql:296
     explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_STR_DNL_V
-        [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)'
-    task_count: 1558
-    task_total_time_ms: 32
-    transform_count: 402
-    transform_time_ms: 12
-    transform_yield_count: 116
+    task_count: 1577
+    task_total_time_ms: 16
+    transform_count: 403
+    transform_time_ms: 6
+    transform_yield_count: 117
     insert_time_ms: 1
-    insert_new_count: 185
+    insert_new_count: 187
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_str_dnl where a = 1 and c = 1 order by v asc nulls
         first
@@ -536,15 +536,15 @@ merge-comparison-keys:
 -   query: EXPLAIN select id from t_byt_a where v in (X'ff', X'01') order by v asc
     ref: merge-comparison-keys.yamsql:308
     explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_A_V [EQUALS
-        q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID
-        AS ID)'
-    task_count: 1486
-    task_total_time_ms: 30
-    transform_count: 390
-    transform_time_ms: 12
-    transform_yield_count: 110
+        q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } | MAP
+        (_.ID AS ID)'
+    task_count: 1505
+    task_total_time_ms: 15
+    transform_count: 391
+    transform_time_ms: 5
+    transform_yield_count: 111
     insert_time_ms: 1
-    insert_new_count: 177
+    insert_new_count: 179
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_byt_a where a = 1 and c = 1 order by v asc
     ref: merge-comparison-keys.yamsql:312
@@ -578,15 +578,15 @@ merge-comparison-keys:
         nulls last
     ref: merge-comparison-keys.yamsql:320
     explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_A_V
-        [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } |
-        MAP (_.ID AS ID)'
-    task_count: 1558
-    task_total_time_ms: 30
-    transform_count: 402
-    transform_time_ms: 11
-    transform_yield_count: 116
+        [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V)
+        } | MAP (_.ID AS ID)'
+    task_count: 1577
+    task_total_time_ms: 15
+    transform_count: 403
+    transform_time_ms: 5
+    transform_yield_count: 117
     insert_time_ms: 1
-    insert_new_count: 185
+    insert_new_count: 187
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_byt_a where a = 1 and c = 1 order by v desc nulls
         last
@@ -621,15 +621,15 @@ merge-comparison-keys:
 -   query: EXPLAIN select id from t_byt_d where v in (X'ff', X'01') order by v desc
     ref: merge-comparison-keys.yamsql:332
     explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_D_V
-        [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)'
-    task_count: 1486
-    task_total_time_ms: 31
-    transform_count: 390
-    transform_time_ms: 12
-    transform_yield_count: 110
+    task_count: 1505
+    task_total_time_ms: 16
+    transform_count: 391
+    transform_time_ms: 6
+    transform_yield_count: 111
     insert_time_ms: 1
-    insert_new_count: 177
+    insert_new_count: 179
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_byt_d where a = 1 and c = 1 order by v desc
     ref: merge-comparison-keys.yamsql:336
@@ -664,15 +664,15 @@ merge-comparison-keys:
         nulls first
     ref: merge-comparison-keys.yamsql:344
     explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_D_V [EQUALS
-        to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)'
-    task_count: 1558
-    task_total_time_ms: 31
-    transform_count: 402
-    transform_time_ms: 12
-    transform_yield_count: 116
+    task_count: 1577
+    task_total_time_ms: 16
+    transform_count: 403
+    transform_time_ms: 6
+    transform_yield_count: 117
     insert_time_ms: 1
-    insert_new_count: 185
+    insert_new_count: 187
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_byt_d where a = 1 and c = 1 order by v asc nulls
         first
@@ -707,15 +707,15 @@ merge-comparison-keys:
         nulls first
     ref: merge-comparison-keys.yamsql:356
     explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_ANF_V
-        [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } |
-        MAP (_.ID AS ID)'
-    task_count: 1486
-    task_total_time_ms: 30
-    transform_count: 390
-    transform_time_ms: 13
-    transform_yield_count: 110
+        [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V)
+        } | MAP (_.ID AS ID)'
+    task_count: 1505
+    task_total_time_ms: 14
+    transform_count: 391
+    transform_time_ms: 5
+    transform_yield_count: 111
     insert_time_ms: 1
-    insert_new_count: 177
+    insert_new_count: 179
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_byt_anf where a = 1 and c = 1 order by v asc nulls
         first
@@ -750,15 +750,15 @@ merge-comparison-keys:
         nulls last
     ref: merge-comparison-keys.yamsql:368
     explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_ANF_V
-        [EQUALS q0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V) } |
-        MAP (_.ID AS ID)'
-    task_count: 1558
-    task_total_time_ms: 27
-    transform_count: 402
-    transform_time_ms: 10
-    transform_yield_count: 116
+        [EQUALS q0._0] -> [ID: KEY:[2], V: KEY:[0]]) | MAP (_.ID AS ID, _.V AS V)
+        } | MAP (_.ID AS ID)'
+    task_count: 1577
+    task_total_time_ms: 20
+    transform_count: 403
+    transform_time_ms: 7
+    transform_yield_count: 117
     insert_time_ms: 1
-    insert_new_count: 185
+    insert_new_count: 187
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_byt_anf where a = 1 and c = 1 order by v desc
         nulls last
@@ -794,16 +794,16 @@ merge-comparison-keys:
         nulls last
     ref: merge-comparison-keys.yamsql:380
     explain: '[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_ANL_V [EQUALS
-        to_ordered_bytes(q0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        to_ordered_bytes(q0._0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V,
         ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)'
-    task_count: 1444
-    task_total_time_ms: 29
-    transform_count: 387
-    transform_time_ms: 11
-    transform_yield_count: 107
+    task_count: 1463
+    task_total_time_ms: 17
+    transform_count: 388
+    transform_time_ms: 6
+    transform_yield_count: 108
     insert_time_ms: 1
-    insert_new_count: 172
+    insert_new_count: 174
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_byt_anl where a = 1 and c = 1 order by v asc nulls
         last
@@ -838,16 +838,16 @@ merge-comparison-keys:
         nulls first
     ref: merge-comparison-keys.yamsql:392
     explain: '[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_ANL_V [EQUALS
-        to_ordered_bytes(q0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        to_ordered_bytes(q0._0, ASC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         ASC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V,
         DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)'
-    task_count: 1490
-    task_total_time_ms: 29
-    transform_count: 396
-    transform_time_ms: 11
-    transform_yield_count: 111
+    task_count: 1509
+    task_total_time_ms: 16
+    transform_count: 397
+    transform_time_ms: 6
+    transform_yield_count: 112
     insert_time_ms: 1
-    insert_new_count: 177
+    insert_new_count: 179
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_byt_anl where a = 1 and c = 1 order by v desc
         nulls first
@@ -882,16 +882,16 @@ merge-comparison-keys:
         nulls first
     ref: merge-comparison-keys.yamsql:404
     explain: '[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_DNF_V [EQUALS
-        to_ordered_bytes(q0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        to_ordered_bytes(q0._0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V,
         DESC_NULLS_FIRST), _.ID) | MAP (_.ID AS ID)'
-    task_count: 1444
-    task_total_time_ms: 27
-    transform_count: 387
-    transform_time_ms: 10
-    transform_yield_count: 107
+    task_count: 1463
+    task_total_time_ms: 16
+    transform_count: 388
+    transform_time_ms: 5
+    transform_yield_count: 108
     insert_time_ms: 1
-    insert_new_count: 172
+    insert_new_count: 174
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_byt_dnf where a = 1 and c = 1 order by v desc
         nulls first
@@ -926,16 +926,16 @@ merge-comparison-keys:
         nulls last
     ref: merge-comparison-keys.yamsql:416
     explain: '[IN arrayDistinct(@c7)] INUNION q0 -> { COVERING(T_BYT_DNF_V [EQUALS
-        to_ordered_bytes(q0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        to_ordered_bytes(q0._0, DESC_NULLS_FIRST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         DESC_NULLS_FIRST)]) | MAP (_.ID AS ID, _.V AS V) } COMPARE BY (to_ordered_bytes(_.V,
         ASC_NULLS_LAST), _.ID) | MAP (_.ID AS ID)'
-    task_count: 1490
-    task_total_time_ms: 30
-    transform_count: 396
-    transform_time_ms: 10
-    transform_yield_count: 111
+    task_count: 1509
+    task_total_time_ms: 16
+    transform_count: 397
+    transform_time_ms: 5
+    transform_yield_count: 112
     insert_time_ms: 1
-    insert_new_count: 177
+    insert_new_count: 179
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_byt_dnf where a = 1 and c = 1 order by v asc nulls
         last
@@ -971,15 +971,15 @@ merge-comparison-keys:
         nulls last
     ref: merge-comparison-keys.yamsql:428
     explain: '[IN arrayDistinct(@c7) SORTED DESC] | INJOIN q0 -> { COVERING(T_BYT_DNL_V
-        [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)'
-    task_count: 1486
-    task_total_time_ms: 25
-    transform_count: 390
-    transform_time_ms: 9
-    transform_yield_count: 110
+    task_count: 1505
+    task_total_time_ms: 15
+    transform_count: 391
+    transform_time_ms: 5
+    transform_yield_count: 111
     insert_time_ms: 1
-    insert_new_count: 177
+    insert_new_count: 179
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_byt_dnl where a = 1 and c = 1 order by v desc
         nulls last
@@ -1015,15 +1015,15 @@ merge-comparison-keys:
         nulls first
     ref: merge-comparison-keys.yamsql:440
     explain: '[IN arrayDistinct(@c7) SORTED] | INJOIN q0 -> { COVERING(T_BYT_DNL_V
-        [EQUALS to_ordered_bytes(q0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
+        [EQUALS to_ordered_bytes(q0._0, DESC_NULLS_LAST)] -> [ID: KEY:[2], V: from_ordered_bytes(KEY:[0],
         DESC_NULLS_LAST)]) | MAP (_.ID AS ID, _.V AS V) } | MAP (_.ID AS ID)'
-    task_count: 1558
-    task_total_time_ms: 26
-    transform_count: 402
-    transform_time_ms: 9
-    transform_yield_count: 116
+    task_count: 1577
+    task_total_time_ms: 17
+    transform_count: 403
+    transform_time_ms: 6
+    transform_yield_count: 117
     insert_time_ms: 1
-    insert_new_count: 185
+    insert_new_count: 187
     insert_reused_count: 4
 -   query: EXPLAIN select id from t_byt_dnl where a = 1 and c = 1 order by v asc nulls
         first

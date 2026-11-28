@@ -25,7 +25,9 @@ import com.apple.foundationdb.record.query.plan.QueryPlanConstraint;
 import com.apple.foundationdb.record.query.plan.cascades.OrderingPart.MatchedOrderingPart;
 import com.apple.foundationdb.record.query.plan.cascades.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.cascades.expressions.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.cascades.expressions.TableFunctionExpression;
 import com.apple.foundationdb.record.query.plan.cascades.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.cascades.values.ExplodeValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.MaxMatchMap;
 import com.apple.foundationdb.record.query.plan.cascades.values.translation.PullUp;
@@ -68,6 +70,34 @@ public interface MatchInfo {
 
     @Nonnull
     RegularMatchInfo getRegularMatchInfo();
+
+    /**
+     * {@return whether this match is correct only under an existential quantifier}
+     *
+     * <p>A match that has this flag is correct only if an existential quantifier is above it. An existential
+     * quantifier does not count the rows. It only finds if a row exists.
+     *
+     * <p>One instance is the match of a distinct explode (see {@link ExplodeValue#isDistinct()}), which can only match
+     * a query explode under an {@code EXISTS}. For example, the table {@code T5} has a {@code numbers} array and
+     * an index on its elements. The row {@code (1, [5, 5, 7])} has one index entry for 5 and one for 7, but an explode
+     * of {@code numbers} gives 5, 5 and 7. Thus the index can replace the explode only in a query such as:
+     * <pre>{@code
+     * SELECT id FROM T5 AS row WHERE EXISTS (SELECT 1 FROM row.numbers AS number WHERE number = 5)
+     * }</pre>
+     * {@link TableFunctionExpression#subsumedBy} matches the query explode to the distinct explode of the index and
+     * sets the flag in the {@link MatchInfo}. The flag then moves up with the match, and each parent decides if it
+     * can be swallowed:
+     * <ul>
+     *     <li>The select of the subquery ranges over the explode with a for-each quantifier. This has a different
+     *     semantics from what the match has to offer. Hence, the flag is kept.</li>
+     *     <li>The outer select ranges over the subquery with an existential quantifier, because of the
+     *     {@code EXISTS}. It only finds if the subquery has a row, so the missing rows do not change its result. The
+     *     flag is kept.</li>
+     * </ul>
+     * The complete match does not have the flag, so the planner uses the index. Without the {@code EXISTS}, no
+     * existential quantifier clears the flag, and the planner does not use the index.
+     */
+    boolean requiresExistential();
 
     @Nonnull
     Map<QueryPredicate, PredicateMapping> collectPulledUpPredicateMappings(@Nonnull RelationalExpression candidateExpression,
@@ -178,6 +208,11 @@ public interface MatchInfo {
         @Nonnull
         private final QueryPlanConstraint additionalPlanConstraint;
 
+        /**
+         * Whether the match is correct only under an existential quantifier. See {@link MatchInfo#requiresExistential()}.
+         */
+        private final boolean requiresExistential;
+
         private RegularMatchInfo(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
                                  @Nonnull final AliasMap bindingAliasMap,
                                  @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
@@ -186,7 +221,8 @@ public interface MatchInfo {
                                  @Nonnull final MaxMatchMap maxMatchMap,
                                  @Nonnull final GroupByMappings groupByMappings,
                                  @Nullable final List<Value> rollUpToGroupingValues,
-                                 @Nonnull final QueryPlanConstraint additionalPlanConstraint) {
+                                 @Nonnull final QueryPlanConstraint additionalPlanConstraint,
+                                 final boolean requiresExistential) {
             this.parameterBindingMap = ImmutableMap.copyOf(parameterBindingMap);
             this.bindingAliasMap = bindingAliasMap;
             this.partialMatchMap = partialMatchMap.toImmutable();
@@ -203,6 +239,7 @@ public interface MatchInfo {
             this.rollUpToGroupingValues = rollUpToGroupingValues == null
                                           ? null : ImmutableList.copyOf(rollUpToGroupingValues);
             this.additionalPlanConstraint = additionalPlanConstraint;
+            this.requiresExistential = requiresExistential;
         }
 
         @Nonnull
@@ -289,6 +326,11 @@ public interface MatchInfo {
         }
 
         @Override
+        public boolean requiresExistential() {
+            return requiresExistential;
+        }
+
+        @Override
         public boolean isAdjusted() {
             return false;
         }
@@ -322,8 +364,17 @@ public interface MatchInfo {
                                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                                           @Nonnull final MaxMatchMap maxMatchMap) {
             return tryMerge(bindingAliasMap, partialMatchMap, ImmutableMap.of(), PredicateMap.empty(),
+                    maxMatchMap, GroupByMappings.empty(), null, maxMatchMap.getQueryPlanConstraint());
+        }
+
+        @Nonnull
+        public static Optional<MatchInfo> tryFromMatchMap(@Nonnull final AliasMap bindingAliasMap,
+                                                          @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
+                                                          @Nonnull final MaxMatchMap maxMatchMap,
+                                                          final boolean requiresExistential) {
+            return tryMerge(bindingAliasMap, partialMatchMap, ImmutableMap.of(), PredicateMap.empty(),
                     maxMatchMap, GroupByMappings.empty(), null,
-                    maxMatchMap.getQueryPlanConstraint());
+                    maxMatchMap.getQueryPlanConstraint(), requiresExistential);
         }
 
         @Nonnull
@@ -335,6 +386,30 @@ public interface MatchInfo {
                                                    @Nonnull final GroupByMappings additionalGroupByMappings,
                                                    @Nullable final List<Value> rollUpToGroupingValues,
                                                    @Nonnull final QueryPlanConstraint additionalPlanConstraint) {
+            // Only a select expression can make a match that requires an existential correct. Thus this overload, for
+            // all other expressions, does not accept a child match that requires one. See
+            // MatchInfo#requiresExistential().
+            if (partialMatchMap.values()
+                    .stream()
+                    .anyMatch(partialMatch -> Objects.requireNonNull(partialMatch.get()).getMatchInfo()
+                            .requiresExistential())) {
+                return Optional.empty();
+            }
+            return tryMerge(bindingAliasMap, partialMatchMap, parameterBindingMap, predicateMap, maxMatchMap,
+                    additionalGroupByMappings, rollUpToGroupingValues, additionalPlanConstraint, false);
+        }
+
+        @Nonnull
+        @SuppressWarnings("checkstyle:ParameterNumber")
+        public static Optional<MatchInfo> tryMerge(@Nonnull final AliasMap bindingAliasMap,
+                                                   @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
+                                                   @Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
+                                                   @Nonnull final PredicateMultiMap predicateMap,
+                                                   @Nonnull final MaxMatchMap maxMatchMap,
+                                                   @Nonnull final GroupByMappings additionalGroupByMappings,
+                                                   @Nullable final List<Value> rollUpToGroupingValues,
+                                                   @Nonnull final QueryPlanConstraint additionalPlanConstraint,
+                                                   final boolean requiresExistential) {
             final var parameterMapsBuilder = ImmutableList.<Map<CorrelationIdentifier, ComparisonRange>>builder();
             final var matchInfos = PartialMatch.matchInfosFromMap(partialMatchMap);
 
@@ -397,7 +472,8 @@ public interface MatchInfo {
                             maxMatchMap,
                             matchedAggregateValueMap,
                             resolvedRollUpToGroupingValues,
-                            additionalPlanConstraint));
+                            additionalPlanConstraint,
+                            requiresExistential));
         }
 
         public static Optional<Map<CorrelationIdentifier, ComparisonRange>> tryMergeParameterBindings(final Collection<Map<CorrelationIdentifier, ComparisonRange>> parameterBindingMaps) {
@@ -642,6 +718,11 @@ public interface MatchInfo {
         @Override
         public RegularMatchInfo getRegularMatchInfo() {
             return underlying.getRegularMatchInfo();
+        }
+
+        @Override
+        public boolean requiresExistential() {
+            return underlying.requiresExistential();
         }
 
         @Nonnull

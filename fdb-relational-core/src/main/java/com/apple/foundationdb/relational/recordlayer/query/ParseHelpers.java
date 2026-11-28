@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.cascades.typing.TypeRepository;
 import com.apple.foundationdb.record.query.plan.cascades.values.Value;
 import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.generated.RelationalLexer;
 import com.apple.foundationdb.relational.generated.RelationalParser;
 import com.apple.foundationdb.relational.recordlayer.util.Hex;
 
@@ -39,6 +40,8 @@ import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.ParseTree;
+import org.antlr.v4.runtime.tree.TerminalNode;
+import org.antlr.v4.runtime.tree.Trees;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -270,6 +273,28 @@ public final class ParseHelpers {
             return false; // Default is ASC
         }
         return orderClause.DESC() != null;
+    }
+
+    /**
+     * Computes the indexes of the unnamed prepared statement parameters ({@code ?}) of a statement. JDBC numbers
+     * unnamed parameters by the order in which they appear in the statement, so the index of a parameter is the rank
+     * of its token among all the {@code ?} tokens of the statement.
+     *
+     * @param root the root of the parse tree of the statement
+     * @return the 1-based index of every unnamed parameter, by the index of its token in the statement
+     */
+    @Nonnull
+    public static Map<Integer, Integer> unnamedParameterIndexes(@Nonnull final ParseTree root) {
+        final var tokenIndexes = Trees.findAllTokenNodes(root, RelationalLexer.QUESTION).stream()
+                .map(node -> ((TerminalNode)node).getSymbol().getTokenIndex())
+                .sorted()
+                .iterator();
+        final var indexes = ImmutableMap.<Integer, Integer>builder();
+        int index = 1;
+        while (tokenIndexes.hasNext()) {
+            indexes.put(tokenIndexes.next(), index++);
+        }
+        return indexes.build();
     }
 
     @Nonnull

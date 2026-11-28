@@ -60,6 +60,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.MultiMatcher.some;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PartialMatchMatchers.completeMatch;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PartialMatchMatchers.matchingWithPrimaryKeyMatchCandidate;
+import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.PartialMatchMatchers.notRequiringExistential;
 import static com.apple.foundationdb.record.query.plan.cascades.matching.structure.RelationalExpressionMatchers.anyExpression;
 
 /**
@@ -74,7 +75,7 @@ import static com.apple.foundationdb.record.query.plan.cascades.matching.structu
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class WithPrimaryKeyDataAccessRule extends AbstractDataAccessRule {
     private static final BindingMatcher<PartialMatch> completeMatchMatcher =
-            completeMatch().and(matchingWithPrimaryKeyMatchCandidate());
+            completeMatch().and(matchingWithPrimaryKeyMatchCandidate()).and(notRequiringExistential());
     private static final BindingMatcher<RelationalExpression> expressionMatcher = anyExpression();
 
     private static final BindingMatcher<MatchPartition> rootMatcher =

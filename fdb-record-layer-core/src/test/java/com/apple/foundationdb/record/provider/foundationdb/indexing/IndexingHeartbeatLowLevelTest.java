@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexingSubspaces;
+import com.apple.foundationdb.record.provider.foundationdb.OnlineIndexer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.test.FDBDatabaseExtension;
 import com.apple.foundationdb.record.test.TestKeySpace;
@@ -464,6 +465,30 @@ class IndexingHeartbeatLowLevelTest {
                     .hasCauseInstanceOf(SynchronizedSessionLockedException.class);
             // and clear
             heartbeatMutual.clearHeartbeat(recordStore, index);
+            context.commit();
+        }
+    }
+
+    @Test
+    void checkAnyOngoingOnlineIndexBuildsStaleHeartbeatReturnsFalse() {
+        // A heartbeat older than the given lease length must not count as an active indexing session
+        Index index = new Index("simple$num_value_2", field("num_value_2"), IndexTypes.VALUE);
+        openSimpleMetaData(allIndexesHook(List.of(index)));
+        final long oneHourAgo = System.currentTimeMillis() - TimeUnit.HOURS.toMillis(1);
+        try (FDBRecordContext context = openContext()) {
+            byte[] key = IndexingSubspaces.indexHeartbeatSubspaceBytes(recordStore, index, UUID.randomUUID());
+            byte[] value = IndexBuildProto.IndexBuildHeartbeat.newBuilder()
+                    .setInfo("stale")
+                    .setCreateTimeMilliseconds(oneHourAgo)
+                    .setHeartbeatTimeMilliseconds(oneHourAgo)
+                    .build().toByteArray();
+            recordStore.ensureContextActive().set(key, value);
+            context.commit();
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            Assertions.assertThat(OnlineIndexer.checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index, TimeUnit.MINUTES.toMillis(10)).join()).isFalse();
+            Assertions.assertThat(OnlineIndexer.checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index, TimeUnit.HOURS.toMillis(2)).join()).isTrue();
             context.commit();
         }
     }
