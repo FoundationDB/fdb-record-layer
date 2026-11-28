@@ -22,15 +22,15 @@ package com.apple.foundationdb.relational.jdbc;
 
 import com.apple.foundationdb.relational.api.RelationalPreparedStatement;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
-import com.apple.foundationdb.relational.api.exceptions.ErrorCode;
 import com.apple.foundationdb.relational.jdbc.grpc.v1.Parameter;
-import com.apple.foundationdb.relational.util.ExcludeFromJacocoGeneratedReport;
+import com.apple.foundationdb.relational.jdbc.grpc.v1.Parameters;
 
 import javax.annotation.Nonnull;
 import java.sql.Array;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLWarning;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
@@ -45,11 +45,15 @@ class JDBCRelationalPreparedStatement implements RelationalPreparedStatement {
     private final JDBCRelationalStatement statement;
 
     /**
-     * We implement positional parameters only, at least for now.
-     * Use tree map so the integer keys sort in order. Value is Column because it embodies type.
-     * We don't handle nulls yet.
+     * The unnamed parameters, by index. Use tree map so the integer keys sort in order. Value is Column because it
+     * embodies type.
      */
     private final Map<Integer, Parameter> parameters = new TreeMap<>();
+
+    /**
+     * The named parameters, by name.
+     */
+    private final Map<String, Parameter> namedParameters = new HashMap<>();
 
     private final String sql;
 
@@ -65,17 +69,17 @@ class JDBCRelationalPreparedStatement implements RelationalPreparedStatement {
 
     @Override
     public RelationalResultSet executeQuery() throws SQLException {
-        return this.statement.executeQuery(this.sql, this.parameters.values());
+        return this.statement.executeQuery(this.sql, toProtobuf());
     }
 
     @Override
     public boolean execute() throws SQLException {
-        return this.statement.execute(this.sql, this.parameters.values());
+        return this.statement.execute(this.sql, toProtobuf());
     }
 
     @Override
     public int executeUpdate() throws SQLException {
-        return this.statement.executeUpdate(this.sql, this.parameters.values());
+        return this.statement.executeUpdate(this.sql, toProtobuf());
     }
 
     @Override
@@ -134,92 +138,71 @@ class JDBCRelationalPreparedStatement implements RelationalPreparedStatement {
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     public void setBoolean(String parameterName, boolean b) throws SQLException {
-        throw new SQLException("Not implemented in the relational layer " +
-                Thread.currentThread().getStackTrace()[1].getMethodName(),
-                ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        namedParameters.put(parameterName, ParameterHelper.ofBoolean(b));
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     public void setInt(String parameterName, int i) throws SQLException {
-        throw new SQLException("Not implemented in the relational layer " +
-                Thread.currentThread().getStackTrace()[1].getMethodName(),
-                ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        namedParameters.put(parameterName, ParameterHelper.ofInt(i));
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     public void setLong(String parameterName, long l) throws SQLException {
-        throw new SQLException("Not implemented in the relational layer " +
-                Thread.currentThread().getStackTrace()[1].getMethodName(),
-                ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        namedParameters.put(parameterName, ParameterHelper.ofLong(l));
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     public void setFloat(String parameterName, float f) throws SQLException {
-        throw new SQLException("Not implemented in the relational layer " +
-                Thread.currentThread().getStackTrace()[1].getMethodName(),
-                ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        namedParameters.put(parameterName, ParameterHelper.ofFloat(f));
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     public void setDouble(String parameterName, double d) throws SQLException {
-        throw new SQLException("Not implemented in the relational layer " +
-                Thread.currentThread().getStackTrace()[1].getMethodName(),
-                ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        namedParameters.put(parameterName, ParameterHelper.ofDouble(d));
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     public void setString(String parameterName, String str) throws SQLException {
-        throw new SQLException("Not implemented in the relational layer " +
-                Thread.currentThread().getStackTrace()[1].getMethodName(),
-                ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        namedParameters.put(parameterName, ParameterHelper.ofString(str));
     }
 
     @Override
-    @ExcludeFromJacocoGeneratedReport
     public void setBytes(String parameterName, byte[] bytes) throws SQLException {
-        throw new SQLException("Not implemented in the relational layer " +
-                Thread.currentThread().getStackTrace()[1].getMethodName(),
-                ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        namedParameters.put(parameterName, ParameterHelper.ofBytes(bytes));
     }
 
     @Override
     public void setArray(String parameterName, Array x) throws SQLException {
-        throw new SQLException("Not implemented in the relational layer " +
-                Thread.currentThread().getStackTrace()[1].getMethodName(),
-                ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        namedParameters.put(parameterName, ParameterHelper.ofArray(x));
     }
 
     @Override
     public void setObject(String parameterName, Object x) throws SQLException {
-        throw new SQLException("Not implemented in the relational layer " +
-                Thread.currentThread().getStackTrace()[1].getMethodName(),
-                ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        namedParameters.put(parameterName, ParameterHelper.ofObject(x));
     }
 
     @Override
-    public void setUUID(final String parameterName, final UUID x) throws SQLException {
-        throw new SQLException("Not implemented in the relational layer " +
-                Thread.currentThread().getStackTrace()[1].getMethodName(),
-                ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+    public void setUUID(String parameterName, final UUID x) throws SQLException {
+        namedParameters.put(parameterName, ParameterHelper.ofUUID(x));
     }
 
     @Override
     public void setNull(String parameterName, int sqlType) throws SQLException {
-        throw new SQLException("Not implemented in the relational layer " +
-                Thread.currentThread().getStackTrace()[1].getMethodName(),
-                ErrorCode.UNSUPPORTED_OPERATION.getErrorCode());
+        namedParameters.put(parameterName, ParameterHelper.ofNull(sqlType));
     }
 
     @Override
     public void close() throws SQLException {
         this.statement.close();
+    }
+
+    @Nonnull
+    private Parameters toProtobuf() {
+        return Parameters.newBuilder()
+                .addAllParameter(parameters.values())
+                .putAllNamedParameter(namedParameters)
+                .build();
     }
 
     @Override

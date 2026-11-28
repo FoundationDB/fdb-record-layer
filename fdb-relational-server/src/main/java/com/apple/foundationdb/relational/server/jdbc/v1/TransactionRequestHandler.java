@@ -80,7 +80,7 @@ public class TransactionRequestHandler implements StreamObserver<TransactionalRe
                     transactionalToken = frl.createTransactionalToken(request.getDatabase(), request.getSchema(), options);
                 }
                 final FRL.Response response = frl.transactionalExecute(transactionalToken, request.getSql(),
-                        request.getParameters().getParameterList(), options);
+                        request.getParameters(), options);
 
                 StatementResponse.Builder statementResponseBuilder = StatementResponse.newBuilder();
                 if (response.isQuery()) {
