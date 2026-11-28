@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.cascades.properties;
 
+import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.AccessHints;
 import com.apple.foundationdb.record.query.plan.cascades.CallSiteArguments;
 import com.apple.foundationdb.record.query.plan.cascades.Quantifier;
@@ -32,7 +33,11 @@ import com.apple.foundationdb.record.query.plan.cascades.properties.Cardinalitie
 import com.apple.foundationdb.record.query.plan.cascades.properties.CardinalitiesProperty.Cardinality;
 import com.apple.foundationdb.record.query.plan.cascades.typing.Type;
 import com.apple.foundationdb.record.query.plan.cascades.values.LiteralValue;
+import com.apple.foundationdb.record.query.plan.cascades.values.NullValue;
 import com.apple.foundationdb.record.query.plan.cascades.values.RangeValue;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFirstOrDefaultPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryMaxOneRecordPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Test;
@@ -157,6 +162,65 @@ class CardinalitiesPropertyTest {
 
         // The implementation returns `this` when neither bound needs to change.
         assertThat(original.floor(Cardinality.ofCardinality(5L))).isSameAs(original);
+    }
+
+    // ---- `ceiling()` ----
+
+    @Test
+    void cardinalityCeiling() {
+        final Cardinality value = Cardinality.ofCardinality(2L);
+        final Cardinality unknown = Cardinality.unknownCardinality();
+
+        assertThat(Cardinality.ofCardinality(5L).ceiling(2L).getCardinality()).isEqualTo(2L);
+        // `ceiling()` returns the same instance when no change is needed.
+        assertThat(value.ceiling(2L)).isSameAs(value);
+        assertThat(value.ceiling(5L)).isSameAs(value);
+        assertThat(unknown.ceiling(1L)).isSameAs(unknown);
+    }
+
+    // ---- `orElse()` ----
+
+    /**
+     * Tests that {@code orElse()} returns a known cardinality unchanged and replaces an unknown one.
+     */
+    @Test
+    void cardinalityOrElse() {
+        final Cardinality value = Cardinality.ofCardinality(2L);
+        final Cardinality other = Cardinality.ofCardinality(5L);
+
+        assertThat(value.orElse(other)).isSameAs(value);
+        assertThat(Cardinality.unknownCardinality().orElse(other)).isSameAs(other);
+    }
+
+    // ---- `visitRecordQueryMaxOneRecordPlan()` ----
+
+    /**
+     * Tests that a {@link RecordQueryMaxOneRecordPlan} over an inner of unknown maximum cardinality has an upper bound of
+     * 1, while keeping the lower bound of the inner.
+     */
+    @Test
+    void maxOneRecordPlan1() {
+        final Cardinalities result = cardinalities().evaluate(new RecordQueryMaxOneRecordPlan(
+                Quantifier.physical(Reference.plannedOf(new RecordQueryScanPlan(ScanComparisons.EMPTY, false)))));
+
+        assertThat(result.getMinCardinality().getCardinality()).isEqualTo(0L);
+        assertThat(result.getMaxCardinality().getCardinality()).isEqualTo(1L);
+    }
+
+    /**
+     * Tests that a {@link RecordQueryMaxOneRecordPlan} over an inner of exactly one record has a cardinality of 1.
+     */
+    @Test
+    void maxOneRecordPlan2() {
+        final Quantifier.Physical scanQuantifier =
+                Quantifier.physical(Reference.plannedOf(new RecordQueryScanPlan(ScanComparisons.EMPTY, false)));
+        final RecordQueryFirstOrDefaultPlan firstOrDefaultPlan = new RecordQueryFirstOrDefaultPlan(scanQuantifier,
+                new NullValue(scanQuantifier.getFlowedObjectType().nullable()));
+        final Cardinalities result = cardinalities().evaluate(
+                new RecordQueryMaxOneRecordPlan(Quantifier.physical(Reference.plannedOf(firstOrDefaultPlan))));
+
+        assertThat(result.getMinCardinality().getCardinality()).isEqualTo(1L);
+        assertThat(result.getMaxCardinality().getCardinality()).isEqualTo(1L);
     }
 
     // ---- `visitOuterJoinExpression()` ----

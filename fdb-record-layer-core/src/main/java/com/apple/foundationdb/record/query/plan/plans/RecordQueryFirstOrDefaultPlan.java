@@ -127,10 +127,17 @@ public class RecordQueryFirstOrDefaultPlan extends AbstractRelationalExpressionW
         // halting with an out-of-band no-next-reasons, which currently is treated the same way
         // as the inner cursor being empty.
         // See: https://github.com/FoundationDB/fdb-record-layer/issues/3220
-        return RecordCursor.fromFuture(store.getExecutor(),
-                () -> getChild().executePlan(store, context, null, executeProperties).first()
-                        .thenApply(resultOptional -> resultOptional.orElseGet(() -> QueryResult.ofComputed(onEmptyResultValue.eval(store, context)))),
-                continuation);
+        return RecordCursor.fromFuture(store.getExecutor(), () -> {
+            final RecordCursor<QueryResult> innerCursor =
+                    getChild().executePlan(store, context, null, executeProperties);
+            return innerCursor
+                    .first()
+                    .thenApply(resultOptional -> resultOptional.orElseGet(
+                            () -> QueryResult.ofComputed(onEmptyResultValue.eval(store, context))))
+                    // Close the inner cursor once done with it. (The `FutureCursor` of this plan isn’t aware of the
+                    // inner cursor and would otherwise leak it.)
+                    .whenComplete((ignore, err) -> innerCursor.close());
+        }, continuation);
     }
 
     @Override
