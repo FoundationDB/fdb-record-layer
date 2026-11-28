@@ -34,8 +34,12 @@ import com.apple.foundationdb.relational.api.metadata.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.util.ExceptionUtil;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -100,6 +104,28 @@ public class RecordContextTransaction implements Transaction {
         context.removeFromSession(SchemaTemplate.class.toString(), SchemaTemplate.class);
     }
 
+    @SuppressWarnings("unchecked")
+    @Override
+    public void setLocalVariable(@Nonnull String name, @Nullable Object value) {
+        // Transactions are accessed single-threaded; no external synchronization is needed here.
+        // getInSession/putInSessionIfAbsent are synchronized on FDBRecordContext, making the
+        // map initialization safe. The subsequent put() is safe under the single-threaded contract.
+        Map<String, Object> vars = context.getInSession(LocalVariables.SESSION_KEY, Map.class);
+        if (vars == null) {
+            context.putInSessionIfAbsent(LocalVariables.SESSION_KEY, new LinkedHashMap<String, Object>());
+            vars = context.getInSession(LocalVariables.SESSION_KEY, Map.class);
+        }
+        vars.put(name, value);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Nonnull
+    @Override
+    public Map<String, Object> getLocalVariables() {
+        Map<String, Object> vars = context.getInSession(LocalVariables.SESSION_KEY, Map.class);
+        return vars != null ? Collections.unmodifiableMap(vars) : Map.of();
+    }
+
     @Override
     public void close() throws RelationalException {
         abort();
@@ -132,5 +158,9 @@ public class RecordContextTransaction implements Transaction {
 
     public FDBRecordContext getContext() {
         return context;
+    }
+
+    private static final class LocalVariables {
+        static final String SESSION_KEY = LocalVariables.class.getName();
     }
 }
